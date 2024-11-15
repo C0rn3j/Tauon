@@ -364,11 +364,10 @@ class TDraw:
 			self.y_offset_dict = {}
 
 		self.text_background_colour = [0, 0, 0, 255]
-		#self.pretty_rect = [0, 0, 0, 0]
-		self.pretty_rect = None
-		self.real_bg = False
-		self.alpha_bg = False
-		self.force_gray = False
+		self.pretty_rect: tuple[int, int, int, int] | None = None
+		self.real_bg:     bool = False
+		self.alpha_bg:    bool = False
+		self.force_gray:  bool = False
 		self.f_dict = {}
 		self.ttc = {}
 		self.ttl = []
