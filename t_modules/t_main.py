@@ -523,7 +523,7 @@ try:
 
     setproctitle.setproctitle("tauonmb")
 except:
-    print("Could not set process title.")
+    logging.exception("Could not set process title.")
 
 # try:
 #     import rpc
@@ -552,7 +552,7 @@ try:
         pylast.SSL_CONTEXT.load_verify_locations(os.path.join(install_directory, "certifi", "cacert.pem"))
 except:
     last_fm_enable = False
-    print("PyLast moduel not found, last fm will be disabled.")
+    logging.exception("PyLast module not found, last fm will be disabled.")
 
 use_cc = False
 try:
@@ -569,7 +569,7 @@ try:
 
     use_natsort = True
 except:
-    print("Warning: Python module natsort not found")
+    logging.exception("Python module natsort not found")
 
 import platform as py_platform
 import time
@@ -653,9 +653,9 @@ from PIL import Image, ImageDraw, ImageFilter, ImageEnhance
 try:
     from jxlpy import JXLImagePlugin
 
-    print("Found jxlpy for JPEG XL support")
+    logging.info("Found jxlpy for JPEG XL support")
 except:
-    pass
+    logging.exception("Unable to import jxlpy")
 
 import mutagen
 import mutagen.id3
@@ -10209,13 +10209,10 @@ if system == 'windows' or msys:
 
 
 def bass_player_thread(player):
-    # logging.basicConfig(filename=user_directory + '/crash.log', level=logging.ERROR,
-    #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
-
     try:
         player(pctl, gui, prefs, lfm_scrobbler, star_store, tauon)
     except:
-        # logging.exception('Exception on player thread')
+        logging.exception('Exception on player thread')
         show_message(_("Playback thread has crashed. Sorry about that."), _("App will need to be restarted."), mode='error')
         time.sleep(1)
         show_message(_("Playback thread has crashed. Sorry about that."), _("App will need to be restarted."), mode='error')
