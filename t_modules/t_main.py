@@ -44074,7 +44074,7 @@ while pctl.running:
 
             elif event.window.event == SDL_WINDOWEVENT_RESIZED or event.window.event == SDL_WINDOWEVENT_DISPLAY_CHANGED:
                 if event.window.data1 < 500:
-                    print("Grrr why this happen, stupid bug - reproducible when moving window from one scren to another in Plasma")
+                    print("Grrr why this happen, stupid bug - reproducible when moving window from one screen to another in Plasma")
                     SDL_SetWindowSize(t_window, logical_size[0], logical_size[1])
                 elif restore_ignore_timer.get() > 1 or event.window.event == SDL_WINDOWEVENT_DISPLAY_CHANGED:  # Hacky
                     gui.update = 2
