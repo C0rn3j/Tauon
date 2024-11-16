@@ -246,15 +246,15 @@ if TYPE_CHECKING:
 
 try:
 	from jxlpy import JXLImagePlugin
-	print("Found jxlpy for JPEG XL support")
+	logging.info("Found jxlpy for JPEG XL support")
 except Exception:
-	pass
+	logging.exception("Unable to import jxlpy")
 
 try:
 	import setproctitle
 	setproctitle.setproctitle("tauonmb")
 except Exception:
-	print("Could not set process title.")
+	logging.exception("Could not set process title.")
 
 # try:
 #	 import rpc
@@ -276,7 +276,7 @@ try:
 		pylast.SSL_CONTEXT.load_verify_locations(os.path.join(install_directory, "certifi", "cacert.pem"))
 except Exception:
 	last_fm_enable = False
-	print("PyLast moduel not found, last fm will be disabled.")
+	logging.exception("PyLast module not found, last fm will be disabled.")
 
 use_cc = False
 try:
@@ -285,7 +285,7 @@ try:
 	t2s = opencc.OpenCC("t2s")
 	use_cc = True
 except Exception:
-	print("OpenCC not found.")
+	logging.exception("OpenCC not found.")
 
 use_natsort = False
 try:
@@ -293,7 +293,7 @@ try:
 
 	use_natsort = True
 except Exception:
-	print("Warning: Python module natsort not found")
+	logging.exception("Python module natsort not found")
 
 # Detect platform
 windows_native = False
@@ -10362,13 +10362,10 @@ if system == 'windows' or msys:
 
 
 def bass_player_thread(player):
-    # logging.basicConfig(filename=user_directory + '/crash.log', level=logging.ERROR,
-    #                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
-
     try:
         player(pctl, gui, prefs, lfm_scrobbler, star_store, tauon)
     except Exception:
-        # logging.exception('Exception on player thread')
+        logging.exception('Exception on player thread')
         show_message(_("Playback thread has crashed. Sorry about that."), _("App will need to be restarted."), mode='error')
         time.sleep(1)
         show_message(_("Playback thread has crashed. Sorry about that."), _("App will need to be restarted."), mode='error')
