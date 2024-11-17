@@ -28012,7 +28012,7 @@ def gen_chart():
         for item in dex:
             tracks.append(pctl.g(source_tracks[item]))
 
-        cascade = False
+        cascade = None
         if prefs.chart_cascade:
             cascade = ((prefs.chart_c1, prefs.chart_c2, prefs.chart_c3),
                        (prefs.chart_d1, prefs.chart_d2, prefs.chart_d3))
