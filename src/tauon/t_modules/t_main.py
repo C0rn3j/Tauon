@@ -276,7 +276,7 @@ from tauon.t_modules.t_tagscan import Ape, Flac, M4a, Opus, Wav, parse_picture_b
 from tauon.t_modules.t_themeload import Deco, load_theme
 from tauon.t_modules.t_tidal import Tidal
 from tauon.t_modules.t_webserve import authserve, controller, stream_proxy, webserve, webserve2
-from tauon.t_modules.player_ctl import PlayerCtl
+from tauon.t_modules.player_ctl import PlayerCtl, LoadClass
 
 if TYPE_CHECKING:
 	from tauon.t_modules.t_phazor import Cachement, LibreSpot
@@ -1124,7 +1124,7 @@ transcode_list = []
 transcode_state = ""
 
 taskbar_progress = True
-QUE = []
+track_queue = []
 
 playing_in_queue = 0
 draw_sep_hl = False
@@ -1142,12 +1142,52 @@ dl_use = 0
 random_mode = False
 repeat_mode = False
 
+@dataclass
+class TauonQueueItem:
+	"""TauonQueueItem is [trackid, position, pl_id, type, album_stage, uid_gen(), auto_stop]
+
+	type:
+		0 is a track
+		1 is an album
+
+Old queue[6] style numbering help table, remove after refactor:
+  0 track_id (int)
+  1 position (int)
+  2 playlist_id (int)
+  3 type (int)
+  4 uuid_int (int)
+  5 selected (int)
+  6 uuid_int (int)
+  7 album_stage (int)
+  8 auto_stop (bool)
+"""
+	track_id: int
+	position: int
+	playlist_id: int
+	type: int
+	uuid_int: int
+	album_stage: int
+	auto_stop: bool
 
 # Functions to generate empty playlist
 @dataclass
 class TauonPlaylist:
-	"""Playlist is [Name, playing, playlist, position, hide folder title, selected, uid (1 to 100000000), last_folder, hidden(bool)]"""
+	"""Playlist is [Name, playing, playlist, position, hide folder title, selected, uid (1 to 100000000), last_folder, hidden(bool)]
 
+Old pl[6] style numbering help table, remove after refactor:
+  0 title (string)
+  1 playing (int)
+  2 playlist (list of int)
+  3 position (int)
+  4 hide_title on playlist folders (bool)
+  5 selected (int)
+  6 uuid_int (int)
+  7 last_folder import path (string)
+  8 hidden (bool)
+  9 locked (bool)
+  10 parent_playlist_id <- Filter (string)
+  11 persist_time_positioning
+"""
 	title: str
 	playing: int
 	playlist: list[int] | None
@@ -1193,7 +1233,7 @@ def pl_gen(
 multi_playlist = [pl_gen()]
 
 
-def queue_item_gen(trackid, position, pl_id, type: int = 0, album_stage: int = 0):
+def queue_item_gen(trackid: int, position: int, pl_id: int, type: int = 0, album_stage: int = 0) -> TauonQueueItem:
 	# type; 0 is track, 1 is album
 	auto_stop = False
 
@@ -1213,7 +1253,7 @@ r_menu_index = 0
 r_menu_position = 0
 
 # Library and loader Variables--------------------------------------------------------
-master_library = {}
+master_library: dict[int, TrackClass] = {}
 
 cue_list = []
 
@@ -2917,20 +2957,6 @@ def set_path(nt, path):
 	nt.parent_folder_name = get_end_folder(os.path.dirname(path))
 	nt.file_ext = os.path.splitext(os.path.basename(path))[1][1:].upper()
 
-class LoadClass:
-	"""Object for import track jobs (passed to worker thread)"""
-	def __init__(self) -> None:
-		self.target:            str = ""
-		self.playlist:          int = 0  # Playlist UID
-		self.tracks:            dict = []
-		self.stage:             int = 0
-		self.playlist_position: int | None = None
-		self.replace_stem:      bool = False
-		self.notify:            bool = False
-		self.play:              bool = False
-		self.force_scan:        bool = False
-
-
 # url_saves = []
 rename_files_previous = ""
 rename_folder_previous = ""
@@ -3093,7 +3119,7 @@ for t in range(2):
 		playlist_view_position = save[4]
 		multi_playlist = save[5]
 		volume = save[6]
-		QUE = save[7]
+		track_queue = save[7]
 		playing_in_queue = save[8]
 		default_playlist = save[9]
 		# playlist_playing = save[10]
@@ -3524,8 +3550,8 @@ if db_version > 0 and db_version < latest_db_version:
 	except Exception:
 		logging.exception("Unknown error running database migration!")
 
-if playing_in_queue > len(QUE) - 1:
-	playing_in_queue = len(QUE) - 1
+if playing_in_queue > len(track_queue) - 1:
+	playing_in_queue = len(track_queue) - 1
 
 shoot = threading.Thread(target=keymaps.load)
 shoot.daemon = True
@@ -5071,7 +5097,24 @@ def get_radio_art():
 
 	gui.clear_image_cache_next += 1
 
-pctl = PlayerCtl()
+pctl = PlayerCtl(
+	gen_codes=gen_codes,
+	master_count=master_count,
+	master_library=master_library,
+	multi_playlist=multi_playlist,
+	p_force_queue=p_force_queue,
+	playing_in_queue=playing_in_queue,
+	playlist_active=playlist_active,
+	playlist_playing=playlist_playing,
+	playlist_view_position=playlist_view_position,
+	prefs=prefs,
+	radio_playlists=radio_playlists,
+	radio_playlist_viewing=radio_playlist_viewing,
+	selected_in_playlist=selected_in_playlist,
+	tauon=tauon,
+	track_queue=track_queue,
+	volume=volume,
+)
 
 notify_change = pctl.notify_change
 
@@ -5191,7 +5234,7 @@ def notify_song_fire(notification, delay, id):
 		notification.close()
 
 
-def notify_song(notify_of_end=False, delay=0.0):
+def notify_song(notify_of_end: bool = False, delay: float = 0.0) -> None:
 	if not de_notify_support:
 		return
 
@@ -5496,7 +5539,7 @@ class LastFMapi:
 
 		return ""
 
-	def sync_pull_love(self, track_object):
+	def sync_pull_love(self, track_object: TrackClass):
 		if not prefs.lastfm_pull_love or not (track_object.artist and track_object.title):
 			return
 		if not last_fm_enable:
@@ -6425,8 +6468,7 @@ def encode_track_name(t):
 		out_line = str(t.track_number) + ". "
 		out_line += t.artist + " - " + t.title
 		return filename_safe(out_line)
-	else:
-		return os.path.splitext(t.filename)[0]
+	return os.path.splitext(t.filename)[0]
 
 
 def encode_folder_name(track_object: TrackClass) -> str:
@@ -6473,7 +6515,7 @@ class Tauon:
 		self.worker_save_state:        bool = False
 		self.launch_prefix:             str = launch_prefix
 		self.whicher = whicher
-		self.load_orders = load_orders
+		self.load_orders: list[LoadClass] = load_orders
 		self.switch_playlist = None
 		self.open_uri = open_uri
 		self.love = love
@@ -34286,7 +34328,7 @@ class RadioBox:
 
                 radio = {}
                 radio["title"] = "Gensokyo Radio"
-                radio["stream_url_unresolved"] = " 	https://stream.gensokyoradio.net/GensokyoRadio-enhanced.m3u"
+                radio["stream_url_unresolved"] = " https://stream.gensokyoradio.net/GensokyoRadio-enhanced.m3u"
                 radio["stream_url"] = "https://stream.gensokyoradio.net/1"
                 radio["website_url"] = "https://gensokyoradio.net/"
                 radio["icon"] = "https://gensokyoradio.net/favicon.ico"
@@ -34328,8 +34370,6 @@ class RadioBox:
 
                 for station in primary_stations:
                     self.temp_list.append(station)
-    #
-    # def import_defau
 
     def search_radio_browser(self, param):
         if self.searching:
@@ -36233,7 +36273,7 @@ class ArtistList:
                     # Goto next artist section in playlist
                     c = pctl.selected_in_playlist
                     next = False
-                    track = pctl.sg(c, -1)
+                    track = pctl.get_track_in_playlist(c, -1)
                     if track is None:
                         logging.error("Index out of range!")
                         pctl.selected_in_playlist = 0
