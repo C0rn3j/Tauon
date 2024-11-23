@@ -1037,9 +1037,9 @@ def player4(tauon: Tauon) -> None:
 					pctl.reset_missing_flags()
 
 				spotc.running = False
-				length = 0
-				remain = 0
-				position = 0
+				length:   float = 0
+				remain:   float = 0
+				position: float = 0
 
 				if target_path and target_object and target_object.length == 0 and not target_object.is_cue:
 					logging.info("Track has duration of 0, scanning file")
@@ -1061,7 +1061,7 @@ def player4(tauon: Tauon) -> None:
 					tauon.console.print(loaded_track.title + " -> " + target_object.title)
 					tauon.console.print(" --- length: " + str(length))
 					tauon.console.print(" --- position: " + str(position))
-					tauon.console.print(f" --- We are {str(remain)} from end")
+					tauon.console.print(f" --- We are {str(remain)} from end") # TODO(Martin): round this, it looks funny: --- We are 0.43599999999999284 from end
 
 					if loaded_track.is_network or length == 0:
 						tauon.console.print("Phazor did not respond with a duration")
