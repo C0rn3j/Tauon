@@ -48,8 +48,8 @@
 
 	# Linux
 	ext-modules = [
-		{name = "phazor", sources = ["src/phazor/kissfft/kiss_fftr.c", "src/phazor/kissfft/kiss_fft.c", "src/phazor/phazor.c"], include-dirs = ["/usr/include/opus"], libraries=["samplerate", "wavpack", "opusfile", "vorbisfile", "mpg123", "FLAC", "openmpt", "gme"] },
-		{name = "phazor-pw", sources = ["src/phazor/kissfft/kiss_fftr.c", "src/phazor/kissfft/kiss_fft.c", "src/phazor/phazor.c"], include-dirs = ["/usr/include/opus"], libraries=["samplerate", "wavpack", "opusfile", "vorbisfile", "mpg123", "FLAC", "openmpt", "gme", "pipewire-0.3"] },]
+		{name = "phazor", sources = ["src/phazor/kissfft/kiss_fftr.c", "src/phazor/kissfft/kiss_fft.c", "src/phazor/phazor.c"], include-dirs = ["/usr/include/opus", "src/phazor/kissfft"], libraries=["samplerate", "wavpack", "opusfile", "vorbisfile", "mpg123", "FLAC", "openmpt", "gme"] },
+		{name = "phazor-pw", sources = ["src/phazor/kissfft/kiss_fftr.c", "src/phazor/kissfft/kiss_fft.c", "src/phazor/phazor.c"], include-dirs = ["/usr/include/opus", "src/phazor/kissfft"], libraries=["samplerate", "wavpack", "opusfile", "vorbisfile", "mpg123", "FLAC", "openmpt", "gme", "pipewire-0.3"] },]
 
 	package-dir = {"" = "src"}
 
