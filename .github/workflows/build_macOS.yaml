@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - master
+      - macos # debug - remove me
   pull_request:
     branches:
       - master
+      - macos # debug - remove me
 
 jobs:
   build:
