@@ -20,6 +20,11 @@ jobs:
         with:
           submodules: true
 
+# Probably worthless since we're already doing init above but worht a try
+      - name: Initialize Git submodules
+        run: |
+          git submodule update --init --recursive
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
