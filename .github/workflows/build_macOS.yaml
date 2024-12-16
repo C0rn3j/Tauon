@@ -30,7 +30,7 @@ jobs:
           brew install gtk+3 pango cairo harfbuzz ffmpeg
       - name: Build macOS app with PyInstaller
         run: |
-          pyinstaller tauon.spec
+          pyinstaller mac.spec
       - name: Create DMG
         run: |
           mkdir -p dist/dmg

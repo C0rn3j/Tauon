@@ -11,7 +11,7 @@ harfbuzz_path = prefix + "/lib/libharfbuzz.0.dylib"
 gtk_lib_path = prefix + "/lib/*.dylib"
 
 a = Analysis(
-	["tauon.py"],
+	["__main__.py"],
 	binaries=[
 		("lib/libphazor.so", "lib/"),
 		(pango_path, "."),  # Explicitly add libpangocairo
