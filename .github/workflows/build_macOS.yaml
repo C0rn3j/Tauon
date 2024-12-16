@@ -26,11 +26,20 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller
+          pip install build pyinstaller
           brew install gtk+3 pango cairo harfbuzz ffmpeg
+
+      - name: Build the project using python-build
+        run: |
+          python -m build
+#        env:
+#          CFLAGS: "-I/usr/local/include"
+#          LDFLAGS: "-L/usr/local/lib"
+
       - name: Build macOS app with PyInstaller
         run: |
           pyinstaller mac.spec
+
       - name: Create DMG
         run: |
           mkdir -p dist/dmg
@@ -40,6 +49,7 @@ jobs:
 
           # Create a .dmg package
           hdiutil create -volname "$APP_NAME" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_PATH"
+
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
