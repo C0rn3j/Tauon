@@ -30,16 +30,32 @@ jobs:
         with:
           python-version: 3.13
 
-      - name: Install dependencies
+      - name: Install dependencies and setup venv
         run: |
           python -m pip install --upgrade pip
-          pip install build pyinstaller
+          pip install venv
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install \
+            -r requirements.txt \
+            -r requirements_optional.txt \
+            build \
+            pyinstaller
           brew install gtk+3 pango cairo harfbuzz ffmpeg opusfile libopenmpt wavpack game-music-emu
 
       - name: Build the project using python-build
         run: |
           python -m build
-          find . dist
+          python -m compile_translations
+          find .
+        env:
+          CFLAGS: "-I/usr/local/include"
+          LDFLAGS: "-L/usr/local/lib"
+
+      - name: Install the project into a venv
+        run: |
+          pip install --prefix ".venv" dist/*.whl
+          find .
         env:
           CFLAGS: "-I/usr/local/include"
           LDFLAGS: "-L/usr/local/lib"

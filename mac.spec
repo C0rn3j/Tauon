@@ -19,7 +19,10 @@ a = Analysis(
 		(gtk_lib_path, "."),  # Add all other GTK-related dylibs
 		(prefix + "/Cellar/ffmpeg@5", "."),
 	],
-	datas=[("assets", "assets"), ("theme", "theme"), ("input.txt", ".")],
+	datas=[
+		("assets", "assets"),
+		("theme", "theme"),
+		("input.txt", ".")],
 	hiddenimports=["sdl2", "pylast"],
 	hookspath=["extra/pyinstaller-hooks"],
 	hooksconfig={},
