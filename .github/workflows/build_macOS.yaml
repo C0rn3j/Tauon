@@ -34,7 +34,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install build pyinstaller
-          brew install gtk+3 pango cairo harfbuzz ffmpeg opusfile libopenmpt
+          brew install gtk+3 pango cairo harfbuzz ffmpeg opusfile libopenmpt wavpack
 
       - name: Build the project using python-build
         run: |
