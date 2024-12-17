@@ -25,6 +25,8 @@ a = Analysis(
 		*lib_paths,
 		(f"{prefix}/Cellar/ffmpeg@5", "."),
 	],
+	datas=[
+		("assets", "assets")],
 	hiddenimports=["sdl2", "pylast"],
 	hookspath=["extra/pyinstaller-hooks"],
 	hooksconfig={},
@@ -77,7 +79,7 @@ app = BUNDLE(
 			"LANG": "en_US.UTF-8",
 			"LC_CTYPE": "en_US.UTF-8",
 			# Set DYLD_LIBRARY_PATH to ensure the app can locate dynamic libraries
-#			"DYLD_LIBRARY_PATH": f"{prefix}/lib",
+			"DYLD_LIBRARY_PATH": f"{prefix}/lib",
 			}})
 
 for lib in lib_paths:
