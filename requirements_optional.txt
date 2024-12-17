@@ -1,5 +1,5 @@
 colored_traceback
-jxlpy
+#jxlpy # macOS hates it - fails to find jxl/types.h - https://github.com/C0rn3j/Tauon/actions/runs/12369663822/job/34522038938
 #librespot - https://github.com/kokarare1212/librespot-python/pull/286
 natsort
 opencc
