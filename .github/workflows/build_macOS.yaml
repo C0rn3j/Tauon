@@ -30,7 +30,10 @@ jobs:
         with:
           python-version: 3.13
 
-      - name: Install dependencies and setup venv
+      - name: Install brew dependencies
+        run: brew install gtk+3 pango cairo harfbuzz ffmpeg opusfile libopenmpt wavpack game-music-emu
+
+      - name: Install Python dependencies and setup venv
         run: |
           python -m pip install --upgrade pip
           python -m venv .venv
@@ -40,7 +43,6 @@ jobs:
             -r requirements_optional.txt \
             build \
             pyinstaller
-          brew install gtk+3 pango cairo harfbuzz ffmpeg opusfile libopenmpt wavpack game-music-emu
 
       - name: Build the project using python-build
         run: |
