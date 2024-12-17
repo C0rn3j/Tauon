@@ -6,10 +6,6 @@ block_cipher = None
 # Should resolve as /opt/homebrew
 prefix = subprocess.run(["brew", "--prefix"], capture_output=True, text=True).stdout.strip()
 
-# Specify paths for required libraries explicitly
-#pango_path = prefix + "/lib/libpangocairo-1.0.0.dylib"
-#harfbuzz_path = prefix + "/lib/libharfbuzz.0.dylib"
-
 libs = [
 	"libpangocairo-1.0.0.dylib",
 	"libharfbuzz.0.dylib",
@@ -17,27 +13,15 @@ libs = [
 	"libgio-2.0.0.dylib",
 ]
 
-lib_paths = [(prefix + f"/lib/{lib}", ".") for lib in libs]
+lib_paths = [(f"{prefix}/lib/{lib}", ".") for lib in libs]
 
-#/opt/homebrew/Cellar/glib/2.82.4/lib/libgio-2.0.0.dylib
-
-# Adjust for other GTK-related libraries
-gtk_lib_path = prefix + "/lib/*.dylib"
 
 a = Analysis(
 	["src/tauon/__main__.py"],
 	binaries=[
 		*lib_paths,
-#		("lib/libphazor.so", "lib/"),
-#		(pango_path, "."),  # Explicitly add libpangocairo
-#		(harfbuzz_path, "."),  # Explicitly add libharfbuzz
-#		(gtk_lib_path, "."),  # Add all other GTK-related dylibs
-		(prefix + "/Cellar/ffmpeg@5", "."),
+		(f"{prefix}/Cellar/ffmpeg@5", "."),
 	],
-#	datas=[
-#		("assets", "assets"),
-#		("theme", "theme"),
-#		("input.txt", ".")],
 	hiddenimports=["sdl2", "pylast"],
 	hookspath=["extra/pyinstaller-hooks"],
 	hooksconfig={},
@@ -90,11 +74,9 @@ app = BUNDLE(
 			"LANG": "en_US.UTF-8",
 			"LC_CTYPE": "en_US.UTF-8",
 			# Set DYLD_LIBRARY_PATH to ensure the app can locate dynamic libraries
-#			"DYLD_LIBRARY_PATH": prefix + "/lib",
+#			"DYLD_LIBRARY_PATH": f"{prefix}/lib",
 			}})
 
 for lib in lib_paths:
 	lib_name, _ = lib
 	os.system(f'install_name_tool -add_rpath "@executable_path/." "{lib_name}"')
-
-# /opt/homebrew/Cellar/glib/2.82.4/lib/libgio-2.0.0.dylib
