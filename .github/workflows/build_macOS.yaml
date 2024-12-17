@@ -31,7 +31,7 @@ jobs:
           python-version: 3.13
 
       - name: Install brew dependencies
-        run: brew install gobject-introspection gtk+3 pango cairo harfbuzz ffmpeg opusfile libopenmpt wavpack game-music-emu
+        run: brew install gobject-introspection gtk+3 pango cairo harfbuzz jpeg-xl ffmpeg opusfile libopenmpt wavpack game-music-emu
 
       - name: Install Python dependencies and setup venv
         run: |
