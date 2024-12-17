@@ -10,6 +10,8 @@ harfbuzz_path = prefix + "/lib/libharfbuzz.0.dylib"
 path1 = prefix + "/lib/libgobject-2.0.0.dylib"
 path2 = prefix + "/lib/libgio-2.0.0.dylib"
 
+#/opt/homebrew/Cellar/glib/2.82.4/lib/libgio-2.0.0.dylib
+
 # Adjust for other GTK-related libraries
 gtk_lib_path = prefix + "/lib/*.dylib"
 
@@ -80,4 +82,7 @@ app = BUNDLE(
 			"LANG": "en_US.UTF-8",
 			"LC_CTYPE": "en_US.UTF-8",
 			# Set DYLD_LIBRARY_PATH to ensure the app can locate dynamic libraries
-			"DYLD_LIBRARY_PATH": prefix + "/lib"}})
+			#"DYLD_LIBRARY_PATH": prefix + "/lib"
+			}})
+
+# /opt/homebrew/Cellar/glib/2.82.4/lib/libgio-2.0.0.dylib
