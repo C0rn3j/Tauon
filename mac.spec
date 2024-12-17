@@ -15,10 +15,6 @@ libs = [
 
 lib_paths = [(f"{prefix}/lib/{lib}", ".") for lib in libs]
 
-print("REEEE:" + prefix)
-for lib in lib_paths:
-	print(lib)
-
 a = Analysis(
 	["src/tauon/__main__.py"],
 	binaries=[
@@ -72,7 +68,7 @@ coll = COLLECT(
 app = BUNDLE(
 	coll,
 	name="TauonMusicBox.app",
-	icon="assets/tau-mac.icns",
+	icon="src/tauon/assets/tau-mac.icns",
 	bundle_identifier=None,
 	info_plist={
 		"LSEnvironment": {
