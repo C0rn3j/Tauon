@@ -30,8 +30,17 @@ jobs:
         with:
           python-version: 3.13
 
+      - name: brew update
+        run: brew update
+
       - name: Install brew dependencies
         run: brew install glib gobject-introspection gtk+3 pango cairo harfbuzz jpeg-xl ffmpeg@5 opusfile libopenmpt wavpack game-music-emu
+
+      - name: brew debug list
+        run: brew ls --verbose glib
+
+      - name: brew debug list2
+        run: brew ls --verbose gobject-introspection
 
       - name: Install Python dependencies and setup venv
         run: |
@@ -67,6 +76,9 @@ jobs:
         run: |
           source .venv/bin/activate
           pyinstaller mac.spec
+        env:
+          CFLAGS: "-I/usr/local/include"
+          LDFLAGS: "-L/usr/local/lib"
 
       - name: Create DMG
         run: |
