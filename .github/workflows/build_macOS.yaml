@@ -74,6 +74,7 @@ jobs:
         env:
           CFLAGS: "-I/opt/homebrew/include"
           LDFLAGS: "-L/opt/homebrew/lib"
+          DYLD_LIBRARY_PATH: "/opt/homebrew/lib"
 
       - name: Create DMG
         run: |
