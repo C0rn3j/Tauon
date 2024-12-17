@@ -15,6 +15,9 @@ libs = [
 
 lib_paths = [(f"{prefix}/lib/{lib}", ".") for lib in libs]
 
+print("REEEE:" + prefix)
+for lib in lib_paths:
+	print(lib)
 
 a = Analysis(
 	["src/tauon/__main__.py"],
