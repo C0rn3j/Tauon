@@ -34,14 +34,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install build pyinstaller
-          brew install gtk+3 pango cairo harfbuzz ffmpeg flac opusfile libogg libvorbis
+          brew install gtk+3 pango cairo harfbuzz ffmpeg
 
       - name: Build the project using python-build
         run: |
           python -m build
-#        env:
-#          CFLAGS: "-I/usr/local/include"
-#          LDFLAGS: "-L/usr/local/lib"
+        env:
+          CFLAGS: "-I/usr/local/include"
+          LDFLAGS: "-L/usr/local/lib"
 
       - name: Build macOS app with PyInstaller
         run: |
