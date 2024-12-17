@@ -39,6 +39,7 @@ jobs:
       - name: Build the project using python-build
         run: |
           python -m build
+          find . dist
         env:
           CFLAGS: "-I/usr/local/include"
           LDFLAGS: "-L/usr/local/lib"
