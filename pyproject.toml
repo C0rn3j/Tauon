@@ -71,7 +71,9 @@
 	# Windows
 #	dependencies = {file = "requirements_windows.txt"}
 	# Linux
-	dependencies = {file = "requirements.txt"}
+#	dependencies = {file = "requirements.txt"}
+	# macOS
+	dependencies = {file = "requirements_macos.txt"}
 
 [tool.setuptools.package-data]
 "tauon" = ["assets/*", "assets/svg/*", "locale/*/*/*.mo", "templates/*", "theme/*"]
