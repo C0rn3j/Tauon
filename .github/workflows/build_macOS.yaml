@@ -29,7 +29,7 @@ jobs:
         run: brew update
 
       - name: Install brew dependencies
-        run: brew install glib gobject-introspection gtk+3 pango cairo harfbuzz jpeg-xl ffmpeg@5 opusfile libopenmpt wavpack game-music-emu
+        run: brew install glib gobject-introspection gtk+3 pango jpeg-xl ffmpeg@5 opusfile libopenmpt wavpack game-music-emu
 
 #      - name: brew debug list
 #        run: brew ls --verbose glib
