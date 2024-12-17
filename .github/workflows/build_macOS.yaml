@@ -48,8 +48,8 @@ jobs:
         run: |
           source .venv/bin/activate
           python -m build
-          python -m compile_translations
           find .
+#          python -m compile_translations # TODO
         env:
           CFLAGS: "-I/usr/local/include"
           LDFLAGS: "-L/usr/local/lib"
