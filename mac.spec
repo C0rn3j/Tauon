@@ -7,6 +7,9 @@ prefix = subprocess.run(["brew", "--prefix"], capture_output=True, text=True).st
 # Specify paths for required libraries explicitly
 pango_path = prefix + "/lib/libpangocairo-1.0.0.dylib"
 harfbuzz_path = prefix + "/lib/libharfbuzz.0.dylib"
+path1 = prefix + "/lib/libgobject-2.0.0.dylib"
+path2 = prefix + "/lib/libgio-2.0.0.dylib"
+
 # Adjust for other GTK-related libraries
 gtk_lib_path = prefix + "/lib/*.dylib"
 
@@ -16,6 +19,8 @@ a = Analysis(
 #		("lib/libphazor.so", "lib/"),
 		(pango_path, "."),  # Explicitly add libpangocairo
 		(harfbuzz_path, "."),  # Explicitly add libharfbuzz
+		(path1, "."),  # Explicitly add libharfbuzz
+		(path2, "."),  # Explicitly add libharfbuzz
 		(gtk_lib_path, "."),  # Add all other GTK-related dylibs
 		(prefix + "/Cellar/ffmpeg@5", "."),
 	],
