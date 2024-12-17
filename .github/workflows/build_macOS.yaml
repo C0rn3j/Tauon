@@ -31,11 +31,11 @@ jobs:
       - name: Install brew dependencies
         run: brew install glib gobject-introspection gtk+3 pango cairo harfbuzz jpeg-xl ffmpeg@5 opusfile libopenmpt wavpack game-music-emu
 
-      - name: brew debug list
-        run: brew ls --verbose glib
-
-      - name: brew debug list2
-        run: ls $(brew --prefix)/lib/libgio-2.0.0.dylib
+#      - name: brew debug list
+#        run: brew ls --verbose glib
+#
+#      - name: brew debug list2
+#        run: ls $(brew --prefix)/lib/libgio-2.0.0.dylib
 
       - name: Install Python dependencies and setup venv
         run: |
