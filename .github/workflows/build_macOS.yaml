@@ -21,9 +21,9 @@ jobs:
           submodules: true
 
 # Probably worthless since we're already doing init above but worht a try
-      - name: Initialize Git submodules
-        run: |
-          git submodule update --init --recursive
+#      - name: Initialize Git submodules
+#        run: |
+#          git submodule update --init --recursive
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -40,7 +40,7 @@ jobs:
         run: brew ls --verbose glib
 
       - name: brew debug list2
-        run: brew ls --verbose gobject-introspection
+        run: ls $(brew --prefix)/lib/libgio-2.0.0.dylib
 
       - name: Install Python dependencies and setup venv
         run: |
@@ -60,8 +60,8 @@ jobs:
           find .
 #          python -m compile_translations # TODO
         env:
-          CFLAGS: "-I/usr/local/include"
-          LDFLAGS: "-L/usr/local/lib"
+          CFLAGS: "-I/opt/homebrew/include"
+          LDFLAGS: "-L/opt/homebrew/lib"
 
       - name: Install the project into a venv
         run: |
@@ -69,16 +69,16 @@ jobs:
           pip install --prefix ".venv" dist/*.whl
           find .
         env:
-          CFLAGS: "-I/usr/local/include"
-          LDFLAGS: "-L/usr/local/lib"
+          CFLAGS: "-I/opt/homebrew/include"
+          LDFLAGS: "-L/opt/homebrew/lib"
 
       - name: Build macOS app with PyInstaller
         run: |
           source .venv/bin/activate
           pyinstaller mac.spec
         env:
-          CFLAGS: "-I/usr/local/include"
-          LDFLAGS: "-L/usr/local/lib"
+          CFLAGS: "-I/opt/homebrew/include"
+          LDFLAGS: "-L/opt/homebrew/lib"
 
       - name: Create DMG
         run: |
