@@ -13,16 +13,16 @@ gtk_lib_path = prefix + "/lib/*.dylib"
 a = Analysis(
 	["src/tauon/__main__.py"],
 	binaries=[
-		("lib/libphazor.so", "lib/"),
+#		("lib/libphazor.so", "lib/"),
 		(pango_path, "."),  # Explicitly add libpangocairo
 		(harfbuzz_path, "."),  # Explicitly add libharfbuzz
 		(gtk_lib_path, "."),  # Add all other GTK-related dylibs
 		(prefix + "/Cellar/ffmpeg@5", "."),
 	],
-	datas=[
-		("assets", "assets"),
-		("theme", "theme"),
-		("input.txt", ".")],
+#	datas=[
+#		("assets", "assets"),
+#		("theme", "theme"),
+#		("input.txt", ".")],
 	hiddenimports=["sdl2", "pylast"],
 	hookspath=["extra/pyinstaller-hooks"],
 	hooksconfig={},
