@@ -41,6 +41,7 @@ jobs:
       - name: Build Tauon in a clean venv
         shell: msys2 {0}
         run: |
+          update-ca-trust
           ./run.sh 1
 
       - name: Package Tauon via pyinstaller
