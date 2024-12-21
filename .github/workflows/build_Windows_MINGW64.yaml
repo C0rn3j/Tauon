@@ -1,0 +1,61 @@
+name: Build Windows (MINGW64) app
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      # TODO(Martin): This is duped from the file in extra, install from said file somehow instead
+      - name: Set up MSYS2 MinGW-W64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: mingw64
+          update: false
+          install: >-
+            mingw-w64-x86_64-flac
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-gtk3
+            mingw-w64-x86_64-libgme
+            mingw-w64-x86_64-libopenmpt
+            mingw-w64-x86_64-libsamplerate
+            mingw-w64-x86_64-opusfile
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-python3
+            mingw-w64-x86_64-python3-gobject
+            mingw-w64-x86_64-python3-pillow
+            mingw-w64-x86_64-python3-pip
+            mingw-w64-x86_64-python-websocket-client
+            mingw-w64-x86_64-rust
+            mingw-w64-x86_64-SDL2
+            mingw-w64-x86_64-SDL2_image
+            mingw-w64-x86_64-wavpack
+
+      - name: Build Tauon in a clean venv
+        shell: msys2 {0}
+        run: |
+          ./run.sh 1
+
+      - name: Package Tauon via pyinstaller
+        shell: msys2 {0}
+        run: |
+          ./run.sh 3
+#          export PATH="/mingw64/bin:$PATH:/c/Program Files/Git/bin"
+#          export MSYSTEM=MINGW64
+#          autoreconf -i
+#          ./configure --enable-werror
+#          make cc-version
+#          make -j6
+
+#      - name: Check Htslib
+#        shell: msys2 {0}
+#        run: |
+#          export PATH="/mingw64/bin:$PATH:/c/Program Files/Git/bin"
+#          export MSYSTEM=MINGW64
+#          make test-shlib-exports && make check
