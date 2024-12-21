@@ -19,6 +19,7 @@ jobs:
           msystem: mingw64
           update: false
           install: >-
+            ca-certificates
             mingw-w64-x86_64-flac
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-gtk3
