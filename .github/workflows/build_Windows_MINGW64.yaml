@@ -17,7 +17,7 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: mingw64
-          update: false
+          update: true
           install: >-
             ca-certificates
             mingw-w64-x86_64-flac
