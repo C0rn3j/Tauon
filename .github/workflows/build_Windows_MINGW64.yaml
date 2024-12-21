@@ -20,6 +20,7 @@ jobs:
           update: true
           install: >-
             ca-certificates
+            cmake
             mingw-w64-x86_64-flac
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-gtk3
