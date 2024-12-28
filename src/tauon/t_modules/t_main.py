@@ -4289,7 +4289,7 @@ if msys and win_ver >= 10:
 			sm = ctypes.cdll.LoadLibrary(str(SMTC_path))
 
 			def SMTC_button_callback(button: int) -> None:
-
+				logging.debug(f"SMTC sent key ID: {button}")
 				if button == 1:
 					inp.media_key = "Play"
 				if button == 2:
@@ -10056,6 +10056,7 @@ if (system == "Windows" or msys):
 	tray.start()
 
 	if win_ver < 10:
+		logging.warning("Unsupported Windows version, trying to hook media keys the old way!")
 		import keyboard
 
 		def key_callback(event):
