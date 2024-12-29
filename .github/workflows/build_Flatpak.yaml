@@ -14,10 +14,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install rustup
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          echo woo
+
+      - name: Run rustup
+        run: |
           rustup toolchain -y install stable
 #          apt-get update
 #          apt-get install -y flatpak-builder
