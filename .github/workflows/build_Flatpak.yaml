@@ -24,5 +24,5 @@ jobs:
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           bundle: tauonmb.flatpak
-          manifest-path: com.github.taiko2k.tauonmb.yml
+          manifest-path: com.github.taiko2k.tauonmb.json
           cache-key: flatpak-builder-${{ github.sha }}
