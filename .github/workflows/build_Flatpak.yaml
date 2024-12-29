@@ -16,7 +16,8 @@ jobs:
 
       - name: Clone Flatpak repo
         run: |
-          git clone https://github.com/flathub/com.github.taiko2k.tauonmb.git tauon-flatpak
+          git clone https://github.com/C0rn3j/com.github.taiko2k.tauonmb.git tauon-flatpak
+          cd tauon-flatpak; git checkout flatfix
 
 #      - name: Install dependencies
 #        run: |
