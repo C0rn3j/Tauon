@@ -19,8 +19,12 @@ jobs:
           git clone --recurse-submodules https://github.com/C0rn3j/com.github.taiko2k.tauonmb.git tauon-flatpak
           cd tauon-flatpak; git checkout flatfix
 
-#      - name: Install dependencies
-#        run: |
+      # I can't believe curl | sh is officially recommended by Canonical - actually I can
+      #   https://ubuntu.com/blog/why-and-how-to-use-rust-on-ubuntu
+      - name: Install dependencies
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+          rustup toolchain install stable
 #          apt-get update
 #          apt-get install -y flatpak-builder
 
