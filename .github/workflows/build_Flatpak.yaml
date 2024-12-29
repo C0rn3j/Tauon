@@ -14,6 +14,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Clone Flatpak repo
+        run: |
+          git clone https://github.com/flathub/com.github.taiko2k.tauonmb.git tauon-flatpak
+
 #      - name: Install dependencies
 #        run: |
 #          apt-get update
@@ -24,5 +28,5 @@ jobs:
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           bundle: tauonmb.flatpak
-          manifest-path: com.github.taiko2k.tauonmb.json
+          manifest-path: tauon-flatpak/com.github.taiko2k.tauonmb.json
           cache-key: flatpak-builder-${{ github.sha }}
