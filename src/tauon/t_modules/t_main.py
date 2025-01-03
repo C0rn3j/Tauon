@@ -12746,6 +12746,7 @@ class AlbumArt:
 			prefs.failed_background_artists.append(artist)
 			return None
 
+# TODO(Martin): ResourceLeak
 	def get_blur_im(self, track: TrackClass) -> BytesIO | bool | None:
 
 		source_image = None
