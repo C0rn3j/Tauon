@@ -354,9 +354,9 @@ if not t_window:
 	logging.error(f"Size 0: {logical_size[0]}")
 	logging.error(f"Size 1: {logical_size[1]}")
 	logging.error(f"Flags: {flags}")
-	sdl_err: bytes = SDL_GetError()
+	sdl_err = SDL_GetError().decode()
 	logging.error(f"SDL Error: {sdl_err}")
-	if str(sdl_err) == "x11 not available":
+	if sdl_err == "x11 not available":
 		x11_path = user_directory / "x11"
 		if x11_path.exists():
 			logging.critical("Disabled Xwayland preference as X11 was not found - Known issue if on Flatpak - https://github.com/Taiko2k/Tauon/issues/1034")
@@ -374,8 +374,6 @@ if not t_window:
 			logging.critical(f"Failed to find {x11_path} but got 'x11 not available' error, hm?")
 			sys.exit(1)
 	else:
-		print(sdl_err) # TODO remove me
-		print(str(sdl_err)) # TODO remove me
 		sys.exit(1)
 
 if maximized:
