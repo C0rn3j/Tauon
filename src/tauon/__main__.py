@@ -375,6 +375,7 @@ if not t_window:
 			sys.exit(1)
 	else:
 		print(sdl_err) # TODO remove me
+		print(str(sdl_err)) # TODO remove me
 		sys.exit(1)
 
 if maximized:
