@@ -370,7 +370,11 @@ if not t_window:
 			if not t_window:
 				logging.error(f"Failed to create Wayland fallback window - SDL Error: {SDL_GetError()}")
 				sys.exit(1)
+		else:
+			logging.critical(f"Failed to find {x11_path} but got 'x11 not available' error, hm?")
+			sys.exit(1)
 	else:
+		print(sdl_err) # TODO remove me
 		sys.exit(1)
 
 if maximized:
