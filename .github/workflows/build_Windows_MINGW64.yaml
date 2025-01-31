@@ -90,6 +90,7 @@ jobs:
         shell: msys2 {0}
         run: |
           source .venv/bin/activate
+          python -vv -c "import PIL._imaging"
           python -vv -m PyInstaller --log-level=DEBUG windows.spec
 
       - name: Create 7Z
