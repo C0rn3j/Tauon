@@ -48,7 +48,9 @@ jobs:
           .venv/bin/python -m pip install \
             -r requirements.txt \
             build \
-            pyinstaller
+            https://github.com/pyinstaller/pyinstaller/archive/develop.zip
+#            pyinstaller
+            # ^ Hack until pyinstaller has a release newer than 6.11.1 - https://github.com/pyinstaller/pyinstaller/releases
 
       - name: Build the project using python-build
         shell: msys2 {0}
