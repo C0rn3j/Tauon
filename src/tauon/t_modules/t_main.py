@@ -10713,8 +10713,7 @@ class Over:
 			if coll(rect):
 				hover_name = theme_name
 				if self.click:
-					global theme
-					theme = theme_number
+					prefs.theme = theme_number
 					gui.reload_theme = True
 
 			c1 = c.playlist_panel_background
@@ -12488,12 +12487,10 @@ class Over:
 		self.toggle_square(x, y, toggle_transcode_inplace, _("Save and overwrite files inplace"))
 
 	def previous_theme(self):
-		global theme
-
-		theme -= 1
+		prefs.theme -= 1
 		gui.reload_theme = True
-		if theme < 0:
-			theme = len(get_themes())
+		if prefs.theme < 0:
+			prefs.theme = len(get_themes())
 
 	def config_b(self, x0, y0, w0, h0):
 		global update_layout
@@ -23847,9 +23844,7 @@ def get_themes(dirs: Directories, deco: bool = False) -> list[str] | dict[str, s
 
 # 2025-02-02 - commented out as it was not used
 #def advance_theme() -> None:
-#	global theme
-#
-#	theme += 1
+#	prefs.theme += 1
 #	gui.reload_theme = True
 
 def get_theme_number(dirs: Directories, name: str) -> int:
@@ -38036,13 +38031,11 @@ def update_layout_do(tauon: Tauon):
 
 	if gui.theme_name != prefs.theme_name:
 		gui.reload_theme = True
-		global theme
-		theme = get_theme_number(dirs, prefs.theme_name)
+		prefs.theme = get_theme_number(dirs, prefs.theme_name)
 		#logging.info("Config reload theme...")
 
 	# Restore in case of error
 	if gui.rspw < 30 * gui.scale:
-
 		gui.rspw = 100 * gui.scale
 
 	# Lock right side panel to full size if fully extended -----
@@ -39678,6 +39671,7 @@ def main(holder: Holder):
 		window_opacity=window_opacity,
 		ui_scale=scale,
 	)
+	prefs.theme = get_theme_number(dirs, prefs.theme_name)
 
 	bag = Bag(
 		colours=colours,
@@ -41995,8 +41989,6 @@ def main(holder: Holder):
 
 	key_focused = 0
 
-	theme = get_theme_number(dirs, prefs.theme_name)
-
 	if pctl.pl_to_id(pctl.active_playlist_viewing) in gui.gallery_positions:
 		gui.album_scroll_px = gui.gallery_positions[pctl.pl_to_id(pctl.active_playlist_viewing)]
 
@@ -43459,11 +43451,11 @@ def main(holder: Holder):
 			gui.pl_update = 1
 			theme_files = get_themes(dirs=dirs)
 
-			if theme > len(theme_files):  # sic
-				theme = 0
+			if prefs.theme > len(theme_files):  # sic
+				prefs.theme = 0
 
-			if theme > 0:
-				theme_number = theme - 1
+			if prefs.theme > 0:
+				theme_number = prefs.theme - 1
 				try:
 					colours.column_colours.clear()
 					colours.column_colours_playing.clear()
