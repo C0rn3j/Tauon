@@ -521,7 +521,9 @@ class GuiVar:
 		self.window_control_hit_area_w = 100 * self.scale
 		self.window_control_hit_area_h = 30 * self.scale
 
-	def __init__(self, bag: Bag, tracklist_texture_rect: SDL_Rect, tracklist_texture, album_v_slide_value: int, console: Console, main_texture_overlay_temp, main_texture, max_window_tex):
+	def __init__(self, bag: Bag, tracklist_texture_rect: SDL_Rect, tracklist_texture, album_v_slide_value: int, console: DConsole, main_texture_overlay_temp, main_texture, max_window_tex):
+		self.inp = Input(gui=self)
+
 		self.bag = bag
 		self.scale = self.bag.prefs.ui_scale
 
@@ -5066,6 +5068,7 @@ class Tauon:
 		self.switch_playlist                      = None
 		self.open_uri                             = open_uri
 		self.love                                 = love
+		self.album_mode:                     bool = False
 		self.snap_mode:                      bool = bag.snap_mode
 		self.console                              = bag.console
 		self.msys                                 = bag.msys
@@ -22823,26 +22826,27 @@ class ColourPulse2:
 
 class ViewBox:
 
-	def __init__(self, bag: Bag, gui: GuiVar, reload=False) -> None:
-		self.colours = bag.colours
+	def __init__(self, tauon: Tauon, reload: bool = False) -> None:
+		self.tauon = tauon
+		self.colours = tauon.bag.colours
 		self.x = 0
-		self.y = gui.panelY
-		self.w = 52 * gui.scale
-		self.h = 260 * gui.scale  # 257
+		self.y = tauon.gui.panelY
+		self.w = 52 * tauon.gui.scale
+		self.h = 260 * tauon.gui.scale  # 257
 		self.active = False
 
-		self.border = 3 * gui.scale
+		self.border = 3 * tauon.gui.scale
 
-		self.tracks_img   = asset_loader(bag, bag.loaded_asset_dc, "tracks.png", True)
-		self.side_img     = asset_loader(bag, bag.loaded_asset_dc, "tracks+side.png", True)
-		self.gallery1_img = asset_loader(bag, bag.loaded_asset_dc, "gallery1.png", True)
-		self.gallery2_img = asset_loader(bag, bag.loaded_asset_dc, "gallery2.png", True)
-		self.combo_img    = asset_loader(bag, bag.loaded_asset_dc, "combo.png", True)
-		self.lyrics_img   = asset_loader(bag, bag.loaded_asset_dc, "lyrics.png", True)
-		self.gallery2_img = asset_loader(bag, bag.loaded_asset_dc, "gallery2.png", True)
-		self.radio_img    = asset_loader(bag, bag.loaded_asset_dc, "radio.png", True)
-		self.col_img      = asset_loader(bag, bag.loaded_asset_dc, "col.png", True)
-		# self.artist_img = asset_loader(bag, bag.loaded_asset_dc, "artist.png", True)
+		self.tracks_img   = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "tracks.png", True)
+		self.side_img     = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "tracks+side.png", True)
+		self.gallery1_img = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "gallery1.png", True)
+		self.gallery2_img = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "gallery2.png", True)
+		self.combo_img    = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "combo.png", True)
+		self.lyrics_img   = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "lyrics.png", True)
+		self.gallery2_img = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "gallery2.png", True)
+		self.radio_img    = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "radio.png", True)
+		self.col_img      = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "col.png", True)
+		# self.artist_img = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "artist.png", True)
 
 		# _ .15 0
 		self.tracks_colour     = ColourPulse2()  # (0.5) # .5 .6 .75
@@ -22860,7 +22864,7 @@ class ViewBox:
 		self.off_colour = self.colours.grey(40)
 
 		if not reload:
-			gui.combo_was_album = False
+			tauon.gui.combo_was_album = False
 
 	def activate(self, x):
 		self.x = x
@@ -22986,7 +22990,7 @@ class ViewBox:
 			return gui.radio_view
 
 		if not gui.radio_view:
-			enter_radio_view()
+			enter_radio_view(tauon=tauon)
 		else:
 			exit_combo(restore=True)
 
@@ -23004,7 +23008,7 @@ class ViewBox:
 			enter_showcase_view()
 
 		elif gui.was_radio:
-			enter_radio_view()
+			enter_radio_view(tauon=tauon)
 		else:
 			exit_combo(restore=True)
 		if x_menu.active:
@@ -23020,7 +23024,7 @@ class ViewBox:
 				exit_combo()
 
 		if album_mode and gui.plw < 550 * gui.scale:
-			toggle_album_mode()
+			toggle_album_mode(tauon=tauon)
 
 		toggle_library_mode()
 
@@ -26413,7 +26417,7 @@ def prep_gal():
 			albums.append([index, 0])
 			folder = pctl.master_library[index].parent_folder_name
 
-def add_stations(stations: list[RadioStation], name: str) -> None:
+def add_stations(tauon: Tauon, stations: list[RadioStation], name: str) -> None:
 	if len(stations) == 1:
 		for i, playlist in enumerate(pctl.radio_playlists):
 			if playlist.name == "Default":
@@ -26428,7 +26432,7 @@ def add_stations(stations: list[RadioStation], name: str) -> None:
 		pctl.radio_playlists.append(RadioPlaylist(uid=uid_gen(), name=name, stations=stations, scroll=0))
 		pctl.radio_playlist_viewing = len(pctl.radio_playlists) - 1
 	if not gui.radio_view:
-		enter_radio_view()
+		enter_radio_view(tauon=tauon)
 
 def load_m3u(path: str) -> None:
 	name = os.path.basename(path)[:-4]
@@ -26976,9 +26980,9 @@ def test_shift(_):
 def test_artist_dl(_):
 	return not prefs.auto_dl_artist_data
 
-def show_in_playlist():
+def show_in_playlist(tauon: Tauon):
 	if album_mode and window_size[0] < 750 * gui.scale:
-		toggle_album_mode()
+		toggle_album_mode(tauon=tauon)
 
 	pctl.playlist_view_position = pctl.selected_in_playlist
 	logging.debug("Position changed by show in playlist")
@@ -33024,20 +33028,20 @@ def toggle_side_panel(mode: int = 0) -> bool:
 	if prefs.prefer_side:
 		gui.rspw = gui.pref_rspw
 
-def force_album_view():
-	toggle_album_mode(True)
+def force_album_view(tauon: Tauon):
+	toggle_album_mode(tauon=tauon, force_on=True)
 
-def enter_combo():
-	if not gui.combo_mode:
-		gui.combo_was_album = album_mode
-		gui.showcase_mode = False
-		gui.radio_view = False
-		if album_mode:
-			toggle_album_mode()
-		if gui.rsp:
-			gui.rsp = False
-		gui.combo_mode = True
-		gui.update_layout()
+def enter_combo(tauon: Tauon):
+	if not tauon.gui.combo_mode:
+		tauon.gui.combo_was_album = tauon.album_mode
+		tauon.gui.showcase_mode = False
+		tauon.gui.radio_view = False
+		if tauon.album_mode:
+			toggle_album_mode(tauon=tauon)
+		if tauon.gui.rsp:
+			tauon.gui.rsp = False
+		tauon.gui.combo_mode = True
+		tauon.gui.update_layout()
 
 def exit_combo(restore=False):
 	if gui.combo_mode:
@@ -33064,23 +33068,22 @@ def enter_showcase_view(track_id=None):
 	inp.mouse_click = False
 	gui.update_layout()
 
-def enter_radio_view():
-	if not gui.combo_mode:
-		enter_combo()
-	gui.showcase_mode = False
-	gui.radio_view = True
-	inp.mouse_click = False
-	gui.update_layout()
+def enter_radio_view(tauon: Tauon) -> None:
+	if not tauon.gui.combo_mode:
+		enter_combo(tauon=tauon)
+	tauon.gui.showcase_mode = False
+	tauon.gui.radio_view = True
+	tauon.gui.inp.mouse_click = False
+	tauon.gui.update_layout()
 
-def standard_size():
-	global album_mode
+def standard_size(tauon: Tauon) -> None:
 	global window_size
 	global update_layout
 
 	global album_mode_art_size
 
-	album_mode = False
-	gui.rsp = True
+	tauon.album_mode = False
+	tauon.gui.rsp = True
 	window_size = window_default_size
 	SDL_SetWindowSize(t_window, logical_size[0], logical_size[1])
 
@@ -33171,35 +33174,34 @@ def goto_album(playlist_no: int, down: bool = False, force: bool = False) -> lis
 
 	gui.update += 1 # TODO(Martin): WTF Unreachable??
 
-def toggle_album_mode(force_on: bool = False) -> None:
-	global album_mode
-	global window_size
+def toggle_album_mode(tauon: Tauon, force_on: bool = False) -> None:
 	global update_layout
 	global album_playlist_width
 	global old_album_pos
-
+	gui = tauon.gui
+	pctl = tauon.pctl
 	gui.gall_tab_enter = False
 
-	if album_mode is True:
-		album_mode = False
+	if tauon.album_mode is True:
+		tauon.album_mode = False
 		# album_playlist_width = gui.playlist_width
 		# old_album_pos = gui.album_scroll_px
 		gui.rspw = gui.pref_rspw
 		gui.rsp = prefs.prefer_side
 		gui.album_tab_mode = False
 	else:
-		album_mode = True
+		tauon.album_mode = True
 		if gui.combo_mode:
 			exit_combo()
 
 		gui.rsp = True
 		gui.rspw = gui.pref_gallery_w
 
-	space = window_size[0] - gui.rspw
+	space = tauon.bag.window_size[0] - gui.rspw
 	if gui.lsp:
 		space -= gui.lspw
 
-	if album_mode and gui.set_mode and len(gui.pl_st) > 6 and space < 600 * gui.scale:
+	if tauon.album_mode and gui.set_mode and len(gui.pl_st) > 6 and space < 600 * gui.scale:
 		gui.set_mode = False
 		gui.pl_update = True
 		gui.update_layout()
@@ -33209,20 +33211,20 @@ def toggle_album_mode(force_on: bool = False) -> None:
 	# if pctl.active_playlist_playing == pctl.active_playlist_viewing:
 	# goto_album(pctl.playlist_playing_position)
 
-	if album_mode:
+	if tauon.album_mode:
 		if pctl.selected_in_playlist < len(pctl.playing_playlist()):
 			goto_album(pctl.selected_in_playlist)
 
-def toggle_gallery_keycontrol(always_exit=False):
+def toggle_gallery_keycontrol(tauon: Tauon, always_exit: bool = False) -> None:
 	if is_level_zero():
 		if not album_mode:
-			toggle_album_mode()
+			toggle_album_mode(tauon=tauon)
 			gui.gall_tab_enter = True
 			gui.album_tab_mode = True
 			show_in_gal(pctl.selected_in_playlist, silent=True)
 		elif gui.gall_tab_enter or always_exit:
 			# Exit gallery and tab mode
-			toggle_album_mode()
+			toggle_album_mode(tauon=tauon)
 		else:
 			gui.album_tab_mode ^= True
 			if gui.album_tab_mode:
@@ -34410,11 +34412,11 @@ def stop_quick_add() -> None:
 def show_stop_quick_add(_) -> bool:
 	return pctl.quick_add_target is not None
 
-def view_tracks() -> None:
+def view_tracks(tauon: Tauon) -> None:
 	# if gui.show_playlist is False:
 	#     gui.show_playlist = True
 	if album_mode:
-		toggle_album_mode()
+		toggle_album_mode(tauon=tauon)
 	if gui.combo_mode:
 		exit_combo()
 	if gui.rsp:
@@ -34424,7 +34426,7 @@ def view_tracks() -> None:
 # 	# if gui.show_playlist is False:
 # 	# 	gui.show_playlist = True
 # 	if album_mode:
-# 		toggle_album_mode()
+# 		toggle_album_mode(tauon=tauon)
 # 	if gui.combo_mode:
 # 		toggle_combo_view(off=True)
 # 	if not gui.rsp:
@@ -34433,11 +34435,11 @@ def view_tracks() -> None:
 # 	update_layout = True
 # 	gui.rspw = window_size[0]
 
-def view_standard_meta() -> None:
+def view_standard_meta(tauon: Tauon) -> None:
 	# if gui.show_playlist is False:
 	#     gui.show_playlist = True
 	if album_mode:
-		toggle_album_mode()
+		toggle_album_mode(tauon=tauon)
 
 	if gui.combo_mode:
 		exit_combo()
@@ -34449,11 +34451,11 @@ def view_standard_meta() -> None:
 	update_layout = True
 	# gui.rspw = 80 + int(window_size[0] * 0.18)
 
-def view_standard() -> None:
+def view_standard(tauon: Tauon) -> None:
 	# if gui.show_playlist is False:
 	#     gui.show_playlist = True
 	if album_mode:
-		toggle_album_mode()
+		toggle_album_mode(tauon=tauon)
 	if gui.combo_mode:
 		exit_combo()
 	if not gui.rsp:
@@ -34470,7 +34472,7 @@ def standard_view_deco():
 # 	if gui.show_playlist is False:
 # 		return
 # 	if not album_mode:
-# 		toggle_album_mode()
+# 		toggle_album_mode(tauon=tauon)
 # 	gui.show_playlist = False
 # 	global album_playlist_width
 # 	global update_layout
@@ -39750,7 +39752,7 @@ def main(holder: Holder):
 	)
 
 	# Functions for reading and setting play counts
-	inp = Input(gui=gui)
+	inp = gui.inp
 	keymaps = KeyMap(bag=bag)
 
 	# This is legacy. New settings are added straight to the save list (need to overhaul)
@@ -41873,7 +41875,7 @@ def main(holder: Holder):
 	radio_view = RadioView(bag=bag, gui=gui)
 	showcase = Showcase()
 	cctest = ColourPulse2()
-	view_box = ViewBox(bag=bag, gui=gui)
+	view_box = ViewBox(tauon=tauon)
 	dl_mon = DLMon()
 	tauon.dl_mon = dl_mon
 	dl_menu.add(MenuItem("Dismiss", dismiss_dl))
@@ -42000,7 +42002,7 @@ def main(holder: Holder):
 	test_show_add_home_music(tauon=tauon)
 
 	if gui.restart_album_mode:
-		toggle_album_mode(True)
+		toggle_album_mode(tauon=tauon, force_on=True)
 
 	if gui.remember_library_mode:
 		toggle_library_mode()
@@ -42064,7 +42066,7 @@ def main(holder: Holder):
 	if gui.restore_showcase_view:
 		enter_showcase_view()
 	if gui.restore_radio_view:
-		enter_radio_view()
+		enter_radio_view(tauon=tauon)
 
 	# switch_playlist(len(pctl.multi_playlist) - 1)
 
@@ -43048,7 +43050,7 @@ def main(holder: Holder):
 						show_message(_("First select a source track by copying it into clipboard"))
 
 				if keymaps.test("toggle-gallery"):
-					toggle_album_mode()
+					toggle_album_mode(tauon=tauon)
 
 				if keymaps.test("toggle-right-panel"):
 					if gui.combo_mode:
@@ -43056,7 +43058,7 @@ def main(holder: Holder):
 					elif not album_mode:
 						toggle_side_panel()
 					else:
-						toggle_album_mode()
+						toggle_album_mode(tauon=tauon)
 
 				if keymaps.test("toggle-minimode"):
 					set_mini_mode()
@@ -43760,7 +43762,7 @@ def main(holder: Holder):
 
 							if left < mouse_position[0] < left + 20 * gui.scale and window_size[1] - gui.panelBY > \
 									mouse_position[1] > gui.panelY:
-								toggle_album_mode()
+								toggle_album_mode(tauon=tauon)
 								inp.mouse_click = False
 								mouse_down = False
 
