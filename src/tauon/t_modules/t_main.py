@@ -860,7 +860,7 @@ class GuiVar:
 class StarStore:
 	def __init__(self, tauon: Tauon) -> None:
 		self.tauon = tauon
-		self.after_scan = tauon.bag.after_scan
+		self.after_scan = tauon.after_scan
 		self.pctl = self.tauon.pctl
 		self.db = {}
 
@@ -5031,6 +5031,7 @@ class Tauon:
 		self.t_version                    = holder.t_version
 		self.t_agent                      = holder.t_agent
 		self.t_id                         = holder.t_id
+		self.draw_border:            bool = holder.draw_border
 		self.desktop:          str | None = bag.desktop
 		self.device                       = socket.gethostname()
 		self.after_scan: list[TrackClass] = []
@@ -5047,6 +5048,7 @@ class Tauon:
 		self.lfm_scrobbler:             LastScrob = lfm_scrobbler
 		self.pctl:                      PlayerCtl = PlayerCtl(tauon=self)
 		self.star_store:                StarStore = StarStore(tauon=self)
+		self.bottom_bar1                          = BottomBarType1(tauon=self)
 		self.prefs:                         Prefs = bag.prefs
 		self.cache_directory:                Path = bag.dirs.cache_directory
 		self.user_directory:          Path | None = bag.dirs.user_directory
@@ -12496,7 +12498,7 @@ class Over:
 		#                                                 _("Restore window position on restart"))
 
 		y += 25 * gui.scale
-		if not draw_border:
+		if not tauon.draw_border:
 			self.toggle_square(x, y, toggle_titlebar_line, _("Show playing in titlebar"))
 
 		#y += 25 * gui.scale
@@ -13793,7 +13795,7 @@ class TopPanel:
 
 		# Calculate position for playing text and text
 		offset = 15 * gui.scale
-		if draw_border and not prefs.left_window_control:
+		if tauon.draw_border and not prefs.left_window_control:
 			offset += 61 * gui.scale
 			if self.draw_max_button:
 				offset += 61 * gui.scale
@@ -14561,9 +14563,9 @@ class TopPanel:
 			ddt.rect((0, int(gui.panelY - 1 * gui.scale), window_size[0], int(1 * gui.scale)), colours.tb_line)
 
 class BottomBarType1:
-	def __init__(self, bag: Bag, gui: GuiVar):
-		self.window_size = bag.window_size
-		self.gui = gui
+	def __init__(self, tauon: Tauon):
+		self.window_size = tauon.bag.window_size
+		self.gui = tauon.gui
 		self.mode = 0
 
 		self.seek_time = 0
@@ -14581,17 +14583,17 @@ class BottomBarType1:
 		self.volume_bar_size = [135 * self.gui.scale, 14 * self.gui.scale]
 		self.volume_bar_position = [0, 45 * self.gui.scale]
 
-		self.play_button        = asset_loader(bag, bag.loaded_asset_dc, "play.png", True)
-		self.forward_button     = asset_loader(bag, bag.loaded_asset_dc, "ff.png", True)
-		self.back_button        = asset_loader(bag, bag.loaded_asset_dc, "bb.png", True)
-		self.repeat_button      = asset_loader(bag, bag.loaded_asset_dc, "tauon_repeat.png", True)
-		self.repeat_button_off  = asset_loader(bag, bag.loaded_asset_dc, "tauon_repeat_off.png", True)
-		self.shuffle_button_off = asset_loader(bag, bag.loaded_asset_dc, "tauon_shuffle_off.png", True)
-		self.shuffle_button     = asset_loader(bag, bag.loaded_asset_dc, "tauon_shuffle.png", True)
-		self.repeat_button_a    = asset_loader(bag, bag.loaded_asset_dc, "tauon_repeat_a.png", True)
-		self.shuffle_button_a   = asset_loader(bag, bag.loaded_asset_dc, "tauon_shuffle_a.png", True)
+		self.play_button        = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "play.png", True)
+		self.forward_button     = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "ff.png", True)
+		self.back_button        = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "bb.png", True)
+		self.repeat_button      = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "tauon_repeat.png", True)
+		self.repeat_button_off  = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "tauon_repeat_off.png", True)
+		self.shuffle_button_off = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "tauon_shuffle_off.png", True)
+		self.shuffle_button     = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "tauon_shuffle.png", True)
+		self.repeat_button_a    = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "tauon_repeat_a.png", True)
+		self.shuffle_button_a   = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "tauon_shuffle_a.png", True)
 
-		self.buffer_shard       = asset_loader(bag, bag.loaded_asset_dc, "shard.png", True)
+		self.buffer_shard       = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "shard.png", True)
 
 		self.scrob_stick = 0
 
@@ -25859,7 +25861,7 @@ def draw_window_tools():
 
 	# minimize
 
-	if draw_min_button:
+	if bag.draw_min_button:
 		# x = window_size[0] - round(65 * gui.scale)
 		# if draw_max_button and not gui.mode == 3:
 		#	 x -= round(34 * gui.scale)
@@ -35874,10 +35876,10 @@ def worker1(tauon: Tauon) -> None:
 
 	active_timer = Timer()
 	while True:
-		if not tauon.bag.after_scan:
+		if not tauon.after_scan:
 			time.sleep(0.1)
 
-		if tauon.bag.after_scan \
+		if tauon.after_scan \
 		or tauon.bag.load_orders \
 		or tauon.artist_list_box.load \
 		or tauon.artist_list_box.to_fetch \
@@ -35894,21 +35896,21 @@ def worker1(tauon: Tauon) -> None:
 		elif active_timer.get() > 5:
 			return
 
-		if tauon.bag.after_scan:
+		if tauon.after_scan:
 			i = 0
-			while tauon.bag.after_scan:
+			while tauon.after_scan:
 				i += 1
 
 				if i > 123:
 					break
 
-				tag_scan(tauon.bag.after_scan[0])
+				tag_scan(tauon.after_scan[0])
 
 				gui.update = 2
 				gui.pl_update = 1
 				# time.sleep(0.001)
 				if pctl.running:
-					del tauon.bag.after_scan[0]
+					del tauon.after_scan[0]
 				else:
 					break
 
@@ -35927,7 +35929,7 @@ def worker1(tauon: Tauon) -> None:
 			gui.regen_single = -1
 			regenerate_playlist(target, silent=True)
 
-		if pctl.after_import_flag and not tauon.bag.after_scan and not search_over.active and not loading_in_progress:
+		if pctl.after_import_flag and not tauon.after_scan and not search_over.active and not loading_in_progress:
 			pctl.after_import_flag = False
 
 			for i, plist in enumerate(pctl.multi_playlist):
@@ -35947,7 +35949,7 @@ def worker1(tauon: Tauon) -> None:
 		if tauon.worker_save_state and \
 				not gui.pl_pulse and \
 				not loading_in_progress and \
-				not to_scan and not tauon.bag.after_scan and \
+				not to_scan and not tauon.after_scan and \
 				not plex.scanning and \
 				not jellyfin.scanning and \
 				not cm_clean_db and \
@@ -36640,16 +36642,15 @@ def scale2(mode: int = 0) -> bool | None:
 	return None
 
 def toggle_borderless(mode: int = 0) -> bool | None:
-	global draw_border
 	global update_layout
 
 	if mode == 1:
 		return draw_border
 
 	update_layout = True
-	draw_border ^= True
+	tauon.draw_border ^= True
 
-	if draw_border:
+	if tauon.draw_border:
 		SDL_SetWindowBordered(t_window, False)
 	else:
 		SDL_SetWindowBordered(t_window, True)
@@ -37122,7 +37123,7 @@ def set_mini_mode():
 	SDL_GetWindowPosition(t_window, i_x, i_y)
 	gui.save_position = (i_x.contents.value, i_y.contents.value)
 
-	mini_mode.was_borderless = draw_border
+	mini_mode.was_borderless = tauon.draw_border
 	SDL_SetWindowBordered(t_window, False)
 
 	size = (350, 429)
@@ -38218,7 +38219,7 @@ def update_layout_do(tauon: Tauon):
 			gui.save_size[0] = tauon.bag.logical_size[0]
 			gui.save_size[1] = tauon.bag.logical_size[1]
 
-		bottom_bar1.update()
+		tauon.bottom_bar1.update()
 
 		# if system != 'windows':
 		#     if draw_border:
@@ -38237,17 +38238,17 @@ def update_layout_do(tauon: Tauon):
 			gui.playlist_top += gui.artist_panel_height
 
 		gui.offset_extra = 0
-		if draw_border and not prefs.left_window_control:
+		if tauon.draw_border and not prefs.left_window_control:
 			offset = 61 * gui.scale
-			if not draw_min_button:
+			if not tauon.bag.draw_min_button:
 				offset -= 35 * gui.scale
-			if draw_max_button:
+			if tauon.bag.draw_max_button:
 				offset += 33 * gui.scale
 			if gui.macstyle:
 				offset = 24
-				if draw_min_button:
+				if tauon.bag.draw_min_button:
 					offset += 20
-				if draw_max_button:
+				if tauon.bag.draw_max_button:
 					offset += 20
 				offset = round(offset * gui.scale)
 			gui.offset_extra = offset
@@ -38562,7 +38563,7 @@ def save_state() -> None:
 		gui.vis_want,  # gui.vis
 		pctl.selected_in_playlist,
 		album_mode_art_size,
-		draw_border,
+		tauon.draw_border,
 		prefs.enable_web,
 		prefs.allow_remote,
 		prefs.expose_web,
@@ -38734,7 +38735,7 @@ def save_state() -> None:
 			old_position = None
 
 		save = [
-			draw_border,
+			tauon.draw_border,
 			gui.save_size,
 			prefs.window_opacity,
 			gui.scale,
@@ -39218,8 +39219,8 @@ def main(holder: Holder):
 		music_directory = None
 
 	locale_directory = install_directory / "locale"
-	#if flatpak_mode:
-	#	locale_directory = Path("/app/share/locale")
+	if flatpak_mode:
+		locale_directory = Path("/app/share/locale")
 	#elif str(install_directory).startswith(("/opt/", "/usr/")):
 	#	locale_directory = Path("/usr/share/locale")
 
@@ -41846,7 +41847,6 @@ def main(holder: Holder):
 	corner_icon = asset_loader(bag, loaded_asset_dc, "corner.png", True)
 
 	top_panel = TopPanel(bag=bag, gui=gui)
-	bottom_bar1 = BottomBarType1(bag=bag, gui=gui)
 	bottom_bar_ao1 = BottomBarType_ao1(bag=bag, gui=gui)
 	mini_mode = MiniMode(bag=bag, gui=gui)
 	mini_mode2 = MiniMode2(bag=bag, gui=gui)
@@ -45948,7 +45948,7 @@ def main(holder: Holder):
 							else:
 								ddt.text((x2, y1), tc.comment, value_colour, 12)
 
-				if draw_border and gui.mode != 3:
+				if tauon.draw_border and gui.mode != 3:
 
 					tool_rect = [window_size[0] - 110 * gui.scale, 2, 95 * gui.scale, 45 * gui.scale]
 					if prefs.left_window_control:
