@@ -4517,7 +4517,7 @@ class Menu:
 				# Detect if mouse is over this item
 				selected = False
 				rect = (x_run, y_run, self.w, self.h - 1)
-				fields.add(rect)
+				tauon.fields.add(rect)
 
 				if coll_point(inp.mouse_position, (x_run, y_run, self.w, self.h - 1)):
 					ddt.rect_a((x_run, y_run), (self.w, self.h), colours.menu_highlight_background)  # [15, 15, 15, 255]
@@ -4635,7 +4635,7 @@ class Menu:
 
 						# Detect if mouse is over this item
 						rect = (sub_pos[0], sub_pos[1] + w * self.h, sub_w, self.h - 1)
-						fields.add(rect)
+						tauon.fields.add(rect)
 						this_select = False
 						bg = colours.menu_background
 						if coll_point(inp.mouse_position, (sub_pos[0], sub_pos[1] + w * self.h, sub_w, self.h - 1)):
@@ -5064,6 +5064,7 @@ class Tauon:
 		self.strings:                     Strings = strings
 		self.gui:                          GuiVar = gui
 		self.prefs:                         Prefs = bag.prefs
+		self.fields                               = Fields()
 		self.artist_list_box                      = ArtistList(tauon=self)
 		self.search_over                          = SearchOverlay(tauon=self)
 		self.radiobox                             = RadioBox(tauon=self)
@@ -6024,7 +6025,7 @@ class Drawing:
 			h = 22 * gui.scale
 
 		rect = (x, y, w, h)
-		fields.add(rect)
+		tauon.fields.add(rect)
 
 		if text_highlight_colour is None:
 			text_highlight_colour = colours.box_button_text_highlight
@@ -6433,7 +6434,7 @@ class TextBox2:
 		rect = (x - 3, y - 2, width - 3, 21 * gui.scale)
 		select_rect = (x - 20 * gui.scale, y - 2, width + 20 * gui.scale, 21 * gui.scale)
 
-		fields.add(rect)
+		tauon.fields.add(rect)
 
 		# Activate Menu
 		if tauon.coll(rect):
@@ -6977,7 +6978,7 @@ class TextBox:
 			if tauon.coll(rect) and not field_menu.active:
 				gui.cursor_want = 2
 
-			fields.add(rect)
+			tauon.fields.add(rect)
 
 			# Delete key to remove text in front of cursor
 			if key_del:
@@ -8832,7 +8833,7 @@ class TransEditBox:
 			ddt.text((x, y), label, colours.box_text_label, 11)
 			y += round(16 * gui.scale)
 			rect1 = (x, y, round(370 * gui.scale), round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if (tauon.coll(rect1) and inp.mouse_click) or (inp.key_tab_press and self.active_field == field_number):
 				self.active_field = field_number
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -9051,7 +9052,7 @@ class TransEditBox:
 			ddt.text((x, y), label, colours.box_text_label, 11)
 			y += round(16 * gui.scale)
 			rect1 = (x, y, round(370 * gui.scale), round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if (tauon.coll(rect1) and inp.mouse_click) or (inp.key_tab_press and self.active_field == field_number):
 				self.active_field = field_number
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -9243,7 +9244,7 @@ class SubLyricsBox:
 		xx += ddt.text((xx + round(0 * gui.scale), y + round(0 * gui.scale)), _("with"), colours.box_text_label, 212)
 		xx += round(6 * gui.scale)
 		rect1 = (xx, y, round(250 * gui.scale), round(17 * gui.scale))
-		fields.add(rect1)
+		tauon.fields.add(rect1)
 		ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
 		if (tauon.coll(rect1) and inp.mouse_click) or (inp.key_tab_press and self.active_field == 2):
 			self.active_field = 1
@@ -9266,7 +9267,7 @@ class SubLyricsBox:
 		xx += ddt.text((xx + round(0 * gui.scale), y + round(0 * gui.scale)), _("with"), colours.box_text_label, 212)
 		xx += round(6 * gui.scale)
 		rect1 = (xx, y, round(250 * gui.scale), round(16 * gui.scale))
-		fields.add(rect1)
+		tauon.fields.add(rect1)
 		if (tauon.coll(rect1) and inp.mouse_click) or (inp.key_tab_press and self.active_field == 1):
 			self.active_field = 2
 		# ddt.rect(rect1, [40, 40, 40, 255], True)
@@ -9333,7 +9334,7 @@ class ExportPlaylistBox:
 		y += round(30 * gui.scale)
 
 		rect1 = (x, y, round(450 * gui.scale), round(16 * gui.scale))
-		fields.add(rect1)
+		tauon.fields.add(rect1)
 		# ddt.rect(rect1, [40, 40, 40, 255], True)
 		ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
 		self.directory_text_box.text = current["path"]
@@ -10178,7 +10179,7 @@ class SearchOverlay:
 
 				# Selection bar
 				s_rect = (highlight_x, yy, 600 * gui.scale, height + pad + pad - 1)
-				fields.add(s_rect)
+				tauon.fields.add(s_rect)
 				if fade == 1:
 					ddt.rect((highlight_x, yy + pad, 4 * gui.scale, height), bar_colour)
 				if n in (2,):
@@ -10722,7 +10723,7 @@ class Over:
 			ddt.rect(rect, [5, 5, 5, 255])
 
 			rect = grow_rect(rect, 3)
-			fields.add(rect)
+			tauon.fields.add(rect)
 			if tauon.coll(rect):
 				hover_name = theme_name
 				if self.click:
@@ -11048,7 +11049,7 @@ class Over:
 
 				line = trunc_line(name, 10, 245 * gui.scale)
 
-				fields.add(rect)
+				tauon.fields.add(rect)
 
 				if prefs.phazor_device_selected == name:
 					ddt.text((x, y), line, colours.box_sub_text, 10)
@@ -11182,7 +11183,7 @@ class Over:
 					f"http://localhost:{prefs.metadata_page_port!s}/listenalong",
 					colours.grey_blend_bg(190), 13)
 				link_rect2 = [x + 300 * gui.scale, y - 1 * gui.scale, link_pa2[1], 20 * gui.scale]
-				fields.add(link_rect2)
+				tauon.fields.add(link_rect2)
 
 				if tauon.coll(link_rect2):
 					if not self.click:
@@ -11426,7 +11427,7 @@ class Over:
 		ddt.rect(rect2, colours.box_check_border)
 		ddt.rect(rect, bg)
 
-		fields.add(rect)
+		tauon.fields.add(rect)
 		if tauon.coll(rect):
 			ddt.rect(rect, [255, 255, 255, 15])
 			real_bg = alpha_blend([255, 255, 255, 15], bg)
@@ -11450,7 +11451,7 @@ class Over:
 		real_bg = bg_colour
 
 		ddt.rect(rect, bg_colour)
-		fields.add(rect)
+		tauon.fields.add(rect)
 		hit = False
 
 		text_position = (x + int(7 * gui.scale), rect[1] + 1 * gui.scale)
@@ -11637,7 +11638,7 @@ class Over:
 			ddt.text((x + 0 * gui.scale, y), _("IP"), colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 0
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -11655,7 +11656,7 @@ class Over:
 			ddt.text((x + 0 * gui.scale, y), _("Playlist name"), colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 1
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -11692,7 +11693,7 @@ class Over:
 				colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 0
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -11708,7 +11709,7 @@ class Over:
 				colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 1
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -11771,7 +11772,7 @@ class Over:
 				colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 0
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -11787,7 +11788,7 @@ class Over:
 				colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 1
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -11846,7 +11847,7 @@ class Over:
 			ddt.text((x + 0 * gui.scale, y), _("Username / Email"), colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 0
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -11860,7 +11861,7 @@ class Over:
 			ddt.text((x + 0 * gui.scale, y), _("Password"), colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 1
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -11874,7 +11875,7 @@ class Over:
 			ddt.text((x + 0 * gui.scale, y), _("Server URL"), colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 2
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -11907,7 +11908,7 @@ class Over:
 			ddt.text((x + 0 * gui.scale, y), _("Username"), colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 0
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -11921,7 +11922,7 @@ class Over:
 			ddt.text((x + 0 * gui.scale, y), _("Password"), colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 1
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -11935,7 +11936,7 @@ class Over:
 			ddt.text((x + 0 * gui.scale, y), _("Server URL"), colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 2
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -11980,7 +11981,7 @@ class Over:
 			ddt.text((x + 0 * gui.scale, y), _("Username / Email"), colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 0
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -11994,7 +11995,7 @@ class Over:
 			ddt.text((x + 0 * gui.scale, y), _("Password"), colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 1
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -12008,7 +12009,7 @@ class Over:
 			ddt.text((x + 0 * gui.scale, y), _("Server URL"), colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 2
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -12037,7 +12038,7 @@ class Over:
 			ddt.text((x + 0 * gui.scale, y), _("Username / Email"), colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 0
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -12051,7 +12052,7 @@ class Over:
 			ddt.text((x + 0 * gui.scale, y), _("Password"), colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 1
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -12065,7 +12066,7 @@ class Over:
 			ddt.text((x + 0 * gui.scale, y), _("Server name"), colours.box_text_label, 11)
 			y += round(19 * gui.scale)
 			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			if tauon.coll(rect1) and (self.click or level_2_right_click):
 				self.account_text_field = 2
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
@@ -12138,7 +12139,7 @@ class Over:
 		#     #y += 15 * gui.scale
 		#     link_pa2 = draw_linked_text((x + 0 * gui.scale, y), "https://www.discogs.com/settings/developers",colours.box_text_label, 12)
 		#     link_rect2 = [x + 0 * gui.scale, y, link_pa2[1], 20 * gui.scale]
-		#     fields.add(link_rect2)
+		#     tauon.fields.add(link_rect2)
 		#     if tauon.coll(link_rect2):
 		#         if not self.click:
 		#             gui.cursor_want = 3
@@ -12279,10 +12280,10 @@ class Over:
 				ddt.text((x + 0 * gui.scale, y - 0 * gui.scale), line, colours.box_input_text, 212)
 
 			y += 25 * gui.scale
-			link_pa2 = draw_linked_text((x + 0 * gui.scale, y), "https://listenbrainz.org/profile/",
-										colours.box_sub_text, 12)
+			link_pa2 = draw_linked_text(
+				(x + 0 * gui.scale, y), "https://listenbrainz.org/profile/", colours.box_sub_text, 12)
 			link_rect2 = [x + 0 * gui.scale, y, link_pa2[1], 20 * gui.scale]
-			fields.add(link_rect2)
+			tauon.fields.add(link_rect2)
 
 			if tauon.coll(link_rect2):
 				if not self.click:
@@ -12387,14 +12388,14 @@ class Over:
 			y += 20 * gui.scale
 
 			rect1 = (x + 0 * gui.scale, y, round(450 * gui.scale), round(17 * gui.scale))
-			fields.add(rect1)
+			tauon.fields.add(rect1)
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
 			sync_target.draw(
 				x + round(4 * gui.scale), y, colours.box_input_text, not gui.sync_progress,
 				width=rect1[2] - 8 * gui.scale, click=self.click)
 
 			rect = [x + rect1[2] + 11 * gui.scale, y - 2 * gui.scale, 15 * gui.scale, 19 * gui.scale]
-			fields.add(rect)
+			tauon.fields.add(rect)
 			colour = colours.box_text_label
 			if tauon.coll(rect):
 				colour = [225, 160, 0, 255]
@@ -12714,7 +12715,7 @@ class Over:
 				if self.click:
 					webbrowser.open(link_pa[2], new=2, autoraise=True)
 
-			fields.add(link_rect)
+			tauon.fields.add(link_rect)
 
 			y += 27 * gui.scale
 			ddt.text((x, y), _("This program comes with absolutely no warranty."), colours.box_text_label, 12)
@@ -12729,7 +12730,7 @@ class Over:
 					gui.cursor_want = 3
 				if self.click:
 					webbrowser.open(link_pa[2], new=2, autoraise=True)
-			fields.add(link_rect)
+			tauon.fields.add(link_rect)
 
 		elif self.cred_page == 1:
 
@@ -12748,7 +12749,7 @@ class Over:
 					gui.cursor_want = 3
 				if self.click:
 					webbrowser.open(link_pa[2], new=2, autoraise=True)
-			fields.add(link_rect)
+			tauon.fields.add(link_rect)
 
 
 		elif self.cred_page == 2:
@@ -13198,7 +13199,7 @@ class Over:
 					d += h
 
 					block_rect = (block_rect[0], block_rect[1], block_rect[2] - 1, block_rect[3])
-					fields.add(block_rect)
+					tauon.fields.add(block_rect)
 					if tauon.coll(block_rect):
 						xx = block_rect[0] + int(block_rect[2] / 2)
 						xx = max(xx, x + 30 * gui.scale)
@@ -13225,7 +13226,7 @@ class Over:
 		self.toggle_square(x, y, heart_toggle, "     ")
 		heart_row_icon.render(x + round(23 * gui.scale), y + round(2 * gui.scale), colours.box_text)
 		rect = (x, y + round(2 * gui.scale), 40 * gui.scale, 15 * gui.scale)
-		fields.add(rect)
+		tauon.fields.add(rect)
 		if tauon.coll(rect):
 			ex_tool_tip(x + round(45 * gui.scale), y - 20 * gui.scale, 0, _("Show track loves"), 12)
 
@@ -13233,7 +13234,7 @@ class Over:
 		self.toggle_square(x, y, star_toggle, "     ")
 		star_row_icon.render(x + round(22 * gui.scale), y + round(0 * gui.scale), colours.box_text)
 		rect = (x, y + round(2 * gui.scale), 40 * gui.scale, 15 * gui.scale)
-		fields.add(rect)
+		tauon.fields.add(rect)
 		if tauon.coll(rect):
 			ex_tool_tip(x + round(35 * gui.scale), y - 20 * gui.scale, 0, _("Represent playtime as stars"), 12)
 
@@ -13243,7 +13244,7 @@ class Over:
 			(x + round(21 * gui.scale), y + round(6 * gui.scale), round(15 * gui.scale), round(1 * gui.scale)),
 			colours.box_text)
 		rect = (x, y + round(2 * gui.scale), 40 * gui.scale, 15 * gui.scale)
-		fields.add(rect)
+		tauon.fields.add(rect)
 		if tauon.coll(rect):
 			ex_tool_tip(x + round(35 * gui.scale), y - 20 * gui.scale, 0, _("Represent playcount as lines"), 12)
 
@@ -13345,7 +13346,7 @@ class Over:
 			x += 65 * gui.scale
 		y += 1 * gui.scale
 		rect = (x, y, 33 * gui.scale, 15 * gui.scale)
-		fields.add(rect)
+		tauon.fields.add(rect)
 		ddt.rect(rect, colours.box_button_background)
 		abg = [255, 255, 255, 40]
 		if tauon.coll(rect):
@@ -13375,7 +13376,7 @@ class Over:
 		x += width
 
 		rect = (x, y, 33 * gui.scale, 15 * gui.scale)
-		fields.add(rect)
+		tauon.fields.add(rect)
 		ddt.rect(rect, colours.box_button_background)
 		abg = [255, 255, 255, 40]
 		if tauon.coll(rect):
@@ -13485,7 +13486,7 @@ class Over:
 
 				box = [xx, yy, tab_width, tab_height]
 				box2 = [xx, yy, tab_width, tab_height - 1]
-				fields.add(box2)
+				tauon.fields.add(box2)
 
 				if self.click and tauon.coll(box2):
 					self.tab_active = current_tab
@@ -13529,7 +13530,7 @@ class Over:
 
 				box = [x, y + (current_tab * tab_height), tab_width, tab_height]
 				box2 = [x, y + (current_tab * tab_height), tab_width, tab_height - 1]
-				fields.add(box2)
+				tauon.fields.add(box2)
 
 				if self.click and tauon.coll(box2):
 					self.tab_active = current_tab
@@ -13567,8 +13568,7 @@ class Over:
 		ddt.text_background_colour = colours.box_background
 
 class Fields:
-	def __init__(self):
-
+	def __init__(self) -> None:
 		self.id = []
 		self.last_id = []
 
@@ -13576,11 +13576,9 @@ class Fields:
 		self.force = False
 
 	def add(self, rect, callback=None):
-
 		self.field_array.append((rect, callback))
 
 	def test(self):
-
 		if self.force:
 			self.force = False
 			return True
@@ -13748,7 +13746,7 @@ class TopPanel:
 				wwx = round(wwx * gui.scale)
 
 		rect = (wwx + 9 * gui.scale, yy + 4 * gui.scale, 34 * gui.scale, 25 * gui.scale)
-		fields.add(rect)
+		tauon.fields.add(rect)
 
 		if tauon.coll(rect) and not prefs.shuffle_lock:
 			if inp.mouse_click:
@@ -14133,7 +14131,7 @@ class TopPanel:
 		# Test dupelicate tab function
 		if playlist_box.drag:
 			rect = (0, x, self.height, window_size[0])
-			fields.add(rect)
+			tauon.fields.add(rect)
 
 		if inp.mouse_up and playlist_box.drag and inp.mouse_position[0] > x and inp.mouse_position[1] < self.height:
 			if gui.radio_view:
@@ -14192,7 +14190,7 @@ class TopPanel:
 
 			# Detect mouse over and add tab to mouse over detection
 			f_rect = [x, y + 1, tab_width - 1, self.height - 1]
-			fields.add(f_rect)
+			tauon.fields.add(f_rect)
 			tab_hit = tauon.coll(f_rect)
 			playing_hint = False
 			active = False
@@ -14333,7 +14331,7 @@ class TopPanel:
 		word_length = ddt.get_text_w(word, 212)
 		rect = [x - self.click_buffer, yy + self.ty + 1, word_length + self.click_buffer * 2, self.height - 1]
 		hit = tauon.coll(rect)
-		fields.add(rect)
+		tauon.fields.add(rect)
 
 		if (x_menu.active or hit) and not tab_menu.active:
 			bg = colours.status_text_over
@@ -14363,7 +14361,7 @@ class TopPanel:
 		if (dl > 0 or watching > 0) and core_timer.get() > 2 and prefs.auto_extract and prefs.monitor_downloads:
 			x += 52 * gui.scale
 			rect = (x - 5 * gui.scale, y - 2 * gui.scale, 30 * gui.scale, 23 * gui.scale)
-			fields.add(rect)
+			tauon.fields.add(rect)
 
 			if tauon.coll(rect):
 				colour = colours.corner_button_active
@@ -14702,7 +14700,7 @@ class BottomBarType1:
 			if pctl.playing_state == 0:
 				pctl.play()
 
-		fields.add(self.seek_bar_position + self.seek_bar_size)
+		tauon.fields.add(self.seek_bar_position + self.seek_bar_size)
 		if tauon.coll(self.seek_bar_position + self.seek_bar_size):
 
 			if middle_click and pctl.playing_state > 0:
@@ -14715,7 +14713,7 @@ class BottomBarType1:
 		if gui.seek_cur_show:
 			gui.update += 1
 
-			# fields.add([inp.mouse_position[0] - 1, inp.mouse_position[1] - 1, 1, 1])
+			# tauon.fields.add([inp.mouse_position[0] - 1, inp.mouse_position[1] - 1, 1, 1])
 			# ddt.rect_r([inp.mouse_position[0] - 1, inp.mouse_position[1] - 1, 1, 1], [255,0,0,180], True)
 
 			bargetX = inp.mouse_position[0]
@@ -14954,7 +14952,7 @@ class BottomBarType1:
 
 			ddt.rect(gui.volume_bar_rect, colours.volume_bar_fill)
 
-			fields.add(self.volume_bar_position + self.volume_bar_size)
+			tauon.fields.add(self.volume_bar_position + self.volume_bar_size)
 			if pctl.active_replaygain != 0 and (tauon.coll((
 				self.volume_bar_position[0], self.volume_bar_position[1], self.volume_bar_size[0],
 				self.volume_bar_size[1])) or self.volume_bar_being_dragged):
@@ -15155,7 +15153,7 @@ class BottomBarType1:
 				rect = (
 				buttons_x_offset + (10 * gui.scale), window_size[1] - self.control_line_bottom - (13 * gui.scale),
 				50 * gui.scale, 40 * gui.scale)
-				fields.add(rect)
+				tauon.fields.add(rect)
 				if tauon.coll(rect):
 					play_colour = colours.media_buttons_over
 					if inp.mouse_click:
@@ -15184,7 +15182,7 @@ class BottomBarType1:
 			if not compact or (compact and pctl.playing_state == 1):
 
 				rect = (x - 15 * gui.scale, y - 13 * gui.scale, 50 * gui.scale, 40 * gui.scale)
-				fields.add(rect)
+				tauon.fields.add(rect)
 				if tauon.coll(rect) and not (pctl.playing_state == 3 and not tauon.spot_ctl.coasting):
 					pause_colour = colours.media_buttons_over
 					if inp.mouse_click:
@@ -15200,7 +15198,7 @@ class BottomBarType1:
 			# STOP---
 			x = 125 * gui.scale + buttons_x_offset
 			rect = (x - 14 * gui.scale, y - 13 * gui.scale, 50 * gui.scale, 40 * gui.scale)
-			fields.add(rect)
+			tauon.fields.add(rect)
 			if tauon.coll(rect):
 				stop_colour = colours.media_buttons_over
 				if inp.mouse_click:
@@ -15218,7 +15216,7 @@ class BottomBarType1:
 			# FORWARD---
 			rect = (buttons_x_offset + 230 * gui.scale, window_size[1] - self.control_line_bottom - 10 * gui.scale,
 					50 * gui.scale, 35 * gui.scale)
-			fields.add(rect)
+			tauon.fields.add(rect)
 			if tauon.coll(rect) and not (pctl.playing_state == 3 and not tauon.spot_ctl.coasting):
 				forward_colour = colours.media_buttons_over
 				if inp.mouse_click:
@@ -15253,7 +15251,7 @@ class BottomBarType1:
 			# BACK---
 			rect = (buttons_x_offset + 170 * gui.scale, window_size[1] - self.control_line_bottom - 10 * gui.scale,
 					50 * gui.scale, 35 * gui.scale)
-			fields.add(rect)
+			tauon.fields.add(rect)
 			if tauon.coll(rect) and not (pctl.playing_state == 3 and not tauon.spot_ctl.coasting):
 				back_colour = colours.media_buttons_over
 				if inp.mouse_click:
@@ -15288,7 +15286,7 @@ class BottomBarType1:
 			y = window_size[1] - round(26 * gui.scale)
 			rpbc = colours.mode_button_off
 			rect = (x - 9 * gui.scale, y - 5 * gui.scale, 40 * gui.scale, 25 * gui.scale)
-			fields.add(rect)
+			tauon.fields.add(rect)
 			if tauon.coll(rect):
 				if not extra_menu.active:
 					tool_tip.test(x, y - 28 * gui.scale, _("Playback menu"))
@@ -15314,7 +15312,7 @@ class BottomBarType1:
 				y = window_size[1] - 27 * gui.scale
 
 				rect = (x - 5 * gui.scale, y - 5 * gui.scale, 60 * gui.scale, 25 * gui.scale)
-				fields.add(rect)
+				tauon.fields.add(rect)
 
 				rpbc = colours.mode_button_off
 				off = True
@@ -15373,7 +15371,7 @@ class BottomBarType1:
 				off = True
 
 				rect = (x - 6 * gui.scale, y - 5 * gui.scale, 61 * gui.scale, 25 * gui.scale)
-				fields.add(rect)
+				tauon.fields.add(rect)
 				if (inp.mouse_click or right_click) and tauon.coll(rect):
 
 					if inp.mouse_click:
@@ -15737,7 +15735,7 @@ class BottomBarType_ao1:
 				rect = (
 				buttons_x_offset + (10 * gui.scale), window_size[1] - self.control_line_bottom - (13 * gui.scale),
 				50 * gui.scale, 40 * gui.scale)
-				fields.add(rect)
+				tauon.fields.add(rect)
 				if tauon.coll(rect):
 					play_colour = colours.media_buttons_over
 					if inp.mouse_click:
@@ -15766,7 +15764,7 @@ class BottomBarType_ao1:
 			if not compact or (compact and pctl.playing_state == 2):
 
 				rect = (x - 15 * gui.scale, y - 13 * gui.scale, 50 * gui.scale, 40 * gui.scale)
-				fields.add(rect)
+				tauon.fields.add(rect)
 				if tauon.coll(rect) and pctl.playing_state != 3:
 					pause_colour = colours.media_buttons_over
 					if inp.mouse_click:
@@ -15780,9 +15778,10 @@ class BottomBarType_ao1:
 				ddt.rect_a((x + 10 * gui.scale, y + 0), (4 * gui.scale, 13 * gui.scale), pause_colour)
 
 			# FORWARD---
-			rect = (buttons_x_offset + 125 * gui.scale, window_size[1] - self.control_line_bottom - 10 * gui.scale,
-					50 * gui.scale, 35 * gui.scale)
-			fields.add(rect)
+			rect = (
+				buttons_x_offset + 125 * gui.scale,
+				window_size[1] - self.control_line_bottom - 10 * gui.scale, 50 * gui.scale, 35 * gui.scale)
+			tauon.fields.add(rect)
 			if tauon.coll(rect) and pctl.playing_state != 3:
 				forward_colour = colours.media_buttons_over
 				if inp.mouse_click:
@@ -15853,7 +15852,7 @@ class MiniMode:
 		ddt.text_background_colour = bg
 
 		detect_mouse_rect = (3, 3, w - 6, h - 6)
-		fields.add(detect_mouse_rect)
+		tauon.fields.add(detect_mouse_rect)
 		mouse_in = tauon.coll(detect_mouse_rect)
 
 		# Play / Pause when right clicking below art
@@ -15877,7 +15876,7 @@ class MiniMode:
 
 		control_hit_area = (3, y1 - 15 * gui.scale, w - 6, h1 - 3 + 15 * gui.scale)
 		mouse_in_area = tauon.coll(control_hit_area)
-		fields.add(control_hit_area)
+		tauon.fields.add(control_hit_area)
 
 		ddt.rect((0, 0, w, w), (0, 0, 0, 45))
 		if track is not None:
@@ -15969,8 +15968,8 @@ class MiniMode:
 		left_area = (1, y1, seek_r[0] - 1, 45 * gui.scale)
 		right_area = (seek_r[0] + seek_w, y1, seek_r[0] - 2, 45 * gui.scale)
 
-		fields.add(left_area)
-		fields.add(right_area)
+		tauon.fields.add(left_area)
+		tauon.fields.add(right_area)
 
 		hint = 0
 		if tauon.coll(control_hit_area):
@@ -15992,7 +15991,7 @@ class MiniMode:
 		# Shuffle
 
 		shuffle_area = (seek_r[0] + seek_w, seek_r[1] - 10 * gui.scale, 50 * gui.scale, 30 * gui.scale)
-		# fields.add(shuffle_area)
+		# tauon.fields.add(shuffle_area)
 		# ddt.rect_r(shuffle_area, [255, 0, 0, 100], True)
 
 		if tauon.coll(control_hit_area) and not prefs.shuffle_lock:
@@ -16048,7 +16047,7 @@ class MiniMode:
 		tool_rect = [window_size[0] - 110 * gui.scale, 2, 108 * gui.scale, 45 * gui.scale]
 		if prefs.left_window_control:
 			tool_rect[0] = 0
-		fields.add(tool_rect)
+		tauon.fields.add(tool_rect)
 		if tauon.coll(tool_rect):
 			draw_window_tools()
 
@@ -16080,7 +16079,7 @@ class MiniMode2:
 		ddt.text_background_colour = colours.mini_mode_background
 
 		detect_mouse_rect = (2, 2, w - 4, h - 4)
-		fields.add(detect_mouse_rect)
+		tauon.fields.add(detect_mouse_rect)
 		mouse_in = tauon.coll(detect_mouse_rect)
 
 		# Play / Pause when right clicking below art
@@ -16148,7 +16147,7 @@ class MiniMode2:
 		tool_rect = [window_size[0] - 110 * gui.scale, 2, 108 * gui.scale, 45 * gui.scale]
 		if prefs.left_window_control:
 			tool_rect[0] = 0
-		fields.add(tool_rect)
+		tauon.fields.add(tool_rect)
 		if tauon.coll(tool_rect):
 			draw_window_tools()
 
@@ -16229,7 +16228,7 @@ class MiniMode3:
 			transit = True
 
 		detect_mouse_rect = (3, 3, w - 6, h - 6)
-		fields.add(detect_mouse_rect)
+		tauon.fields.add(detect_mouse_rect)
 		mouse_in = tauon.coll(detect_mouse_rect)
 
 		# Play / Pause when right clicking below art
@@ -16253,7 +16252,7 @@ class MiniMode3:
 
 		control_hit_area = (3, y1 - 15 * gui.scale, w - 6, h1 - 3 + 15 * gui.scale)
 		mouse_in_area = tauon.coll(control_hit_area)
-		fields.add(control_hit_area)
+		tauon.fields.add(control_hit_area)
 
 		#ddt.rect((0, 0, w, w), (0, 0, 0, 45))
 		if track is not None:
@@ -16391,8 +16390,8 @@ class MiniMode3:
 		left_area = (1, y1, volume_r[0] - 1, 45 * gui.scale)
 		right_area = (volume_r[0] + volume_w, y1, volume_r[0] - 2, 45 * gui.scale)
 
-		fields.add(left_area)
-		fields.add(right_area)
+		tauon.fields.add(left_area)
+		tauon.fields.add(right_area)
 
 		hint = 0
 		if True: #tauon.coll(control_hit_area):
@@ -16413,7 +16412,7 @@ class MiniMode3:
 
 		# Shuffle
 		shuffle_area = (volume_r[0] + volume_w, volume_r[1] - 10 * gui.scale, 50 * gui.scale, 30 * gui.scale)
-		# fields.add(shuffle_area)
+		# tauon.fields.add(shuffle_area)
 		# ddt.rect_r(shuffle_area, [255, 0, 0, 100], True)
 
 		if True: #tauon.coll(control_hit_area) and not prefs.shuffle_lock:
@@ -16469,7 +16468,7 @@ class MiniMode3:
 		tool_rect = [window_size[0] - 110 * gui.scale, 2, 108 * gui.scale, 45 * gui.scale]
 		if prefs.left_window_control:
 			tool_rect[0] = 0
-		fields.add(tool_rect)
+		tauon.fields.add(tool_rect)
 		if tauon.coll(tool_rect):
 			draw_window_tools()
 
@@ -17662,7 +17661,7 @@ class ArtBox:
 			ddt.rect_s(rect, colours.art_box, 1 * gui.scale)
 			border = rect
 
-		fields.add(border)
+		tauon.fields.add(border)
 
 		# Draw image downloading indicator
 		if gui.image_downloading:
@@ -17848,7 +17847,7 @@ class ScrollBox:
 
 		colour = fg_off
 		rect = (x, mi + position - half, w, bar_height)
-		fields.add(rect)
+		tauon.fields.add(rect)
 		if tauon.coll(rect):
 			colour = fg
 		if self.held:
@@ -18227,7 +18226,7 @@ class RadioBox:
 
 		width = round(330 * gui.scale)
 		rect = (x + 8 * gui.scale, yy - round(2 * gui.scale), width, 22 * gui.scale)
-		fields.add(rect)
+		tauon.fields.add(rect)
 		# if (tauon.coll(rect) and gui.level_2_click) or (input.key_tab_press and self.radio_field_active == 2):
 		#     self.radio_field_active = 1
 		#     input.key_tab_press = False
@@ -18460,7 +18459,7 @@ class RadioBox:
 		width = round(370 * gui.scale)
 
 		rect = (x + 8 * gui.scale, yy - round(2 * gui.scale), width, 22 * gui.scale)
-		fields.add(rect)
+		tauon.fields.add(rect)
 		if (tauon.coll(rect) and gui.level_2_click) or (inp.key_tab_press and self.radio_field_active == 2):
 			self.radio_field_active = 1
 			inp.key_tab_press = False
@@ -18476,7 +18475,7 @@ class RadioBox:
 
 		rect = (x + 8 * gui.scale, yy - round(2 * gui.scale), width, 22 * gui.scale)
 		ddt.rect_s(rect, colours.box_text_border, 1 * gui.scale)
-		fields.add(rect)
+		tauon.fields.add(rect)
 		if (tauon.coll(rect) and gui.level_2_click) or (inp.key_tab_press and self.radio_field_active == 1):
 			self.radio_field_active = 2
 			inp.key_tab_press = False
@@ -18554,7 +18553,7 @@ class RadioBox:
 			item = radio_list[p]
 
 			rect = (xx, yy, round(233 * gui.scale), round(40 * gui.scale))
-			fields.add(rect)
+			tauon.fields.add(rect)
 
 			bg = colours.box_background
 			text_colour = colours.box_input_text
@@ -19310,7 +19309,7 @@ class PlaylistBox:
 
 		# Create new playlist if drag in blank space after tabs
 		rect = (x, yy, w - 10 * gui.scale, h - (yy - y))
-		fields.add(rect)
+		tauon.fields.add(rect)
 
 		if tauon.coll(rect):
 			if quick_drag:
@@ -19669,7 +19668,7 @@ class ArtistList:
 			extra_text_space = 135 * gui.scale
 			thin_mode = True
 			area = (4 * gui.scale, y, w - 7 * gui.scale, self.tab_h - 2)
-			fields.add(area)
+			tauon.fields.add(area)
 
 		back_colour = [30, 30, 30, 255]
 		back_colour_2 = [27, 27, 27, 255]
@@ -19693,7 +19692,7 @@ class ArtistList:
 		ddt.rect(rect, back_colour)
 		ddt.rect(rect, border_colour)
 
-		fields.add(rect)
+		tauon.fields.add(rect)
 		if tauon.coll(rect) and is_level_zero(True):
 			self.hover_any = True
 
@@ -19793,7 +19792,7 @@ class ArtistList:
 		if prefs.artist_list_style == 2:
 			area = (4 * gui.scale, y, w - 26 * gui.scale, self.tab_h - 1)
 
-		fields.add(area)
+		tauon.fields.add(area)
 
 		light_mode = False
 		line1_colour = [235, 235, 235, 255]
@@ -20082,7 +20081,7 @@ class ArtistList:
 		if len(self.current_artists) <= whole_rage:
 			self.scroll_position = 0
 
-		fields.add(area2)
+		tauon.fields.add(area2)
 		scroll_x = x + w - 18 * gui.scale
 		if colours.lm:
 			scroll_x = x + w - 22 * gui.scale
@@ -20305,7 +20304,7 @@ class TreeView:
 			scroll_position = 0
 
 		area = (x, y, w, h)
-		fields.add(area)
+		tauon.fields.add(area)
 		ddt.rect(area, colours.side_panel_background)
 		ddt.text_background_colour = colours.side_panel_background
 
@@ -20385,7 +20384,7 @@ class TreeView:
 
 			inset = item[2] * round(10 * gui.scale)
 			rect = (xx + inset - round(15 * gui.scale), yy, max_w - inset + round(15 * gui.scale), spacing - 1)
-			fields.add(rect)
+			tauon.fields.add(rect)
 
 			# text_colour = [255, 255, 255, 100]
 			text_colour = rgb_add_hls(colours.side_panel_background, 0, 0.35, -0.15)
@@ -21368,7 +21367,7 @@ class MetaBox:
 		ddt.rect(art_rect, colours.gallery_background)
 		album_art_gen.display(track, (art_rect[0], art_rect[1]), (art_rect[2], art_rect[3]))
 
-		fields.add(border_rect)
+		tauon.fields.add(border_rect)
 		if tauon.coll(border_rect) and is_level_zero(True):
 			showc = album_art_gen.get_info(target_track)
 			art_metadata_overlay(
@@ -21891,7 +21890,7 @@ class ArtistInfoBox:
 
 				rect = (right - 2, yy - 2, 16, 16)
 
-				fields.add(rect)
+				tauon.fields.add(rect)
 				self.mini_box.render(right, yy, alpha_mod(item[1], 100))
 				if tauon.coll(rect):
 					if not inp.mouse_click:
@@ -22212,6 +22211,8 @@ class RadioThumbGen:
 class RadioView:
 	def __init__(self, tauon: Tauon):
 		bag = tauon.bag
+		self.tauon       = tauon
+		self.fields      = tauon.fields
 		self.colours     = tauon.bag.colours
 		self.ddt         = tauon.bag.ddt
 		self.gui         = tauon.gui
@@ -22236,7 +22237,7 @@ class RadioView:
 		x = window_size[0] - round(60 * gui.scale)
 		y = gui.panelY + round(30 * gui.scale)
 		rect = (x, y, round(25 * gui.scale), round(25 * gui.scale))
-		fields.add(rect)
+		self.fields.add(rect)
 
 		# right buttions colours
 		a_colour = rgb_add_hls(bg, l=0.2, s=-0.3) #colours.box_button_text_highlight
@@ -22245,7 +22246,7 @@ class RadioView:
 			a_colour = [20, 20, 20, 200]
 			b_colour = [60, 60, 60, 200]
 
-		if tauon.coll(rect):
+		if self.tauon.coll(rect):
 			colour = b_colour
 			if inp.mouse_click:
 				add_station()
@@ -22256,9 +22257,9 @@ class RadioView:
 
 		y += round(33 * gui.scale)
 		rect = (x, y, round(25 * gui.scale), round(25 * gui.scale))
-		fields.add(rect)
+		self.fields.add(rect)
 
-		if not tauon.coll(rect):
+		if not self.tauon.coll(rect):
 			colour = a_colour
 		else:
 			colour = b_colour
@@ -22275,7 +22276,7 @@ class RadioView:
 		y += round(32 * gui.scale)
 		if pctl.playing_state == 3 and radiobox.loaded_station not in radios:
 			rect = (x, y, round(25 * gui.scale), round(25 * gui.scale))
-			fields.add(rect)
+			self.tauon.fields.add(rect)
 
 			if not tauon.coll(rect):
 				colour = a_colour
@@ -22356,7 +22357,7 @@ class RadioView:
 				x + (w - round(40 * gui.scale)), yy + round(8 * gui.scale), h - round(15 * gui.scale),
 				round(42 * gui.scale))
 			# ddt.rect(hit_rect, [255, 255, 255, 3])
-			fields.add(start_rect)
+			self.tauon.fields.add(start_rect)
 			colour = rgb_add_hls(tbg, l=0.05)
 			if tauon.coll(start_rect):
 				if inp.mouse_click:
@@ -22370,7 +22371,7 @@ class RadioView:
 				x + (w - round(82 * gui.scale)), yy + round(8 * gui.scale), h - round(15 * gui.scale),
 				round(35 * gui.scale))
 			# ddt.rect(extra_rect, [255, 255, 255, 2])
-			fields.add(extra_rect)
+			self.tauon.fields.add(extra_rect)
 			colour = rgb_add_hls(tbg, l=0.05)
 			if tauon.coll(extra_rect):
 				colour = rgb_add_hls(colour, l=0.3) #alpha_mod(colours.side_bar_line1, 47)
@@ -22916,7 +22917,7 @@ class ViewBox:
 				y - 8 * gui.scale,
 				asset.w + 16 * gui.scale,
 				asset.h + 16 * gui.scale]
-		fields.add(rect)
+		tauon.fields.add(rect)
 
 		if on:
 			colour = self.on_colour
@@ -25754,7 +25755,7 @@ def draw_window_tools():
 	global drag_mode
 
 	# rect = (window_size[0] - 55 * gui.scale, window_size[1] - 35 * gui.scale, 53 * gui.scale, 33 * gui.scale)
-	# fields.add(rect)
+	# tauon.fields.add(rect)
 	# prefs.left_window_control = not key_shift_down
 	macstyle = gui.macstyle
 
@@ -25791,7 +25792,7 @@ def draw_window_tools():
 		if l:
 			xx = round(4 * gui.scale)
 		rect = (xx + 5, y - 1, 14 * gui.scale, 14 * gui.scale)
-		fields.add(rect)
+		tauon.fields.add(rect)
 		colour = mac_close
 		if not focused:
 			colour = (86, 85, 86, 255)
@@ -25803,7 +25804,7 @@ def draw_window_tools():
 		rect = (xx, y, x_width, h)
 		last_width = x_width
 		ddt.rect((rect[0], rect[1], rect[2], rect[3]), bg_off)
-		fields.add(rect)
+		tauon.fields.add(rect)
 		if tauon.coll(rect) and not gui.mouse_unknown:
 			ddt.rect((rect[0], rect[1], rect[2], rect[3]), bg_on)
 			top_panel.exit_button.render(rect[0] + 8 * gui.scale, rect[1] + 8 * gui.scale, x_on)
@@ -25821,7 +25822,7 @@ def draw_window_tools():
 				xx += round(20 * gui.scale)
 			rect = (xx + 5, y - 1, 14 * gui.scale, 14 * gui.scale)
 
-			fields.add(rect)
+			tauon.fields.add(rect)
 			colour = (160, 55, 225, 255)
 			if not focused:
 				colour = (86, 85, 86, 255)
@@ -25841,7 +25842,7 @@ def draw_window_tools():
 				xx += round(20 * gui.scale)
 			rect = (xx + 5, y - 1, 14 * gui.scale, 14 * gui.scale)
 
-			fields.add(rect)
+			tauon.fields.add(rect)
 			colour = mac_maximize
 			if not focused:
 				colour = (86, 85, 86, 255)
@@ -25858,7 +25859,7 @@ def draw_window_tools():
 			rect = (xx, y, ma_width, h)
 			last_width = ma_width
 			ddt.rect_a((rect[0], rect[1]), (rect[2], rect[3]), bg_off)
-			fields.add(rect)
+			tauon.fields.add(rect)
 			if tauon.coll(rect):
 				ddt.rect_a((rect[0], rect[1]), (rect[2], rect[3]), bg_on)
 				top_panel.maximize_button.render(rect[0] + 10 * gui.scale, rect[1] + 10 * gui.scale, fg_on)
@@ -25880,7 +25881,7 @@ def draw_window_tools():
 				xx += round(20 * gui.scale)
 			rect = (xx + 5, y - 1, 14 * gui.scale, 14 * gui.scale)
 
-			fields.add(rect)
+			tauon.fields.add(rect)
 			colour = mac_minimize
 			if not focused:
 				colour = (86, 85, 86, 255)
@@ -25897,7 +25898,7 @@ def draw_window_tools():
 			rect = (xx, y, mi_width, h)
 			last_width = mi_width
 			ddt.rect_a((rect[0], rect[1]), (rect[2], rect[3]), bg_off)
-			fields.add(rect)
+			tauon.fields.add(rect)
 			if tauon.coll(rect):
 				ddt.rect_a((rect[0], rect[1]), (rect[2], rect[3]), bg_on)
 				ddt.rect_a((rect[0] + 11 * gui.scale, rect[1] + 16 * gui.scale), (14 * gui.scale, 3 * gui.scale), fg_on)
@@ -25925,7 +25926,7 @@ def draw_window_tools():
 
 			rect = (xx, y, re_width, h)
 			ddt.rect_a((rect[0], rect[1]), (rect[2], rect[3]), bg_off)
-			fields.add(rect)
+			tauon.fields.add(rect)
 			if tauon.coll(rect):
 				ddt.rect_a((rect[0], rect[1]), (rect[2], rect[3]), bg_on)
 				top_panel.restore_button.render(rect[0] + 8 * gui.scale, rect[1] + 9 * gui.scale, fg_on)
@@ -25939,19 +25940,19 @@ def draw_window_border():
 	corner_icon.render(window_size[0] - corner_icon.w, window_size[1] - corner_icon.h, colours.corner_icon)
 
 	corner_rect = (window_size[0] - 20 * gui.scale, window_size[1] - 20 * gui.scale, 20, 20)
-	fields.add(corner_rect)
+	tauon.fields.add(corner_rect)
 
 	right_rect = (window_size[0] - 3 * gui.scale, 20 * gui.scale, 10, window_size[1] - 40 * gui.scale)
-	fields.add(right_rect)
+	tauon.fields.add(right_rect)
 
 	# top_rect = (20 * gui.scale, 0, window_size[0] - 40 * gui.scale, 2 * gui.scale)
-	# fields.add(top_rect)
+	# tauon.fields.add(top_rect)
 
 	left_rect = (0, 10 * gui.scale, 4 * gui.scale, window_size[1] - 50 * gui.scale)
-	fields.add(left_rect)
+	tauon.fields.add(left_rect)
 
 	bottom_rect = (20 * gui.scale, window_size[1] - 4, window_size[0] - 40 * gui.scale, 7 * gui.scale)
-	fields.add(bottom_rect)
+	tauon.fields.add(bottom_rect)
 
 	if tauon.coll(corner_rect):
 		gui.cursor_want = 4
@@ -26111,7 +26112,7 @@ def draw_internel_link(x, y, text, colour, font):
 	sp = ddt.text((x, y), text, colour, font)
 
 	rect = [x - 5 * gui.scale, y - 2 * gui.scale, sp + 11 * gui.scale, 23 * gui.scale]
-	fields.add(rect)
+	tauon.fields.add(rect)
 
 	if tauon.coll(rect):
 		if not inp.mouse_click:
@@ -26186,7 +26187,7 @@ def draw_linked_text2(x, y, text, colour, font, click=False, replace=""):
 			gui.cursor_want = 3
 		if click:
 			webbrowser.open(link_pa[2], new=2, autoraise=True)
-	fields.add(link_rect)
+	tauon.fields.add(link_rect)
 
 def link_activate(x, y, link_pa, click=None):
 	link_rect = [x + link_pa[0], y - 2 * gui.scale, link_pa[1], 20 * gui.scale]
@@ -26194,7 +26195,7 @@ def link_activate(x, y, link_pa, click=None):
 	if click is None:
 		click = inp.mouse_click
 
-	fields.add(link_rect)
+	tauon.fields.add(link_rect)
 	if tauon.coll(link_rect):
 		if not click:
 			gui.cursor_want = 3
@@ -37822,7 +37823,7 @@ def download_img(link: str, target_folder: str, track: TrackClass) -> None:
 def display_you_heart(x: int, yy: int, just: int = 0) -> None:
 	rect = [x - 1 * gui.scale, yy - 4 * gui.scale, 15 * gui.scale, 17 * gui.scale]
 	gui.heart_fields.append(rect)
-	fields.add(rect, update_playlist_call)
+	tauon.fields.add(rect, update_playlist_call)
 	if tauon.coll(rect) and not track_box:
 		gui.pl_update += 1
 		w = ddt.get_text_w(_("You"), 13)
@@ -37847,7 +37848,7 @@ def display_you_heart(x: int, yy: int, just: int = 0) -> None:
 def display_spot_heart(x: int, yy: int, just: int = 0) -> None:
 	rect = [x - 1 * gui.scale, yy - 4 * gui.scale, 15 * gui.scale, 17 * gui.scale]
 	gui.heart_fields.append(rect)
-	fields.add(rect, update_playlist_call)
+	tauon.fields.add(rect, update_playlist_call)
 	if tauon.coll(rect) and not track_box:
 		gui.pl_update += 1
 		w = ddt.get_text_w(_("Liked on Spotify"), 13)
@@ -37874,7 +37875,7 @@ def display_friend_heart(x: int, yy: int, name: str, just: int = 0) -> None:
 
 	rect = [x - 1, yy - 4, 15 * gui.scale, 17 * gui.scale]
 	gui.heart_fields.append(rect)
-	fields.add(rect, update_playlist_call)
+	tauon.fields.add(rect, update_playlist_call)
 	if tauon.coll(rect) and not track_box:
 		gui.pl_update += 1
 		w = ddt.get_text_w(name, 13)
@@ -41773,8 +41774,6 @@ def main(holder: Holder):
 	key_ralt = False
 	key_lalt = False
 
-	fields = Fields()
-
 	pref_box = Over(bag=bag, gui=gui)
 
 	inc_arrow = asset_loader(bag, loaded_asset_dc, "inc.png", True)
@@ -42576,7 +42575,7 @@ def main(holder: Holder):
 					power = 1000
 
 		if mouse_moved:
-			if fields.test():
+			if tauon.fields.test():
 				gui.update += 1
 
 		if gui.request_raise:
@@ -43539,7 +43538,7 @@ def main(holder: Holder):
 				if prefs.art_bg:
 					tauon.thread_manager.ready("style")
 
-			fields.clear()
+			tauon.fields.clear()
 			gui.cursor_want = 0
 
 			gui.layer_focus = 0
@@ -43580,7 +43579,7 @@ def main(holder: Holder):
 
 				rect = (window_size[0] - gui.rspw - 5 * gui.scale, gui.panelY, 12 * gui.scale,
 						window_size[1] - gui.panelY - gui.panelBY)
-				fields.add(rect)
+				tauon.fields.add(rect)
 
 				if (tauon.coll(rect) or gui.side_drag is True) \
 					and rename_track_box.active is False \
@@ -43790,7 +43789,7 @@ def main(holder: Holder):
 							card_mode = True
 
 						rect = (window_size[0] - 40 * gui.scale, gui.panelY, 38 * gui.scale, h)
-						fields.add(rect)
+						tauon.fields.add(rect)
 
 						# Show scroll area
 						if tauon.coll(rect) or gallery_scroll.held or scroll_gallery_hide_timer.get() < 0.9 or gui.album_tab_mode:
@@ -43802,7 +43801,7 @@ def main(holder: Holder):
 							if gui.pt == 0 and gui.power_bar is not None and len(gui.power_bar) > 3:
 								rect = (window_size[0] - (15 + 20) * gui.scale, gui.panelY + 3 * gui.scale, 18 * gui.scale,
 										24 * gui.scale)
-								fields.add(rect)
+								tauon.fields.add(rect)
 								colour = [255, 255, 255, 35]
 								if colours.lm:
 									colour = [0, 0, 0, 30]
@@ -43865,7 +43864,7 @@ def main(holder: Holder):
 											break
 
 										rect = (x, y, bag.album_mode_art_size, bag.album_mode_art_size + extend * gui.scale)
-										# fields.add(rect)
+										# tauon.fields.add(rect)
 										m_in = tauon.coll(rect) and gui.panelY < inp.mouse_position[1] < window_size[1] - gui.panelBY
 
 										# if m_in:
@@ -44056,7 +44055,7 @@ def main(holder: Holder):
 									# info = (0, 0, 0)
 
 									# rect = (x, y, bag.album_mode_art_size, bag.album_mode_art_size + extend * gui.scale)
-									# fields.add(rect)
+									# tauon.fields.add(rect)
 									# m_in = tauon.coll(rect) and gui.panelY < inp.mouse_position[1] < window_size[1] - gui.panelBY
 
 									if gui.first_in_grid is None and y > gui.panelY:  # This marks what track is the first in the grid
@@ -44225,7 +44224,7 @@ def main(holder: Holder):
 									# Determine mouse collision
 									rect = (x, y, bag.album_mode_art_size, bag.album_mode_art_size + extend * gui.scale)
 									m_in = tauon.coll(rect) and gui.panelY < inp.mouse_position[1] < window_size[1] - gui.panelBY
-									fields.add(rect)
+									tauon.fields.add(rect)
 
 									# Draw mouse-over highlight
 									if (not gallery_menu.active and m_in) or (gallery_menu.active and info[2]):
@@ -44368,7 +44367,7 @@ def main(holder: Holder):
 							run_y = top + 1
 
 							hot_r = (window_size[0] - 47 * gui.scale, top, 45 * gui.scale, h)
-							fields.add(hot_r)
+							tauon.fields.add(hot_r)
 
 							if gui.pt == 0:  # mouse moves in
 								if tauon.coll(hot_r) and window_is_focused():
@@ -44445,7 +44444,7 @@ def main(holder: Holder):
 
 									rect = [window_size[0] - item.peak_x, run_y, 7 * gui.scale, block_h]
 									i_rect = [window_size[0] - 36 * gui.scale, run_y, 34 * gui.scale, block_h]
-									fields.add(i_rect)
+									tauon.fields.add(i_rect)
 
 									if (tauon.coll(i_rect) or (
 										lightning_menu.active and lightning_menu.reference == item)) and item.peak_x == 9 * gui.scale:
@@ -44634,7 +44633,7 @@ def main(holder: Holder):
 							grip = (start + run, rect[1], 3 * gui.scale, rect[3])
 							m_grip = (grip[0] - 4 * gui.scale, grip[1], grip[2] + 8 * gui.scale, grip[3])
 							l_grip = (grip[0] + 9 * gui.scale, grip[1], box[2] - 14 * gui.scale, grip[3])
-							fields.add(m_grip)
+							tauon.fields.add(m_grip)
 
 							if tauon.coll(l_grip):
 								if inp.mouse_up and gui.set_label_hold != -1:
@@ -44732,7 +44731,7 @@ def main(holder: Holder):
 					# heart field test
 					if gui.heart_fields:
 						for field in gui.heart_fields:
-							fields.add(field, update_playlist_call)
+							tauon.fields.add(field, update_playlist_call)
 
 					if gui.pl_update > 0:
 						gui.rendered_playlist_position = playlist_view_position
@@ -44748,7 +44747,7 @@ def main(holder: Holder):
 							# else:
 							#     combo_pl_render.full_render()
 						else:
-							gui.heart_fields.clear()
+							gui.heart_tauon.fields.clear()
 							playlist_render.full_render()
 
 					elif gui.combo_mode:
@@ -44773,7 +44772,7 @@ def main(holder: Holder):
 							left = gui.tracklist_highlight_left
 							width = gui.tracklist_highlight_width
 						rect = [left, top, width, gui.set_height // 2.5]
-						fields.add(rect)
+						tauon.fields.add(rect)
 						gui.delay_frame(0.26)
 
 						if tauon.coll(rect) and gui.bar_hover_timer.get() > 0.25:
@@ -45137,7 +45136,7 @@ def main(holder: Holder):
 					pl_box_h = full
 
 					panel_rect = (0, gui.panelY, gui.lspw, pl_box_h)
-					fields.add(panel_rect)
+					tauon.fields.add(panel_rect)
 
 					if gui.force_side_on_drag and not quick_drag and not tauon.coll(panel_rect):
 						gui.force_side_on_drag = False
@@ -45224,7 +45223,7 @@ def main(holder: Holder):
 				gui.scroll_hide_box = (
 					x + 1 if not gui.maximized else x, top, 28 * gui.scale, window_size[1] - gui.panelBY - top)
 
-				fields.add(gui.scroll_hide_box)
+				tauon.fields.add(gui.scroll_hide_box)
 				if scroll_hide_timer.get() < 0.9 or ((tauon.coll(
 						gui.scroll_hide_box) or scroll_hold or quick_search_mode) and \
 						not menu_is_open() and \
@@ -45245,7 +45244,7 @@ def main(holder: Holder):
 						else:
 							sbl = 105 * gui.scale
 
-						fields.add((x + 2 * gui.scale, sbp, 20 * gui.scale, sbl))
+						tauon.fields.add((x + 2 * gui.scale, sbp, 20 * gui.scale, sbl))
 						if tauon.coll((x, top, 28 * gui.scale, ey - top)) and (
 								inp.mouse_down or right_click) \
 								and coll_point(inp.click_location, (x, top, 28 * gui.scale, ey - top)):
@@ -45511,7 +45510,7 @@ def main(holder: Holder):
 
 							rect = (x + w - round(35 * gui.scale), y + round(30 * gui.scale), round(30 * gui.scale),
 									round(30 * gui.scale))
-							fields.add(rect)
+							tauon.fields.add(rect)
 							if tauon.coll(rect):
 								l += 0.1
 								gui.cursor_want = 3
@@ -45564,7 +45563,7 @@ def main(holder: Holder):
 
 
 						rect = [x1, y1 + int(2 * gui.scale), 450 * gui.scale, 14 * gui.scale]
-						fields.add(rect)
+						tauon.fields.add(rect)
 						if tauon.coll(rect):
 							ddt.text((x1, y1), _("Title"), key_colour_on, 212)
 							if inp.mouse_click:
@@ -45583,7 +45582,7 @@ def main(holder: Holder):
 						y1 += int(16 * gui.scale)
 
 						rect = [x1, y1 + (2 * gui.scale), 450 * gui.scale, 14 * gui.scale]
-						fields.add(rect)
+						tauon.fields.add(rect)
 						if tauon.coll(rect):
 							ddt.text((x1, y1), _("Artist"), key_colour_on, 212)
 							if inp.mouse_click:
@@ -45603,7 +45602,7 @@ def main(holder: Holder):
 						y1 += int(16 * gui.scale)
 
 						rect = [x1, y1 + (2 * gui.scale), 450 * gui.scale, 14 * gui.scale]
-						fields.add(rect)
+						tauon.fields.add(rect)
 						if tauon.coll(rect):
 							ddt.text((x1, y1), _("Album"), key_colour_on, 212)
 							if inp.mouse_click:
@@ -45624,7 +45623,7 @@ def main(holder: Holder):
 						y1 += int(26 * gui.scale)
 
 						rect = [x1, y1, 450 * gui.scale, 16 * gui.scale]
-						fields.add(rect)
+						tauon.fields.add(rect)
 						path = tc.fullpath
 						if msys:
 							path = path.replace("/", "\\")
@@ -45675,7 +45674,7 @@ def main(holder: Holder):
 						if tc.artist != tc.album_artist != "":
 							x += int(170 * gui.scale)
 							rect = [x + 7 * gui.scale, y1 + (2 * gui.scale), 220 * gui.scale, 14 * gui.scale]
-							fields.add(rect)
+							tauon.fields.add(rect)
 							if tauon.coll(rect):
 								ddt.text((x + (8 + 75) * gui.scale, y1, 1), _("Album Artist"), key_colour_on, 212)
 								if inp.mouse_click:
@@ -45696,7 +45695,7 @@ def main(holder: Holder):
 						y1 += int(15 * gui.scale)
 
 						rect = [x1, y1, 150 * gui.scale, 16 * gui.scale]
-						fields.add(rect)
+						tauon.fields.add(rect)
 						if tauon.coll(rect):
 							ddt.text((x1, y1), _("Duration"), key_colour_on, 212)
 							if inp.mouse_click:
@@ -45741,7 +45740,7 @@ def main(holder: Holder):
 						y1 += int(23 * gui.scale)
 
 						rect = [x1, y1 + (2 * gui.scale), 150 * gui.scale, 14 * gui.scale]
-						fields.add(rect)
+						tauon.fields.add(rect)
 						if tauon.coll(rect):
 							ddt.text((x1, y1), _("Genre"), key_colour_on, 212)
 							if inp.mouse_click:
@@ -45757,7 +45756,7 @@ def main(holder: Holder):
 						y1 += int(15 * gui.scale)
 
 						rect = [x1, y1 + (2 * gui.scale), 150 * gui.scale, 14 * gui.scale]
-						fields.add(rect)
+						tauon.fields.add(rect)
 						if tauon.coll(rect):
 							ddt.text((x1, y1), _("Date"), key_colour_on, 212)
 							if inp.mouse_click:
@@ -45771,7 +45770,7 @@ def main(holder: Holder):
 						if tc.composer and tc.composer != tc.artist:
 							x += int(170 * gui.scale)
 							rect = [x + 7 * gui.scale, y1 + (2 * gui.scale), 220 * gui.scale, 14 * gui.scale]
-							fields.add(rect)
+							tauon.fields.add(rect)
 							if tauon.coll(rect):
 								ddt.text((x + (8 + 75) * gui.scale, y1, 1), _("Composer"), key_colour_on, 212)
 								if inp.mouse_click:
@@ -45826,7 +45825,7 @@ def main(holder: Holder):
 							y1 += 20 * gui.scale
 							rect = [x1, y1 + (2 * gui.scale), 60 * gui.scale, 14 * gui.scale]
 							# ddt.rect_r((x2, y1, 335, 10), [255, 20, 20, 255])
-							fields.add(rect)
+							tauon.fields.add(rect)
 							if tauon.coll(rect):
 								ddt.text((x1, y1), _("Comment"), key_colour_on, 212)
 								if inp.mouse_click:
@@ -45844,7 +45843,7 @@ def main(holder: Holder):
 								link_pa = draw_linked_text((x2, y1), tc.comment, value_colour, 12)
 								link_rect = [x + 98 * gui.scale + link_pa[0], y1 - 2 * gui.scale, link_pa[1], 20 * gui.scale]
 
-								fields.add(link_rect)
+								tauon.fields.add(link_rect)
 								if tauon.coll(link_rect):
 									if not inp.mouse_click:
 										gui.cursor_want = 3
@@ -45864,7 +45863,7 @@ def main(holder: Holder):
 					tool_rect = [window_size[0] - 110 * gui.scale, 2, 95 * gui.scale, 45 * gui.scale]
 					if prefs.left_window_control:
 						tool_rect[0] = 0
-					fields.add(tool_rect)
+					tauon.fields.add(tool_rect)
 					if not gui.top_bar_mode2 or tauon.coll(tool_rect):
 						draw_window_tools()
 
@@ -46326,7 +46325,7 @@ def main(holder: Holder):
 					ww = gui.lspw
 
 				rect = (ww + 5 * gui.scale, gui.panelY + 5 * gui.scale, 235 * gui.scale, 39 * gui.scale)
-				fields.add(rect)
+				tauon.fields.add(rect)
 
 				if tauon.coll(rect):
 					toast_love_timer.force_set(10)
@@ -46365,7 +46364,7 @@ def main(holder: Holder):
 					ww = window_size[0] // 2 - (215 * gui.scale // 2)
 
 				rect = (ww + 5 * gui.scale, gui.panelY + 5 * gui.scale, 215 * gui.scale, 39 * gui.scale)
-				fields.add(rect)
+				tauon.fields.add(rect)
 
 				if tauon.coll(rect):
 					queue_add_timer.force_set(10)
@@ -46407,7 +46406,7 @@ def main(holder: Holder):
 					ww += gui.lspw
 
 				rect = (ww + 8 * gui.scale, gui.panelY + 15 * gui.scale, wid + 20 * gui.scale, 25 * gui.scale)
-				fields.add(rect)
+				tauon.fields.add(rect)
 
 				if tauon.coll(rect):
 					toast_mode_timer.force_set(10)
