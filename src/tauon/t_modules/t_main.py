@@ -426,7 +426,7 @@ class WhiteModImageAsset:
 			self.colour = colour
 		self.rect.x = round(x)
 		self.rect.y = round(y)
-		SDL_RenderCopy(renderer, self.sdl_texture, None, self.rect)
+		SDL_RenderCopy(self.bag.renderer, self.sdl_texture, None, self.rect)
 
 class DConsole:
 	"""GUI console with logs"""
@@ -1067,15 +1067,16 @@ class Input:
 
 	def __init__(self, gui: GuiVar) -> None:
 		self.gui = gui
-		self.mouse_click = False
-		# self.right_click = False
-		self.level_2_enter = False
-		self.key_return_press = False
-		self.key_tab_press = False
-		self.backspace_press = 0
-		self.mouse_down = False
-		self.mouse_up = False
-		self.right_down = False
+		self.mouse_click:      bool = False
+		# self.right_click:    bool = False
+		self.level_2_enter:    bool = False
+		self.key_return_press: bool = False
+		self.key_tab_press:    bool = False
+		self.backspace_press:   int = 0
+		self.mouse_wheel:       int = 0
+		self.mouse_down:       bool = False
+		self.mouse_up:         bool = False
+		self.right_down:       bool = False
 		self.click_location = [200, 200]
 		self.last_click_location = [0, 0]
 		self.mouse_position = [0, 0]
@@ -5069,6 +5070,7 @@ class Tauon:
 		self.search_over                          = SearchOverlay(tauon=self)
 		self.radiobox                             = RadioBox(tauon=self)
 		self.pctl:                      PlayerCtl = PlayerCtl(tauon=self)
+		self.deco                                 = Deco(tauon=self)
 		self.lfm_scrobbler:             LastScrob = self.pctl.lfm_scrobbler
 		self.star_store:                StarStore = StarStore(tauon=self)
 		self.bottom_bar1                          = BottomBarType1(tauon=self)
@@ -6134,9 +6136,9 @@ class LyricsRenMini:
 		colour = colours.side_bar_line1
 
 		# if key_ctrl_down:
-		#	 if mouse_wheel < 0:
+		#	 if inp.mouse_wheel < 0:
 		#		 prefs.lyrics_font_size += 1
-		#	 if mouse_wheel > 0:
+		#	 if inp.mouse_wheel > 0:
 		#		 prefs.lyrics_font_size -= 1
 
 		ddt.text((x, y, 4, w), self.text, colour, prefs.lyrics_font_size, w - (w % 2), colours.side_panel_background)
@@ -6278,12 +6280,12 @@ class TimedLyricsRen:
 		if not self.ready:
 			return False
 
-		if mouse_wheel and (pctl.playing_state != 1 or pctl.track_queue[pctl.queue_step] != index):
+		if inp.mouse_wheel and (pctl.playing_state != 1 or pctl.track_queue[pctl.queue_step] != index):
 			if side_panel:
 				if tauon.coll((x, y, w, h)):
-					self.scroll_position += int(mouse_wheel * 30 * gui.scale)
+					self.scroll_position += int(inp.mouse_wheel * 30 * gui.scale)
 			else:
-				self.scroll_position += int(mouse_wheel * 30 * gui.scale)
+				self.scroll_position += int(inp.mouse_wheel * 30 * gui.scale)
 
 		line_active = -1
 		last = -1
@@ -10071,10 +10073,10 @@ class SearchOverlay:
 
 				self.old_mouse = copy.deepcopy(inp.mouse_position)
 
-			if mouse_wheel == -1:
+			if inp.mouse_wheel == -1:
 				self.on += 1
 				self.force_select += 1
-			if mouse_wheel == 1 and self.on > -1:
+			if inp.mouse_wheel == 1 and self.on > -1:
 				self.on -= 1
 				self.force_select -= 1
 
@@ -14305,9 +14307,9 @@ class TopPanel:
 
 		# Scroll anywhere on panel to cycle playlist
 		# (This is a bit complicated because we need to skip over hidden playlists)
-		if mouse_wheel != 0 and 1 < inp.mouse_position[1] < gui.panelY + 1 and len(pctl.multi_playlist) > 1 and inp.mouse_position[0] > 5:
+		if inp.mouse_wheel != 0 and 1 < inp.mouse_position[1] < gui.panelY + 1 and len(pctl.multi_playlist) > 1 and inp.mouse_position[0] > 5:
 
-			cycle_playlist_pinned(mouse_wheel)
+			cycle_playlist_pinned(inp.mouse_wheel)
 
 			gui.pl_update = 1
 			if not prefs.tabs_on_top:
@@ -14707,8 +14709,8 @@ class BottomBarType1:
 				gui.seek_cur_show = True
 
 			clicked = True
-			if mouse_wheel != 0:
-				pctl.seek_time(pctl.playing_time + (mouse_wheel * 3))
+			if inp.mouse_wheel != 0:
+				pctl.seek_time(pctl.playing_time + (inp.mouse_wheel * 3))
 
 		if gui.seek_cur_show:
 			gui.update += 1
@@ -14815,10 +14817,10 @@ class BottomBarType1:
 		if gui.buffering and pctl.buffering_percent:
 			ddt.rect_a((self.seek_bar_position[0], self.seek_bar_position[1] + self.seek_bar_size[1] - round(3 * gui.scale)), (self.seek_bar_size[0] * pctl.buffering_percent / 100, round(3 * gui.scale)), [255, 255, 255, 50])
 		# Volume mouse wheel control -----------------------------------------
-		if mouse_wheel != 0 and inp.mouse_position[1] > self.seek_bar_position[1] + 4 and not coll_point(
+		if inp.mouse_wheel != 0 and inp.mouse_position[1] > self.seek_bar_position[1] + 4 and not coll_point(
 			inp.mouse_position, self.seek_bar_position + self.seek_bar_size):
 
-			pctl.player_volume += mouse_wheel * prefs.volume_wheel_increment
+			pctl.player_volume += inp.mouse_wheel * prefs.volume_wheel_increment
 			if pctl.player_volume < 1:
 				pctl.player_volume = 0
 			elif pctl.player_volume > 100:
@@ -15511,10 +15513,10 @@ class BottomBarType_ao1:
 		# ddt.rect_r(rect, [255, 255, 255, 20])
 
 		# Volume mouse wheel control -----------------------------------------
-		if mouse_wheel != 0 and inp.mouse_position[1] > self.seek_bar_position[1] + 4 and not coll_point(
+		if inp.mouse_wheel != 0 and inp.mouse_position[1] > self.seek_bar_position[1] + 4 and not coll_point(
 			inp.mouse_position, self.seek_bar_position + self.seek_bar_size):
 
-			pctl.player_volume += mouse_wheel * prefs.volume_wheel_increment
+			pctl.player_volume += inp.mouse_wheel * prefs.volume_wheel_increment
 			if pctl.player_volume < 1:
 				pctl.player_volume = 0
 			elif pctl.player_volume > 100:
@@ -15860,10 +15862,10 @@ class MiniMode:
 			pctl.play_pause()
 
 		# Volume change on scroll
-		if mouse_wheel != 0:
+		if inp.mouse_wheel != 0:
 			self.volume_timer.set()
 
-			pctl.player_volume += mouse_wheel * prefs.volume_wheel_increment * 3
+			pctl.player_volume += inp.mouse_wheel * prefs.volume_wheel_increment * 3
 			if pctl.player_volume < 1:
 				pctl.player_volume = 0
 			elif pctl.player_volume > 100:
@@ -16087,10 +16089,10 @@ class MiniMode2:
 			pctl.play_pause()
 
 		# Volume change on scroll
-		if mouse_wheel != 0:
+		if inp.mouse_wheel != 0:
 			self.volume_timer.set()
 
-			pctl.player_volume += mouse_wheel * prefs.volume_wheel_increment * 3
+			pctl.player_volume += inp.mouse_wheel * prefs.volume_wheel_increment * 3
 			if pctl.player_volume < 1:
 				pctl.player_volume = 0
 			elif pctl.player_volume > 100:
@@ -16236,10 +16238,10 @@ class MiniMode3:
 			pctl.play_pause()
 
 		# Volume change on scroll
-		if mouse_wheel != 0:
+		if inp.mouse_wheel != 0:
 			self.volume_timer.set()
 
-			pctl.player_volume += mouse_wheel * prefs.volume_wheel_increment * 3
+			pctl.player_volume += inp.mouse_wheel * prefs.volume_wheel_increment * 3
 			if pctl.player_volume < 1:
 				pctl.player_volume = 0
 			elif pctl.player_volume > 100:
@@ -16480,9 +16482,15 @@ class MiniMode3:
 		ddt.alpha_bg = False
 
 class StandardPlaylist:
-	def __init__(self, tauon: Tauon):
-		self.gui = tauon.gui
-		pass
+	def __init__(self, tauon: Tauon, pl_bg: LoadImageAsset | None) -> None:
+		self.deco        = tauon.deco
+		self.gui         = tauon.gui
+		self.inp         = tauon.gui.inp
+		self.ddt         = tauon.bag.ddt
+		self.colours     = tauon.bag.colours
+		self.renderer    = tauon.bag.renderer
+		self.window_size = tauon.bag.window_size
+		self.pl_bg       = pl_bg
 
 	def full_render(self):
 		global highlight_left
@@ -16499,23 +16507,30 @@ class StandardPlaylist:
 		global r_menu_index
 		global r_menu_position
 
-		left = gui.playlist_left
-		width = gui.plw
+		gui         = self.gui
+		inp         = self.inp
+		window_size = self.window_size
+		ddt         = self.ddt
+		colours     = self.colours
+		pl_bg       = self.pl_bg
+		deco        = self.deco
+		left        = gui.playlist_left
+		width       = gui.plw
 
 		highlight_width = gui.tracklist_highlight_width
-		highlight_left = gui.tracklist_highlight_left
-		inset_width = gui.tracklist_inset_width
-		inset_left = gui.tracklist_inset_left
-		center_mode = gui.tracklist_center_mode
+		highlight_left  = gui.tracklist_highlight_left
+		inset_width     = gui.tracklist_inset_width
+		inset_left      = gui.tracklist_inset_left
+		center_mode     = gui.tracklist_center_mode
 
 		w = 0
 		gui.row_extra = 0
 		cv = 0  # update gui.playlist_current_visible_tracks
 
 		# Draw the background
-		SDL_SetRenderTarget(renderer, gui.tracklist_texture)
-		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0)
-		SDL_RenderClear(renderer)
+		SDL_SetRenderTarget(self.renderer, gui.tracklist_texture)
+		SDL_SetRenderDrawColor(self.renderer, 0, 0, 0, 0)
+		SDL_RenderClear(self.renderer)
 
 		rect = (left, gui.panelY, width, window_size[1])
 		ddt.rect(rect, colours.playlist_panel_background)
@@ -16533,7 +16548,7 @@ class StandardPlaylist:
 			deco.draw(ddt, xx, window_size[1] - gui.panelBY, pretty_text=True)
 
 		# Mouse wheel scrolling
-		if mouse_wheel != 0 and window_size[1] - gui.panelBY - 1 > inp.mouse_position[
+		if inp.mouse_wheel != 0 and window_size[1] - gui.panelBY - 1 > inp.mouse_position[
 			1] > gui.panelY - 2 and gui.playlist_left < inp.mouse_position[0] < gui.playlist_left + gui.plw \
 				and not (tauon.coll(pl_rect)) and not search_over.active and not radiobox.active:
 
@@ -16544,13 +16559,13 @@ class StandardPlaylist:
 				mx = 3
 			if gui.playlist_view_length < 10:
 				mx = 2
-			pctl.playlist_view_position -= mouse_wheel * mx
+			pctl.playlist_view_position -= inp.mouse_wheel * mx
 
 			if gui.playlist_view_length > 40:
-				pctl.playlist_view_position -= mouse_wheel
+				pctl.playlist_view_position -= inp.mouse_wheel
 
-			#if mouse_wheel:
-				#logging.debug("Position changed by mouse wheel scroll: " + str(mouse_wheel))
+			#if inp.mouse_wheel:
+				#logging.debug("Position changed by mouse wheel scroll: " + str(inp.mouse_wheel))
 
 			pctl.playlist_view_position = min(pctl.playlist_view_position, len(default_playlist))
 				#logging.debug("Position changed by range bound")
@@ -16575,8 +16590,8 @@ class StandardPlaylist:
 			half = int(top_a + (b * 0.60))
 
 			if pl_bg:
-				rect = (left + int(width / 2) - 80 * gui.scale, half - 10 * gui.scale,
-						190 * gui.scale, 60 * gui.scale)
+				rect = (
+					left + int(width / 2) - 80 * gui.scale, half - 10 * gui.scale, 190 * gui.scale, 60 * gui.scale)
 				ddt.pretty_rect = rect
 				ddt.alpha_bg = True
 
@@ -16602,8 +16617,8 @@ class StandardPlaylist:
 			half = int(top_a + (b * 0.17))
 
 			if pl_bg:
-				rect = (left + int(width / 2) - 60 * gui.scale, half - 5 * gui.scale,
-						140 * gui.scale, 30 * gui.scale)
+				rect = (
+					left + int(width / 2) - 60 * gui.scale, half - 5 * gui.scale, 140 * gui.scale, 30 * gui.scale)
 				ddt.pretty_rect = rect
 				ddt.alpha_bg = True
 
@@ -18527,7 +18542,7 @@ class RadioBox:
 
 		rect = (x, y, w, h)
 		if tauon.coll(rect):
-			self.scroll_position += mouse_wheel * -1
+			self.scroll_position += inp.mouse_wheel * -1
 		self.scroll_position = max(self.scroll_position, 0)
 		self.scroll_position = min(self.scroll_position, len(radio_list) // 2 - 7)
 
@@ -19041,8 +19056,8 @@ class PlaylistBox:
 		if window_size[0] < 700 * self.gui.scale:
 			tab_start = x + 4 * self.gui.scale
 
-		if mouse_wheel != 0 and tauon.coll((x, y, w, h)):
-			self.scroll_on -= mouse_wheel
+		if inp.mouse_wheel != 0 and tauon.coll((x, y, w, h)):
+			self.scroll_on -= inp.mouse_wheel
 
 		self.scroll_on = min(self.scroll_on, len(pctl.multi_playlist) - max_tabs + 1)
 
@@ -20064,11 +20079,11 @@ class ArtistList:
 		ddt.rect(area, colours.side_panel_background)
 		ddt.text_background_colour = colours.side_panel_background
 
-		if tauon.coll(area) and mouse_wheel:
+		if tauon.coll(area) and inp.mouse_wheel:
 			mx = 1
 			if prefs.artist_list_style == 2:
 				mx = 3
-			self.scroll_position -= mouse_wheel * mx
+			self.scroll_position -= inp.mouse_wheel * mx
 		self.scroll_position = max(self.scroll_position, 0)
 
 		range = (h // self.tab_h) - 1
@@ -20349,8 +20364,8 @@ class TreeView:
 		mouse_in = tauon.coll(area)
 
 		# Mouse wheel scrolling
-		if mouse_in and mouse_wheel:
-			scroll_position += mouse_wheel * -2
+		if mouse_in and inp.mouse_wheel:
+			scroll_position += inp.mouse_wheel * -2
 			scroll_position = max(scroll_position, 0)
 			scroll_position = min(scroll_position, max_scroll)
 
@@ -21012,7 +21027,7 @@ class QueueBox:
 
 		if tauon.coll(box_rect):
 			# Update scroll position
-			self.scroll_position += mouse_wheel * -1
+			self.scroll_position += inp.mouse_wheel * -1
 			self.scroll_position = max(self.scroll_position, 0)
 
 			if right_click:
@@ -21403,8 +21418,8 @@ class MetaBox:
 				showcase_menu.activate(track)
 
 		# Test for scroll wheel input
-		if mouse_wheel != 0 and tauon.coll((x + 10, y, w - 10, h)):
-			lyrics_ren_mini.lyrics_position += mouse_wheel * 30 * gui.scale
+		if inp.mouse_wheel != 0 and tauon.coll((x + 10, y, w - 10, h)):
+			lyrics_ren_mini.lyrics_position += inp.mouse_wheel * 30 * gui.scale
 			if lyrics_ren_mini.lyrics_position > 0:
 				lyrics_ren_mini.lyrics_position = 0
 				lyric_side_top_pulse.pulse()
@@ -21865,7 +21880,7 @@ class ArtistInfoBox:
 			scroll_max = self.th - (h - 26)
 
 			if tauon.coll((x, y, w, h)):
-				self.scroll_y += mouse_wheel * -20
+				self.scroll_y += inp.mouse_wheel * -20
 			self.scroll_y = max(self.scroll_y, 0)
 			self.scroll_y = min(self.scroll_y, scroll_max)
 
@@ -22216,6 +22231,7 @@ class RadioView:
 		self.colours     = tauon.bag.colours
 		self.ddt         = tauon.bag.ddt
 		self.gui         = tauon.gui
+		self.pctl        = tauon.pctl
 		self.window_size = tauon.bag.window_size
 		self.add_icon    = asset_loader(bag, bag.loaded_asset_dc, "add-station.png", True)
 		self.search_icon = asset_loader(bag, bag.loaded_asset_dc, "station-search.png", True)
@@ -22225,7 +22241,8 @@ class RadioView:
 		self.click_point = (0, 0)
 
 	def render(self):
-		gui = self.gui
+		pctl        = self.pctl
+		gui         = self.gui
 		window_size = self.window_size
 		# box = int(window_size[1] * 0.4 + 120 * gui.scale)
 		# box = min(window_size[0] // 2, box)
@@ -22309,7 +22326,7 @@ class RadioView:
 		if not radiobox.active or (radiobox.active and not tauon.coll((radiobox.x, radiobox.y, radiobox.w, radiobox.h))):
 			if gui.panelY < inp.mouse_position[1] < window_size[1] - gui.panelBY \
 			and inp.mouse_position[0] < w + round(70 * gui.scale):
-				scroll += mouse_wheel * -1
+				scroll += inp.mouse_wheel * -1
 		scroll = min(scroll, len(radios) - mm + 1)
 		scroll = max(scroll, 0)
 		if len(radios) > mm:
@@ -22601,8 +22618,8 @@ class Showcase:
 			gui.draw_vis4_top = False
 
 			if gui.panelY < inp.mouse_position[1] < window_size[1] - gui.panelBY:
-				if mouse_wheel != 0:
-					lyrics_ren.lyrics_position += mouse_wheel * 35 * gui.scale
+				if inp.mouse_wheel != 0:
+					lyrics_ren.lyrics_position += inp.mouse_wheel * 35 * gui.scale
 				if right_click:
 					# track = pctl.playing_object()
 					if track != None:
@@ -23427,10 +23444,10 @@ class EdgePulse2:
 		if time < self.ani_duration:
 
 			if bottom:
-				if mouse_wheel > 0:
+				if inp.mouse_wheel > 0:
 					self.timer.force_set(10)
 					return None
-			elif mouse_wheel < 0:
+			elif inp.mouse_wheel < 0:
 				self.timer.force_set(10)
 				return None
 
@@ -32919,7 +32936,6 @@ def sort_ass(h, invert=False, custom_list=None, custom_name=""):
 
 	if custom_list is None:
 		if key is not None:
-
 			if ns:
 				key = natsort.natsort_keygen(key=key, alg=natsort.PATH)
 
@@ -32931,7 +32947,6 @@ def sort_ass(h, invert=False, custom_list=None, custom_name=""):
 			pctl.playlist_view_position = 0
 			logging.debug("Position changed by sort")
 			gui.pl_update = 1
-
 	elif custom_list is not None:
 		playlist.sort(key=key, reverse=invert)
 	reload()
@@ -40434,7 +40449,7 @@ def main(holder: Holder):
 	star_store=tauon.star_store
 	pctl = tauon.pctl
 	lb = ListenBrainz(prefs)
-	deco = Deco(tauon)
+	deco = tauon.deco
 	deco.get_themes = get_themes
 	deco.renderer = renderer
 
@@ -41794,7 +41809,7 @@ def main(holder: Holder):
 		pl_bg = LoadImageAsset(
 			scaled_asset_directory=scaled_asset_directory, path=str(user_directory / "bg.png"), is_full_path=True)
 
-	playlist_render = StandardPlaylist(tauon=tauon)
+	playlist_render = StandardPlaylist(tauon=tauon, pl_bg=pl_bg)
 	art_box = ArtBox()
 	mini_lyrics_scroll = ScrollBox()
 	playlist_panel_scroll = ScrollBox()
@@ -42055,8 +42070,6 @@ def main(holder: Holder):
 
 	pctl.total_playtime = star_store.get_total()
 
-	inp.mouse_up = False
-	mouse_wheel = 0
 	reset_render = False
 	c_yax = 0
 	c_yax_timer = Timer()
@@ -42097,7 +42110,7 @@ def main(holder: Holder):
 			key_x_press = False
 			key_home_press = False
 			key_end_press = False
-			mouse_wheel = 0
+			inp.mouse_wheel = 0
 			pref_box.scroll = 0
 			new_playlist_cooldown = False
 			input_text = ""
@@ -42466,7 +42479,7 @@ def main(holder: Holder):
 			elif event.type == SDL_MOUSEWHEEL:
 				inp.k_input = True
 				power += 6
-				mouse_wheel += event.wheel.y
+				inp.mouse_wheel += event.wheel.y
 				gui.update += 1
 			elif event.type == SDL_WINDOWEVENT:
 
@@ -42634,7 +42647,7 @@ def main(holder: Holder):
 			SDL_Delay(3)
 			power = 1000
 
-		if mouse_wheel or inp.k_input or gui.pl_update or gui.update or top_panel.adds:  # or mouse_moved:
+		if inp.mouse_wheel or inp.k_input or gui.pl_update or gui.update or top_panel.adds:  # or mouse_moved:
 			power = 1000
 
 		if prefs.art_bg and core_timer.get() < 3:
@@ -42748,7 +42761,7 @@ def main(holder: Holder):
 				key_x_press = False
 				key_home_press = False
 				key_end_press = False
-				mouse_wheel = 0
+				inp.mouse_wheel = 0
 				pref_box.scroll = 0
 				input_text = ""
 				inp.level_2_enter = False
@@ -43122,8 +43135,8 @@ def main(holder: Holder):
 						right_click = False
 						pref_box.right_click = True
 
-					pref_box.scroll = mouse_wheel
-					mouse_wheel = 0
+					pref_box.scroll = inp.mouse_wheel
+					inp.mouse_wheel = 0
 				else:
 					if inp.mouse_click:
 						pref_box.close()
@@ -43136,7 +43149,7 @@ def main(holder: Holder):
 					radiobox.active or rename_track_box.active or gui.rename_playlist_box or gui.rename_folder_box or search_over.active):
 				right_click = False
 
-			if mouse_wheel != 0:
+			if inp.mouse_wheel != 0:
 				gui.update += 1
 			if inp.mouse_down is True:
 				gui.update += 1
@@ -43543,7 +43556,7 @@ def main(holder: Holder):
 
 			gui.layer_focus = 0
 
-			if inp.mouse_click or mouse_wheel or right_click:
+			if inp.mouse_click or inp.mouse_wheel or right_click:
 				inp.mouse_position[0], inp.mouse_position[1] = get_sdl_input.mouse()
 
 			if inp.mouse_click:
@@ -43763,14 +43776,14 @@ def main(holder: Holder):
 								and inp.mouse_position[0] > window_size[0] - w and gui.panelY < inp.mouse_position[1] < window_size[
 							1] - gui.panelBY:
 
-							if mouse_wheel != 0:
+							if inp.mouse_wheel != 0:
 								scroll_gallery_hide_timer.set()
 								gui.frame_callback_list.append(TestTimer(0.9))
 
 							if prefs.gallery_row_scroll:
-								gui.album_scroll_px -= mouse_wheel * (bag.album_mode_art_size + album_v_gap)  # 90
+								gui.album_scroll_px -= inp.mouse_wheel * (bag.album_mode_art_size + album_v_gap)  # 90
 							else:
-								gui.album_scroll_px -= mouse_wheel * prefs.gallery_scroll_wheel_px
+								gui.album_scroll_px -= inp.mouse_wheel * prefs.gallery_scroll_wheel_px
 
 							if gui.album_scroll_px < round(album_v_slide_value * -1):
 								gui.album_scroll_px = round(album_v_slide_value * -1)
@@ -44016,7 +44029,7 @@ def main(holder: Holder):
 						album_on = 0
 						album_count = 0
 
-						if not pref_box.enabled or mouse_wheel != 0:
+						if not pref_box.enabled or inp.mouse_wheel != 0:
 							gui.first_in_grid = None
 
 						# Render album grid
@@ -44588,10 +44601,10 @@ def main(holder: Holder):
 					if tauon.coll((
 							gui.playlist_left, gui.playlist_top, gui.plw,
 							window_size[1] - gui.panelY - gui.panelBY)) and not drag_mode and (
-							inp.mouse_click or mouse_wheel != 0 or right_click or middle_click or inp.mouse_up or inp.mouse_down):
+							inp.mouse_click or inp.mouse_wheel != 0 or right_click or middle_click or inp.mouse_up or inp.mouse_down):
 						gui.pl_update = 1
 
-					if gui.combo_mode and mouse_wheel != 0:
+					if gui.combo_mode and inp.mouse_wheel != 0:
 						gui.pl_update = 1
 
 					# MAIN PLAYLIST
@@ -44747,7 +44760,7 @@ def main(holder: Holder):
 							# else:
 							#     combo_pl_render.full_render()
 						else:
-							gui.heart_tauon.fields.clear()
+							gui.heart_fields.clear()
 							playlist_render.full_render()
 
 					elif gui.combo_mode:
@@ -45418,7 +45431,7 @@ def main(holder: Holder):
 						artist_preview_render.size[0] + border * 2), (20, 20, 20, 255))
 
 					artist_preview_render.draw(gui.preview_artist_location[0], gui.preview_artist_location[1])
-					if inp.mouse_click or right_click or mouse_wheel:
+					if inp.mouse_click or right_click or inp.mouse_wheel:
 						gui.preview_artist = ""
 
 				if track_box:
@@ -45804,8 +45817,8 @@ def main(holder: Holder):
 
 						rect = [x1, y1, 150, 14]
 
-						if tauon.coll(rect) and key_shift_down and mouse_wheel != 0:
-							star_store.add(r_menu_index, 60 * mouse_wheel)
+						if tauon.coll(rect) and key_shift_down and inp.mouse_wheel != 0:
+							star_store.add(r_menu_index, 60 * inp.mouse_wheel)
 
 						line = time.strftime("%H:%M:%S", time.gmtime(total))
 
