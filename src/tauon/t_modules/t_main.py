@@ -5041,6 +5041,8 @@ class Tauon:
 		self.draw_border:            bool = holder.draw_border
 		self.desktop:          str | None = bag.desktop
 		self.device                       = socket.gethostname()
+		self.move_jobs:              list = []
+		self.to_scan:                list = []
 		self.after_scan: list[TrackClass] = []
 		self.worker2_lock                 = threading.Lock()
 		#TODO(Martin) : Fix this by moving the class to root of the module
@@ -5061,6 +5063,16 @@ class Tauon:
 		self.user_directory:          Path | None = bag.dirs.user_directory
 		self.music_directory:         Path | None = bag.dirs.music_directory
 		self.locale_directory:               Path = bag.dirs.locale_directory
+		self.transcode_list:      list[list[int]] = []
+		self.transcode_state:                 str = ""
+		# TODO(Martin): Rework this LC_* stuff, maybe use a simple object instead?
+		self.LC_None                              = 0
+		self.LC_Done                              = 1
+		self.LC_Folder                            = 2
+		self.LC_File                              = 3
+		self.loaderCommand:                   int = self.LC_None
+		self.loaderCommandReady:             bool = False
+		self.cm_clean_db:                    bool = False
 		self.worker_save_state:              bool = False
 		self.launch_prefix:                   str = bag.launch_prefix
 		self.whicher                              = whicher
@@ -13592,11 +13604,12 @@ class Fields:
 		self.field_array = []
 
 class TopPanel:
-	def __init__(self, bag: Bag, gui: GuiVar):
-		self.fonts = bag.fonts
-		self.gui = gui
+	def __init__(self, tauon: Tauon) -> None:
+		self.fonts = tauon.bag.fonts
+		bag = tauon.bag
+		self.gui = tauon.gui
 		self.draw_max_button = bag.draw_max_button
-		self.height = gui.panelY
+		self.height = self.gui.panelY
 		self.ty = 0
 
 		self.start_space_left = round(46 * self.gui.scale)
@@ -13682,8 +13695,8 @@ class TopPanel:
 			if tr:
 				album_art_gen.display(tr, (window_size[0] - gui.panelY - 1, 0), (gui.panelY, gui.panelY))
 				if loading_in_progress or \
-						to_scan or \
-						cm_clean_db or \
+						tauon.to_scan or \
+						tauon.cm_clean_db or \
 						lastfm.scanning_friends or \
 						bag.after_scan or \
 						move_in_progress or \
@@ -14417,7 +14430,6 @@ class TopPanel:
 		status = True
 
 		if loading_in_progress:
-
 			bg = colours.status_info_text
 			if to_got == "xspf":
 				text = _("Importing XSPF playlist")
@@ -14436,12 +14448,12 @@ class TopPanel:
 		elif move_in_progress:
 			text = _("File copy in progress...")
 			bg = colours.status_info_text
-		elif cm_clean_db and to_get > 0:
+		elif tauon.cm_clean_db and to_get > 0:
 			per = str(int(to_got / to_get * 100))
 			text = _("Cleaning db...  ") + per + "%"
 			bg = [100, 200, 100, 255]
-		elif to_scan:
-			text = _("Rescanning Tags...  {N} remaining").format(N=str(len(to_scan)))
+		elif tauon.to_scan:
+			text = _("Rescanning Tags...  {N} remaining").format(N=str(len(tauon.to_scan)))
 			bg = [100, 200, 100, 255]
 		elif plex.scanning:
 			text = _("Accessing PLEX library...")
@@ -14559,9 +14571,9 @@ class TopPanel:
 			if gui.sync_progress:
 				text = gui.sync_progress
 			else:
-				text = _("{N} Folder Remaining {T}").format(N=str(len(transcode_list)), T=transcode_state)
+				text = _("{N} Folder Remaining {T}").format(N=str(len(transcode_list)), T=tauon.transcode_state)
 				if len(transcode_list) > 1:
-					text = _("{N} Folders Remaining {T}").format(N=str(len(transcode_list)), T=transcode_state)
+					text = _("{N} Folders Remaining {T}").format(N=str(len(transcode_list)), T=tauon.transcode_state)
 
 			x += ddt.text((x, y), text, bg, 311) + 8 * gui.scale
 
@@ -27039,7 +27051,7 @@ def stem_to_new_playlist(path: str) -> None:
 def move_playing_folder_to_tree_stem(path: str) -> None:
 	move_playing_folder_to_stem(path, pl_id=tree_view_box.get_pl_id())
 
-def move_playing_folder_to_stem(path: str, pl_id: int | None = None) -> None:
+def move_playing_folder_to_stem(tauon: Tauon, path: str, pl_id: int | None = None) -> None:
 	if not pl_id:
 		pl_id = pctl.multi_playlist[pctl.active_playlist_viewing].uuid_int
 
@@ -27139,7 +27151,7 @@ def move_playing_folder_to_stem(path: str, pl_id: int | None = None) -> None:
 
 	logging.info(artist_folder)
 	logging.info(os.path.join(artist_folder, track.parent_folder_name))
-	move_jobs.append(
+	tauon.move_jobs.append(
 		(move_folder, os.path.join(artist_folder, track.parent_folder_name), True,
 		track.parent_folder_name, load_order))
 	tauon.thread_manager.ready("worker")
@@ -28579,10 +28591,10 @@ def delete_playlist_ask(index: int):
 	gui.message_box_confirm_reference = (pl_to_id(index), True, True)
 	show_message(_("Are you sure you want to delete playlist: {name}?").format(name=pctl.multi_playlist[index].title), mode="confirm")
 
-def rescan_tags(pl: int) -> None:
-	for track in pctl.multi_playlist[pl].playlist_ids:
-		if pctl.master_library[track].is_cue is False:
-			to_scan.append(track)
+def rescan_tags(tauon: Tauon, pl: int) -> None:
+	for track in tauon.pctl.multi_playlist[pl].playlist_ids:
+		if tauon.pctl.master_library[track].is_cue is False:
+			tauon.to_scan.append(track)
 	tauon.thread_manager.ready("worker")
 
 # def re_import(pl: int) -> None:
@@ -31229,7 +31241,7 @@ def lightning_paste():
 
 			load_order.playlist_position = insert
 
-			move_jobs.append(
+			tauon.move_jobs.append(
 				(move_path, os.path.join(artist_folder, move_track.parent_folder_name), move,
 				move_track.parent_folder_name, load_order))
 			tauon.thread_manager.ready("worker")
@@ -32007,7 +32019,7 @@ def reload_metadata(input, keep_star: bool = True) -> None:
 
 		#logging.info('Reloading Metadata for ' + track.filename)
 		if keep_star:
-			to_scan.append(track.index)
+			tauon.to_scan.append(track.index)
 		else:
 			# if keep_star:
 			#     star = star_store.full_get(track.index)
@@ -32024,14 +32036,14 @@ def reload_metadata(input, keep_star: bool = True) -> None:
 	gui.pl_update += 1
 	tauon.thread_manager.ready("worker")
 
-def reload_metadata_selection() -> None:
+def reload_metadata_selection(tauon: Tauon) -> None:
 	cargo = []
 	for item in shift_selection:
 		cargo.append(default_playlist[item])
 
 	for k in cargo:
-		if pctl.master_library[k].is_cue == False:
-			to_scan.append(k)
+		if tauon.pctl.master_library[k].is_cue == False:
+			tauon.to_scan.append(k)
 	tauon.thread_manager.ready("worker")
 
 def editor(index: int | None) -> None:
@@ -33505,16 +33517,14 @@ def q_to_playlist():
 		hide_title=True,
 		selected=0))
 
-def clean_db() -> None:
-	global cm_clean_db
-	prefs.remove_network_tracks = False
-	cm_clean_db = True
+def clean_db(tauon: Tauon) -> None:
+	tauon.prefs.remove_network_tracks = False
+	tauon.cm_clean_db = True
 	tauon.thread_manager.ready("worker")
 
-def clean_db2() -> None:
-	global cm_clean_db
-	prefs.remove_network_tracks = True
-	cm_clean_db = True
+def clean_db2(tauon: Tauon) -> None:
+	tauon.prefs.remove_network_tracks = True
+	tauon.cm_clean_db = True
 	tauon.thread_manager.ready("worker")
 
 def import_fmps() -> None:
@@ -33853,8 +33863,8 @@ def locate_artist() -> None:
 
 	gui.pl_update += 1
 
-def activate_search_overlay() -> None:
-	if cm_clean_db:
+def activate_search_overlay(tauon: Tauon) -> None:
+	if tauon.cm_clean_db:
 		show_message(_("Please wait for cleaning process to finish"))
 		return
 	search_over.active = True
@@ -35251,14 +35261,14 @@ def worker2(tauon: Tauon) -> None:
 
 def worker1(tauon: Tauon) -> None:
 	global cue_list
-	global loaderCommand
-	global loaderCommandReady
 	global home
 	global loading_in_progress
 	global added
 	global to_get
 	global to_got
 
+	gui = tauon.gui
+	pctl = tauon.pctl
 	loaded_pathes_cache = {}
 	loaded_cue_cache = {}
 	added = []
@@ -35843,10 +35853,7 @@ def worker1(tauon: Tauon) -> None:
 
 	#logging.info(pctl.master_library)
 
-	global transcode_list
-	global transcode_state
 	global album_art_gen
-	global cm_clean_db
 	global to_got
 	global to_get
 	global move_in_progress
@@ -35864,11 +35871,11 @@ def worker1(tauon: Tauon) -> None:
 		or tauon.gui.regen_single > -1 \
 		or tauon.pctl.after_import_flag \
 		or tauon.worker_save_state \
-		or move_jobs \
-		or cm_clean_db \
-		or transcode_list \
-		or to_scan \
-		or loaderCommandReady:
+		or tauon.move_jobs \
+		or tauon.cm_clean_db \
+		or tauon.transcode_list \
+		or tauon.to_scan \
+		or tauon.loaderCommandReady:
 			active_timer.set()
 		elif active_timer.get() > 5:
 			return
@@ -35893,7 +35900,7 @@ def worker1(tauon: Tauon) -> None:
 
 			album_artist_dict.clear()
 
-		artist_list_box.worker()
+		tauon.artist_list_box.worker()
 
 		# Update smart playlists
 		if gui.regen_single_id is not None:
@@ -35926,10 +35933,10 @@ def worker1(tauon: Tauon) -> None:
 		if tauon.worker_save_state and \
 				not gui.pl_pulse and \
 				not loading_in_progress and \
-				not to_scan and not tauon.after_scan and \
+				not tauon.to_scan and not tauon.after_scan and \
 				not plex.scanning and \
 				not jellyfin.scanning and \
-				not cm_clean_db and \
+				not tauon.cm_clean_db and \
 				not lastfm.scanning_friends and \
 				not move_in_progress and \
 				(gui.lowered or not window_is_focused() or not gui.mouse_in_window):
@@ -35938,11 +35945,11 @@ def worker1(tauon: Tauon) -> None:
 			tauon.worker_save_state = False
 
 		# Folder moving
-		if len(move_jobs) > 0:
+		if len(tauon.move_jobs) > 0:
 			gui.update += 1
 			move_in_progress = True
-			job = move_jobs[0]
-			del move_jobs[0]
+			job = tauon.move_jobs[0]
+			del tauon.move_jobs[0]
 
 			if job[0].strip("\\/") == job[1].strip("\\/"):
 				show_message(_("Folder copy error."), _("The target and source are the same."), mode="info")
@@ -35979,7 +35986,7 @@ def worker1(tauon: Tauon) -> None:
 			gui.update += 1
 
 		# Clean database
-		if cm_clean_db is True:
+		if tauon.cm_clean_db is True:
 			items_removed = 0
 
 			# old_db = copy.deepcopy(pctl.master_library)
@@ -36017,7 +36024,7 @@ def worker1(tauon: Tauon) -> None:
 					pctl.purge_track(index)
 					items_removed += 1
 
-			cm_clean_db = False
+			tauon.cm_clean_db = False
 			show_message(
 				_("Cleaning complete."),
 				_("{N} items were removed from the database.").format(N=str(items_removed)), mode="done")
@@ -36037,10 +36044,9 @@ def worker1(tauon: Tauon) -> None:
 			pctl.notify_change()
 
 		# FOLDER ENC
-		if transcode_list:
-
+		if tauon.transcode_list:
 			try:
-				transcode_state = ""
+				tauon.transcode_state = ""
 				gui.update += 1
 
 				folder_items = transcode_list[0]
@@ -36108,7 +36114,6 @@ def worker1(tauon: Tauon) -> None:
 						if q == len(folder_items) and core_use == 0:
 							gui.update += 1
 							break
-
 				else:
 					logging.error("Codec error")
 
@@ -36125,12 +36130,11 @@ def worker1(tauon: Tauon) -> None:
 				#logging.info(transcode_list[0])
 
 				del transcode_list[0]
-				transcode_state = ""
+				tauon.transcode_state = ""
 				gui.update += 1
-
 			except Exception:
 				logging.exception("Transcode failed")
-				transcode_state = "Transcode Error"
+				tauon.transcode_state = "Transcode Error"
 				time.sleep(0.2)
 				show_message(_("Transcode failed."), _("An error was encountered."), mode="error")
 				gui.update += 1
@@ -36154,24 +36158,24 @@ def worker1(tauon: Tauon) -> None:
 						if system == "Linux" and de_notify_support:
 							g_tc_notify.show()
 
-		if to_scan:
-			while to_scan:
-				track = to_scan[0]
+		if tauon.to_scan:
+			while tauon.to_scan:
+				track = tauon.to_scan[0]
 				star = star_store.full_get(track)
 				star_store.remove(track)
 				pctl.master_library[track] = tag_scan(pctl.master_library[track])
 				star_store.merge(track, star)
 				lastfm.sync_pull_love(pctl.master_library[track])
-				del to_scan[0]
+				del tauon.to_scan[0]
 				gui.update += 1
 			album_artist_dict.clear()
 			pctl.notify_change()
 			gui.pl_update += 1
 
-		if loaderCommandReady is True:
+		if tauon.loaderCommandReady is True:
 			for order in load_orders:
 				if order.stage == 1:
-					if loaderCommand == LC_Folder:
+					if tauon.loaderCommand == tauon.LC_Folder:
 						to_get = 0
 						to_got = 0
 						loaded_pathes_cache, loaded_cue_cache = cache_paths()
@@ -36180,7 +36184,7 @@ def worker1(tauon: Tauon) -> None:
 							gets(order.target, force_scan=True)
 						else:
 							gets(order.target)
-					elif loaderCommand == LC_File:
+					elif tauon.loaderCommand == tauon.LC_File:
 						loaded_pathes_cache, loaded_cue_cache = cache_paths()
 						add_file(order.target)
 
@@ -36190,11 +36194,11 @@ def worker1(tauon: Tauon) -> None:
 						to_got = 0
 						load_orders.clear()
 						added = []
-						loaderCommand = LC_Done
-						loaderCommandReady = False
+						tauon.loaderCommand = LC_Done
+						tauon.loaderCommandReady = False
 						break
 
-					loaderCommand = LC_Done
+					tauon.loaderCommand = LC_Done
 					#logging.info("LOAD ORDER")
 					order.tracks = added
 
@@ -36206,7 +36210,7 @@ def worker1(tauon: Tauon) -> None:
 
 					added = []
 					order.stage = 2
-					loaderCommandReady = False
+					tauon.loaderCommandReady = False
 					#logging.info("DONE LOADING")
 					break
 
@@ -36379,12 +36383,12 @@ def gen_power2():
 
 	return h
 
-def reload_albums(quiet: bool = False, return_playlist: int = -1, custom_list=None) -> list[int] | None:
+def reload_albums(tauon: Tauon, quiet: bool = False, return_playlist: int = -1, custom_list=None) -> list[int] | None:
 	global album_dex
 	global update_layout
 	global old_album_pos
 
-	if cm_clean_db:
+	if tauon.cm_clean_db:
 		# Doing reload while things are being removed may cause crash
 		return None
 
@@ -39585,9 +39589,6 @@ def main(holder: Holder):
 
 	track_box = False
 
-	transcode_list: list[list[int]] = []
-	transcode_state = ""
-
 	taskbar_progress = True
 	track_queue: list[int] = []
 
@@ -39624,14 +39625,6 @@ def main(holder: Holder):
 	master_library: dict[int, TrackClass] = {}
 
 	cue_list = []
-
-	LC_None = 0
-	LC_Done = 1
-	LC_Folder = 2
-	LC_File = 3
-
-	loaderCommand = LC_None
-	loaderCommandReady = False
 
 	master_count = 0
 
@@ -41026,7 +41019,6 @@ def main(holder: Holder):
 
 	power_bar_icon = asset_loader(bag, loaded_asset_dc, "power.png", True)
 
-	move_jobs = []
 	move_in_progress = False
 
 	folder_tree_stem_menu.add(MenuItem(_("Open Folder"), open_folder_stem, pass_ref=True, icon=folder_icon))
@@ -41132,8 +41124,6 @@ def main(holder: Holder):
 
 	# Clear playlist
 	tab_menu.add(MenuItem(_("Clear"), clear_playlist, pass_ref=True, disable_test=test_pl_tab_locked, pass_ref_deco=True))
-
-	to_scan = []
 
 	tauon.sort_track_2 = sort_track_2
 
@@ -41633,7 +41623,6 @@ def main(holder: Holder):
 	x_menu.add_to_sub(0, MenuItem(_("Play History to Playlist"), q_to_playlist))
 	x_menu.add_to_sub(0, MenuItem(_("Reset Image Cache"), clear_img_cache))
 
-	cm_clean_db = False
 	# x_menu.add('Toggle Side panel', toggle_combo_view, combo_deco)
 
 	x_menu.add_to_sub(0, MenuItem(_("Remove Network Tracks"), clean_db2))
@@ -41826,7 +41815,7 @@ def main(holder: Holder):
 	dec_arrow = asset_loader(bag, loaded_asset_dc, "dec.png", True)
 	corner_icon = asset_loader(bag, loaded_asset_dc, "corner.png", True)
 
-	top_panel = TopPanel(bag=bag, gui=gui)
+	top_panel = TopPanel(tauon=tauon)
 	bottom_bar_ao1 = BottomBarType_ao1(bag=bag, gui=gui)
 	mini_mode = MiniMode(bag=bag, gui=gui)
 	mini_mode2 = MiniMode2(bag=bag, gui=gui)
@@ -43412,7 +43401,7 @@ def main(holder: Holder):
 			loading_in_progress = True
 			pctl.after_import_flag = True
 			tauon.thread_manager.ready("worker")
-			if loaderCommand == LC_None:
+			if tauon.loaderCommand == tauon.LC_None:
 
 				# Fliter out files matching CUE filenames
 				# This isnt the only mechanism that does this. This one helps in the situation
@@ -43436,16 +43425,16 @@ def main(holder: Holder):
 						order.traget = order.target.replace("\\", "/")
 						order.stage = 1
 						if os.path.isdir(order.traget):
-							loaderCommand = LC_Folder
+							tauon.loaderCommand = tauon.LC_Folder
 						else:
-							loaderCommand = LC_File
+							tauon.loaderCommand = tauon.LC_File
 							if order.traget.endswith(".xspf"):
 								to_got = "xspf"
 								to_get = 0
 							else:
 								to_got = 1
 								to_get = 1
-						loaderCommandReady = True
+						tauon.loaderCommandReady = True
 						tauon.thread_manager.ready("worker")
 						break
 
@@ -43453,8 +43442,8 @@ def main(holder: Holder):
 			loading_in_progress = False
 			pctl.notify_change()
 
-		if loaderCommand == LC_Done:
-			loaderCommand = LC_None
+		if tauon.loaderCommand == tauon.LC_Done:
+			tauon.loaderCommand = tauon.LC_None
 			gui.update += 1
 			# gui.pl_update = 1
 			# loading_in_progress = False
@@ -43464,16 +43453,16 @@ def main(holder: Holder):
 			update_layout = False
 
 		# if tauon.worker_save_state and\
-		#         not gui.pl_pulse and\
-		#         not loading_in_progress and\
-		#         not to_scan and\
-		#         not plex.scanning and\
-		#         not cm_clean_db and\
-		#         not lastfm.scanning_friends and\
-		#         not move_in_progress:
-		#     save_state()
-		#     cue_list.clear()
-		#     tauon.worker_save_state = False
+		# 		not gui.pl_pulse and\
+		# 		not loading_in_progress and\
+		# 		not tauon.to_scan and\
+		# 		not plex.scanning and\
+		# 		not tauon.cm_clean_db and\
+		# 		not lastfm.scanning_friends and\
+		# 		not move_in_progress:
+		# 	save_state()
+		# 	cue_list.clear()
+		# 	tauon.worker_save_state = False
 
 		# -----------------------------------------------------
 		# THEME SWITCHER--------------------------------------------------------------------
