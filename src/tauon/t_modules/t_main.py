@@ -40172,13 +40172,13 @@ def main(holder: Holder):
 				gui.restore_radio_view = save[164]
 			if save[165] is not None:
 				if db_version > 69:
-				radio_playlists = []
-				radioplaylist_jar = save[165]
-				for d in radioplaylist_jar:
-					nt = RadioPlaylist(**d)
-					radio_playlists.append(nt)
-			else:
-				radio_playlists = save[165]
+					radio_playlists = []
+					radioplaylist_jar = save[165]
+					for d in radioplaylist_jar:
+						nt = RadioPlaylist(**d)
+						radio_playlists.append(nt)
+				else:
+					radio_playlists = save[165]
 			if save[166] is not None:
 				radio_playlist_viewing = save[166]
 			if save[167] is not None:
@@ -40273,7 +40273,7 @@ def main(holder: Holder):
 		except ValueError:
 			logging.exception("That should not happen")
 			sys.exit(42)
-	except Exception:
+		except Exception:
 			logging.exception("Unknown error running database migration!")
 			sys.exit(42)
 
