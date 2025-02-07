@@ -535,6 +535,7 @@ class GuiVar:
 		self.lowered = False
 		self.request_raise = False
 		self.maximized = False
+		self.side_drag = False
 
 		self.message_box = False
 		self.message_text = ""
@@ -2105,7 +2106,7 @@ class PlayerCtl:
 
 		self.render_playlist()
 
-		if album_mode and not quiet:
+		if prefs.album_mode and not quiet:
 			if highlight:
 				self.gui.gallery_animate_highlight_on = goto_album(self.selected_in_playlist)
 				gallery_select_animate_timer.set()
@@ -2278,7 +2279,7 @@ class PlayerCtl:
 
 		self.lfm_scrobbler.start_queue()
 
-		if (album_mode or not self.gui.rsp) and (self.gui.theme_name == "Carbon" or self.prefs.colour_from_image):
+		if (prefs.album_mode or not self.gui.rsp) and (self.gui.theme_name == "Carbon" or self.prefs.colour_from_image):
 			target = self.playing_object()
 			if target and self.prefs.colour_from_image and target.parent_folder_path == colours.last_album:
 				return
@@ -2362,7 +2363,7 @@ class PlayerCtl:
 		if self.active_playlist_viewing == self.active_playlist_playing:
 			self.show_current(False, True)
 
-		if album_mode:
+		if prefs.album_mode:
 			goto_album(self.playlist_playing_position)
 		if self.gui.combo_mode and self.active_playlist_viewing == self.active_playlist_playing:
 			self.show_current()
@@ -3307,7 +3308,7 @@ class PlayerCtl:
 		elif self.prefs.auto_goto_playing:
 			self.show_current(quiet=quiet, this_only=True, playing=False, highlight=True, no_switch=True)
 
-		# if album_mode:
+		# if prefs.album_mode:
 		#	 goto_album(self.playlist_playing)
 
 		self.render_playlist()
@@ -10319,7 +10320,7 @@ class SearchOverlay:
 					match n:
 						case 0 | 1 | 2 | 3 | 5 | 6 | 7 | 10:
 							pctl.show_current(index=item[2], playing=False)
-							if album_mode:
+							if prefs.album_mode:
 								show_in_gal(0)
 						case 8:
 							pl = id_to_pl(item[3])
@@ -10641,8 +10642,6 @@ class Over:
 		self.key_box_focused = False
 
 	def theme(self, x0, y0, w0, h0):
-
-		global album_mode_art_size
 		global update_layout
 
 		y = y0 + 13 * gui.scale
@@ -11121,7 +11120,6 @@ class Over:
 		if prefs.zoom_art != old:
 			album_art_gen.clear_cache()
 
-		global album_mode_art_size
 		global update_layout
 		y += 35 * gui.scale
 		ddt.text((x, y), _("Gallery"), colours.box_text_label, 12)
@@ -11147,13 +11145,13 @@ class Over:
 		x += ddt.get_text_w(_("Thumbnail size"), 312)
 		# x += 20 * gui.scale
 
-		if album_mode_art_size < 160:
+		if bag.album_mode_art_size < 160:
 			self.toggle_square(x + 235 * gui.scale, y + 2 * gui.scale, toggle_gallery_thin, _("Prefer thinner padding"))
 
 		# ddt.text((x, y), _("Gallery art size"), colours.grey(220), 11)
 
-		album_mode_art_size = self.slide_control(
-			x + 25 * gui.scale, y, _("Thumbnail size"), "px", album_mode_art_size, 70, 400, 10, img_slide_update_gall)
+		bag.album_mode_art_size = self.slide_control(
+			x + 25 * gui.scale, y, _("Thumbnail size"), "px", bag.album_mode_art_size, 70, 400, 10, img_slide_update_gall)
 
 	def funcs(self, x0, y0, w0, h0):
 
@@ -12498,8 +12496,6 @@ class Over:
 			theme = len(get_themes())
 
 	def config_b(self, x0, y0, w0, h0):
-
-		global album_mode_art_size
 		global update_layout
 
 		ddt.text_background_colour = colours.box_background
@@ -16709,7 +16705,7 @@ class StandardPlaylist:
 							line_hit = False
 							inp.mouse_click = False
 
-							if album_mode:
+							if prefs.album_mode:
 								goto_album(pctl.playlist_playing_position)
 
 						# Show selection menu if right clicked after select
@@ -16731,7 +16727,7 @@ class StandardPlaylist:
 
 						# Add folder to selection if clicked
 						if inp.mouse_click and not (
-								scroll_enable and mouse_position[0] < 30 * gui.scale) and not side_drag:
+								scroll_enable and mouse_position[0] < 30 * gui.scale) and not gui.side_drag:
 
 							quick_drag = True
 							set_drag_source()
@@ -16820,7 +16816,7 @@ class StandardPlaylist:
 				mouse_up = False
 				line_hit = False
 
-				if album_mode:
+				if prefs.album_mode:
 					goto_album(pctl.playlist_playing_position)
 
 			if len(pctl.track_queue) > 0 and pctl.track_queue[pctl.queue_step] == track_id:
@@ -16855,7 +16851,7 @@ class StandardPlaylist:
 			#         playlist_hold = True
 
 			# Begin drag single track
-			if inp.mouse_click and line_hit and not side_drag:
+			if inp.mouse_click and line_hit and not gui.side_drag:
 				quick_drag = True
 				set_drag_source()
 
@@ -17534,7 +17530,7 @@ class StandardPlaylist:
 							if this_line_playing is True:
 								colour = colours.index_playing
 
-						if prefs.dim_art and album_mode and \
+						if prefs.dim_art and prefs.album_mode and \
 								n_track.parent_folder_name \
 								!= pctl.master_library[pctl.track_queue[pctl.queue_step]].parent_folder_name:
 							colour = alpha_mod(colour, 150)
@@ -17647,7 +17643,7 @@ class ArtBox:
 		result = 1
 
 		if target_track:  # Only show if song playing or paused
-			result = album_art_gen.display(target_track, (rect[0], rect[1]), (box_w, box_h), side_drag)
+			result = album_art_gen.display(target_track, (rect[0], rect[1]), (box_w, box_h), gui.side_drag)
 			showc = album_art_gen.get_info(target_track)
 
 		# Draw faint border on album art
@@ -19625,13 +19621,13 @@ class ArtistList:
 			self.saves[viewing_pl_id][2] = self.scroll_position
 
 	def draw_card_text_only(self, artist, x, y, w, area, thin_mode, line1_colour, line2_colour, light_mode, bg):
-		album_mode = False
+		prefs.album_mode = False
 		for albums in self.current_album_counts.values():
 			if len(albums) > 1:
-				album_mode = True
+				prefs.album_mode = True
 				break
 
-		if not album_mode:
+		if not prefs.album_mode:
 			count = self.current_artist_track_counts[artist]
 			if count > 1:
 				text = _("{N} tracks").format(N=str(count))
@@ -19764,13 +19760,13 @@ class ArtistList:
 
 		# Draw labels
 		if not thin_mode or (coll(area) and is_level_zero() and y + self.tab_h < window_size[1] - gui.panelBY):
-			album_mode = False
+			prefs.album_mode = False
 			for albums in self.current_album_counts.values():
 				if len(albums) > 1:
-					album_mode = True
+					prefs.album_mode = True
 					break
 
-			if not album_mode:
+			if not prefs.album_mode:
 				count = self.current_artist_track_counts[artist]
 				if count > 1:
 					text = _("{N} tracks").format(N=str(count))
@@ -20010,7 +20006,7 @@ class ArtistList:
 					pctl.selected_in_playlist = select
 					self.d_click_ref = artist
 					self.d_click_timer.set()
-					if album_mode:
+					if prefs.album_mode:
 						goto_album(select)
 
 			if middle_click:
@@ -22952,7 +22948,7 @@ class ViewBox:
 	def tracks(self, hit=False):
 
 		if hit is False:
-			return album_mode is False and \
+			return prefs.album_mode is False and \
 				gui.combo_mode is False and \
 				gui.rsp is False
 
@@ -22967,10 +22963,10 @@ class ViewBox:
 	def side(self, hit=False):
 
 		if hit is False:
-			return album_mode is False and \
+			return prefs.album_mode is False and \
 				gui.combo_mode is False and \
 				gui.rsp is True
-		if not (album_mode is False and \
+		if not (prefs.album_mode is False and \
 			gui.combo_mode is False and \
 			gui.rsp is True):
 			if x_menu.active:
@@ -22981,9 +22977,9 @@ class ViewBox:
 	def gallery1(self, hit: bool = False) -> bool | None:
 
 		if hit is False:
-			return album_mode is True  # and gui.show_playlist is True
+			return prefs.album_mode is True  # and gui.show_playlist is True
 
-		if album_mode and not gui.combo_mode:
+		if prefs.album_mode and not gui.combo_mode:
 			gui.hide_tracklist_in_gallery ^= True
 			gui.rspw = gui.pref_gallery_w
 			gui.update_layout()
@@ -23036,7 +23032,7 @@ class ViewBox:
 			if gui.combo_mode:
 				exit_combo()
 
-		if album_mode and gui.plw < 550 * gui.scale:
+		if prefs.album_mode and gui.plw < 550 * gui.scale:
 			toggle_album_mode(tauon=tauon)
 
 		toggle_library_mode()
@@ -23736,8 +23732,9 @@ def set_drag_source():
 	gui.drag_source_position = tuple(click_location)
 	gui.drag_source_position_persist = tuple(click_location)
 
-def update_set():
+def update_set(tauon: Tauon) -> None:
 	"""This is used to scale columns when windows is resized or items added/removed"""
+	gui = tauon.gui
 	wid = gui.plw - round(16 * gui.scale)
 	if gui.tracklist_center_mode:
 		wid = gui.tracklist_highlight_width - round(16 * gui.scale)
@@ -24602,8 +24599,7 @@ def scale_assets(bag: Bag, scale_want: int, force: bool = False) -> None:
 			item[1] *= diff_ratio
 		gui.pref_rspw = rspw * diff_ratio
 		gui.pref_gallery_w = grspw * diff_ratio
-		global album_mode_art_size
-		album_mode_art_size = int(album_mode_art_size * diff_ratio)
+		bag.album_mode_art_size = int(bag.album_mode_art_size * diff_ratio)
 
 def get_global_mouse():
 	i_y = pointer(c_int(0))
@@ -26215,10 +26211,9 @@ def pixel_to_logical(x):
 	return round((x / window_size[0]) * logical_size[0])
 
 def img_slide_update_gall(value, pause: bool = True) -> None:
-	global album_mode_art_size
 	gui.halt_image_rendering = True
 
-	album_mode_art_size = value
+	bag.album_mode_art_size = value
 
 	clear_img_cache(False)
 	if pause:
@@ -26227,9 +26222,9 @@ def img_slide_update_gall(value, pause: bool = True) -> None:
 	gui.halt_image_rendering = False
 
 	# Update sizes
-	tauon.gall_ren.size = album_mode_art_size
+	tauon.gall_ren.size = bag.album_mode_art_size
 
-	if album_mode_art_size > 150:
+	if bag.album_mode_art_size > 150:
 		prefs.thin_gallery_borders = False
 
 def clear_img_cache(delete_disk: bool = True) -> None:
@@ -26994,7 +26989,7 @@ def test_artist_dl(_):
 	return not prefs.auto_dl_artist_data
 
 def show_in_playlist(tauon: Tauon):
-	if album_mode and window_size[0] < 750 * gui.scale:
+	if prefs.album_mode and window_size[0] < 750 * gui.scale:
 		toggle_album_mode(tauon=tauon)
 
 	pctl.playlist_view_position = pctl.selected_in_playlist
@@ -28352,7 +28347,7 @@ def export_xspf(pl: int, direc: str | None = None, relative: bool = False, show:
 	return target
 
 def reload():
-	if album_mode:
+	if prefs.album_mode:
 		reload_albums(quiet=True)
 
 	# tree_view_box.clear_all()
@@ -28541,7 +28536,7 @@ def delete_playlist(index: int, force: bool = False, check_lock: bool = False) -
 		pctl.selected_in_playlist = pctl.multi_playlist[pctl.active_playlist_viewing].selected
 		shift_selection = [pctl.selected_in_playlist]
 
-		if album_mode:
+		if prefs.album_mode:
 			reload_albums(True)
 			goto_album(pctl.playlist_view_position)
 
@@ -31258,9 +31253,8 @@ def lightning_paste():
 		return
 
 	# for file in os.listdir(artist_folder):
-	#
 
-	if album_mode:
+	if prefs.album_mode:
 		prep_gal()
 		reload_albums(True)
 
@@ -31315,7 +31309,7 @@ def paste(playlist_no=None, track_id=None):
 					cargo.extend(l)
 			elif clip.startswith("https://open.spotify.com/playlist/"):
 				tauon.spot_ctl.playlist(link)
-		if album_mode:
+		if prefs.album_mode:
 			reload_albums()
 		gui.pl_update += 1
 		clip = False
@@ -31462,8 +31456,8 @@ def del_selected(force_delete: bool = False):
 def force_del_selected():
 	del_selected(force_delete=True)
 
-def test_show(dummy):
-	return album_mode
+def test_show(tauon:Tauon, dummy) -> bool:
+	return prefs.album_mode
 
 def show_in_gal(track: TrackClass, silent: bool = False):
 	# goto_album(pctl.playlist_selected)
@@ -31711,7 +31705,7 @@ def delete_folder(index, force=False):
 		else:
 			show_message(_("Hmm, its still there"), old, mode="error")
 
-		if album_mode:
+		if prefs.album_mode:
 			prep_gal()
 			reload_albums()
 
@@ -33011,7 +33005,7 @@ def toggle_galler_text(mode: int = 0) -> bool:
 	update_layout_do(tauon=tauon)
 
 	# Jump to playing album
-	if album_mode and gui.first_in_grid is not None:
+	if prefs.album_mode and gui.first_in_grid is not None:
 
 		if gui.first_in_grid < len(default_playlist):
 			goto_album(gui.first_in_grid, force=True)
@@ -33023,9 +33017,8 @@ def toggle_card_style(mode: int = 0) -> bool:
 	prefs.use_card_style ^= True
 	gui.update += 1
 
-def toggle_side_panel(mode: int = 0) -> bool:
+def toggle_side_panel(tauon: Tauon, mode: int = 0) -> bool:
 	global update_layout
-	global album_mode
 
 	if mode == 1:
 		return prefs.prefer_side
@@ -33033,7 +33026,7 @@ def toggle_side_panel(mode: int = 0) -> bool:
 	prefs.prefer_side ^= True
 	update_layout = True
 
-	if album_mode or prefs.prefer_side is True:
+	if prefs.album_mode or prefs.prefer_side is True:
 		gui.rsp = True
 	else:
 		gui.rsp = False
@@ -33041,22 +33034,22 @@ def toggle_side_panel(mode: int = 0) -> bool:
 	if prefs.prefer_side:
 		gui.rspw = gui.pref_rspw
 
-def force_album_view(tauon: Tauon):
+def force_album_view(tauon: Tauon) -> None:
 	toggle_album_mode(tauon=tauon, force_on=True)
 
-def enter_combo(tauon: Tauon):
+def enter_combo(tauon: Tauon) -> None:
 	if not tauon.gui.combo_mode:
-		tauon.gui.combo_was_album = tauon.album_mode
+		tauon.gui.combo_was_album = tauon.prefs.album_mode
 		tauon.gui.showcase_mode = False
 		tauon.gui.radio_view = False
-		if tauon.album_mode:
+		if tauon.prefs.album_mode:
 			toggle_album_mode(tauon=tauon)
 		if tauon.gui.rsp:
 			tauon.gui.rsp = False
 		tauon.gui.combo_mode = True
 		tauon.gui.update_layout()
 
-def exit_combo(restore=False):
+def exit_combo(restore: bool = False) -> None:
 	if gui.combo_mode:
 		if gui.combo_was_album and restore:
 			force_album_view()
@@ -33068,7 +33061,7 @@ def exit_combo(restore=False):
 		gui.combo_mode = False
 		gui.was_radio = False
 
-def enter_showcase_view(track_id=None):
+def enter_showcase_view(track_id=None) -> None:
 	if not gui.combo_mode:
 		enter_combo()
 		gui.was_radio = False
@@ -33093,16 +33086,14 @@ def standard_size(tauon: Tauon) -> None:
 	global window_size
 	global update_layout
 
-	global album_mode_art_size
-
-	tauon.album_mode = False
+	prefs.album_mode = False
 	tauon.gui.rsp = True
 	window_size = window_default_size
 	SDL_SetWindowSize(t_window, logical_size[0], logical_size[1])
 
 	gui.rspw = 80 + int(window_size[0] * 0.18)
 	update_layout = True
-	album_mode_art_size = 130
+	bag.album_mode_art_size = 130
 	# clear_img_cache()
 
 def path_stem_to_playlist(path: str, title: str) -> None:
@@ -33143,7 +33134,7 @@ def goto_album(playlist_no: int, down: bool = False, force: bool = False) -> lis
 		if gui.lsp:
 			w -= gui.lspw
 	area_x = w + 38 * gui.scale
-	row_len = int((area_x - album_h_gap) / (album_mode_art_size + album_h_gap))
+	row_len = int((area_x - album_h_gap) / (bag.album_mode_art_size + album_h_gap))
 	global last_row
 	last_row = row_len
 	# ----
@@ -33162,7 +33153,7 @@ def goto_album(playlist_no: int, down: bool = False, force: bool = False) -> lis
 		row += 1
 		if row > row_len - 1:
 			row = 0
-			px += album_mode_art_size + album_v_gap
+			px += bag.album_mode_art_size + album_v_gap
 
 	# If the album is within the view port already, dont jump to it
 	# (unless we really want to with force)
@@ -33170,8 +33161,8 @@ def goto_album(playlist_no: int, down: bool = False, force: bool = False) -> lis
 
 		# Dont chance the view since its alread in the view port
 		# But if the album is just out of view on the bottom, bring it into view on to bottom row
-		if window_size[1] > (album_mode_art_size + album_v_gap) * 2:
-			while not gui.album_scroll_px - 20 < px + (album_mode_art_size + album_v_gap + 3) < gui.album_scroll_px + \
+		if window_size[1] > (bag.album_mode_art_size + album_v_gap) * 2:
+			while not gui.album_scroll_px - 20 < px + (bag.album_mode_art_size + album_v_gap + 3) < gui.album_scroll_px + \
 				window_size[1] - 40:
 				gui.album_scroll_px += 1
 	else:
@@ -33195,15 +33186,15 @@ def toggle_album_mode(tauon: Tauon, force_on: bool = False) -> None:
 	pctl = tauon.pctl
 	gui.gall_tab_enter = False
 
-	if tauon.album_mode is True:
-		tauon.album_mode = False
+	if prefs.album_mode is True:
+		prefs.album_mode = False
 		# album_playlist_width = gui.playlist_width
 		# old_album_pos = gui.album_scroll_px
 		gui.rspw = gui.pref_rspw
 		gui.rsp = prefs.prefer_side
 		gui.album_tab_mode = False
 	else:
-		tauon.album_mode = True
+		prefs.album_mode = True
 		if gui.combo_mode:
 			exit_combo()
 
@@ -33214,7 +33205,7 @@ def toggle_album_mode(tauon: Tauon, force_on: bool = False) -> None:
 	if gui.lsp:
 		space -= gui.lspw
 
-	if tauon.album_mode and gui.set_mode and len(gui.pl_st) > 6 and space < 600 * gui.scale:
+	if prefs.album_mode and gui.set_mode and len(gui.pl_st) > 6 and space < 600 * gui.scale:
 		gui.set_mode = False
 		gui.pl_update = True
 		gui.update_layout()
@@ -33224,13 +33215,13 @@ def toggle_album_mode(tauon: Tauon, force_on: bool = False) -> None:
 	# if pctl.active_playlist_playing == pctl.active_playlist_viewing:
 	# goto_album(pctl.playlist_playing_position)
 
-	if tauon.album_mode:
+	if prefs.album_mode:
 		if pctl.selected_in_playlist < len(pctl.playing_playlist()):
 			goto_album(pctl.selected_in_playlist)
 
 def toggle_gallery_keycontrol(tauon: Tauon, always_exit: bool = False) -> None:
 	if is_level_zero():
-		if not album_mode:
+		if not prefs.album_mode:
 			toggle_album_mode(tauon=tauon)
 			gui.gall_tab_enter = True
 			gui.album_tab_mode = True
@@ -33338,7 +33329,7 @@ def switch_playlist(number, cycle=False, quiet=False):
 		gui.regen_single_id = id
 		tauon.thread_manager.ready("worker")
 
-	if album_mode:
+	if prefs.album_mode:
 		reload_albums(True)
 		if id in gui.gallery_positions:
 			gui.album_scroll_px = gui.gallery_positions[id]
@@ -33439,7 +33430,7 @@ def import_spotify_playlist() -> None:
 			clip = clip.strip()
 			tauon.spot_ctl.playlist(line)
 
-	if album_mode:
+	if prefs.album_mode:
 		reload_albums()
 	gui.pl_update += 1
 
@@ -34426,7 +34417,7 @@ def show_stop_quick_add(_) -> bool:
 def view_tracks(tauon: Tauon) -> None:
 	# if gui.show_playlist is False:
 	#     gui.show_playlist = True
-	if album_mode:
+	if prefs.album_mode:
 		toggle_album_mode(tauon=tauon)
 	if gui.combo_mode:
 		exit_combo()
@@ -34436,7 +34427,7 @@ def view_tracks(tauon: Tauon) -> None:
 # def view_standard_full():
 # 	# if gui.show_playlist is False:
 # 	# 	gui.show_playlist = True
-# 	if album_mode:
+# 	if prefs.album_mode:
 # 		toggle_album_mode(tauon=tauon)
 # 	if gui.combo_mode:
 # 		toggle_combo_view(off=True)
@@ -34449,7 +34440,7 @@ def view_tracks(tauon: Tauon) -> None:
 def view_standard_meta(tauon: Tauon) -> None:
 	# if gui.show_playlist is False:
 	#     gui.show_playlist = True
-	if album_mode:
+	if prefs.album_mode:
 		toggle_album_mode(tauon=tauon)
 
 	if gui.combo_mode:
@@ -34465,7 +34456,7 @@ def view_standard_meta(tauon: Tauon) -> None:
 def view_standard(tauon: Tauon) -> None:
 	# if gui.show_playlist is False:
 	#     gui.show_playlist = True
-	if album_mode:
+	if prefs.album_mode:
 		toggle_album_mode(tauon=tauon)
 	if gui.combo_mode:
 		exit_combo()
@@ -34473,7 +34464,7 @@ def view_standard(tauon: Tauon) -> None:
 		toggle_side_panel()
 
 def standard_view_deco():
-	if album_mode or gui.combo_mode or not gui.rsp:
+	if prefs.album_mode or gui.combo_mode or not gui.rsp:
 		line_colour = colours.menu_text
 	else:
 		line_colour = colours.menu_text_disabled
@@ -34482,7 +34473,7 @@ def standard_view_deco():
 # def gallery_only_view():
 # 	if gui.show_playlist is False:
 # 		return
-# 	if not album_mode:
+# 	if not prefs.album_mode:
 # 		toggle_album_mode(tauon=tauon)
 # 	gui.show_playlist = False
 # 	global album_playlist_width
@@ -34503,7 +34494,7 @@ def toggle_library_mode() -> None:
 
 def library_deco():
 	tc = colours.menu_text
-	if gui.combo_mode or (gui.show_playlist is False and album_mode):
+	if gui.combo_mode or (gui.show_playlist is False and prefs.album_mode):
 		tc = colours.menu_text_disabled
 
 	if gui.set_mode:
@@ -34512,7 +34503,7 @@ def library_deco():
 
 def break_deco():
 	tex = colours.menu_text
-	if gui.combo_mode or (gui.show_playlist is False and album_mode):
+	if gui.combo_mode or (gui.show_playlist is False and prefs.album_mode):
 		tex = colours.menu_text_disabled
 	if not break_enable:
 		tex = colours.menu_text_disabled
@@ -34940,10 +34931,10 @@ def worker2(tauon: Tauon) -> None:
 					o_text = o_text[7:]
 					artist_mode = True
 
-				album_mode = False
+				prefs.album_mode = False
 				if o_text.startswith("album "):
 					o_text = o_text[6:]
-					album_mode = True
+					prefs.album_mode = True
 
 				composer_mode = False
 				if o_text.startswith("composer "):
@@ -35209,7 +35200,7 @@ def worker2(tauon: Tauon) -> None:
 						if temp_results[i][0] != 0:
 							del temp_results[i]
 
-				elif album_mode:
+				elif prefs.album_mode:
 					for i in reversed(range(len(temp_results))):
 						if temp_results[i][0] != 1:
 							del temp_results[i]
@@ -36029,7 +36020,7 @@ def worker1(tauon: Tauon) -> None:
 			show_message(
 				_("Cleaning complete."),
 				_("{N} items were removed from the database.").format(N=str(items_removed)), mode="done")
-			if album_mode:
+			if prefs.album_mode:
 				reload_albums(True)
 			if gui.combo_mode:
 				reload_albums()
@@ -36229,7 +36220,7 @@ def get_album_info(position, pl: int | None = None):
 	if position in album_info_cache:
 		return album_info_cache[position]
 
-	if album_dex and album_mode and (pl is None or pl == pctl.active_playlist_viewing):
+	if album_dex and prefs.album_mode and (pl is None or pl == pctl.active_playlist_viewing):
 		dex = album_dex
 	else:
 		dex = reload_albums(custom_list=playlist)
@@ -37547,7 +37538,7 @@ def create_artist_pl(artist: str, replace: bool = False):
 	if replace:
 		pctl.multi_playlist[this_pl].playlist_ids[:] = playlist[:]
 		pctl.multi_playlist[this_pl].title = _("Artist: ") + artist
-		if album_mode:
+		if prefs.album_mode:
 			reload_albums()
 
 		# Transfer playing track back to original playlist
@@ -38008,7 +37999,7 @@ def reload_scale(bag: Bag):
 	prime_fonts(bag)
 	ddt.clear_text_cache()
 	scale_assets(bag=bag, scale_want=scale, force=True)
-	img_slide_update_gall(album_mode_art_size)
+	img_slide_update_gall(bag.album_mode_art_size)
 
 	for item in WhiteModImageAsset.assets:
 		item.reload()
@@ -38060,7 +38051,7 @@ def update_layout_do(tauon: Tauon):
 			((window_size[1] - gui.panelY - gui.panelBY - 17 * gui.scale) * gui.art_max_ratio_lock) + 17 * gui.scale)
 		# 17 here is the art box inset value
 
-		if not prefs.album_mode and gui.rspw > max_w - 12 * gui.scale and side_drag:
+		if not prefs.album_mode and gui.rspw > max_w - 12 * gui.scale and gui.side_drag:
 			gui.rsp_full_lock = True
 	# ----------------------------------------------------------
 
@@ -38132,7 +38123,7 @@ def update_layout_do(tauon: Tauon):
 		gui.playlist_top_bk = gui.playlist_top
 
 	gui.show_playlist = True
-	if w < 750 * gui.scale and album_mode:
+	if w < 750 * gui.scale and prefs.album_mode:
 		gui.show_playlist = False
 
 	# Set bio panel size according to setting
@@ -38311,23 +38302,23 @@ def update_layout_do(tauon: Tauon):
 			gui.art_unlock_ratio = False
 			gui.art_max_ratio_lock = 1
 
-		if side_drag and key_shift_down:
+		if gui.side_drag and key_shift_down:
 			gui.art_unlock_ratio = True
 			gui.art_max_ratio_lock = 5
 
 		gui.rspw = gui.pref_rspw
-		if album_mode:
+		if prefs.album_mode:
 			gui.rspw = gui.pref_gallery_w
 
 		# Limit the right side panel width to height of area
 		if gui.rsp and prefs.side_panel_layout == 0:
-			if album_mode:
+			if prefs.album_mode:
 				pass
 			else:
 
 				if not gui.art_unlock_ratio:
 
-					if gui.rsp_full_lock and not side_drag:
+					if gui.rsp_full_lock and not gui.side_drag:
 						gui.rspw = window_size[0]
 
 					gui.rspw = min(gui.rspw, window_size[1] - gui.panelY - gui.panelBY)
@@ -38353,7 +38344,7 @@ def update_layout_do(tauon: Tauon):
 						l = gui.lspw
 
 					gui.rspw = max(window_size[0] - l - 300, 110)
-					# if album_mode and window_size[0] > 750 * gui.scale:
+					# if prefs.album_mode and window_size[0] > 750 * gui.scale:
 					#     gui.pref_gallery_w = gui.rspw
 
 		# Determine how wide the playlist need to be (again)
@@ -38419,7 +38410,7 @@ def update_layout_do(tauon: Tauon):
 		gui.tracklist_highlight_left = highlight_left
 		gui.tracklist_highlight_width = highlight_width
 
-		if album_mode and gui.hide_tracklist_in_gallery:
+		if prefs.album_mode and gui.hide_tracklist_in_gallery:
 			gui.show_playlist = False
 			gui.rspw = window_size[0] - 20 * gui.scale
 			if gui.lsp:
@@ -38473,7 +38464,7 @@ def update_layout_do(tauon: Tauon):
 			SDL_SetRenderTarget(renderer, gui.main_texture_overlay_temp)
 			SDL_RenderClear(renderer)
 
-		update_set()
+		update_set(tauon=tauon)
 
 	if prefs.art_bg:
 		tauon.thread_manager.ready("style")
@@ -38540,7 +38531,7 @@ def save_state() -> None:
 		0,  # save time (unused)
 		gui.vis_want,  # gui.vis
 		pctl.selected_in_playlist,
-		album_mode_art_size,
+		bag.album_mode_art_size,
 		tauon.draw_border,
 		prefs.enable_web,
 		prefs.allow_remote,
@@ -39461,7 +39452,6 @@ def main(holder: Holder):
 	album_v_gap = 66
 	album_h_gap = 30
 	album_v_slide_value: int = 50
-	album_mode_art_size = int(200 * scale)
 
 	time_last_save = 0
 
@@ -39516,7 +39506,6 @@ def main(holder: Holder):
 	k_input = True
 	key_shift_down = False
 	drag_mode = False
-	side_drag = False
 	clicked = False
 
 	# Player Variables----------------------------------------------------------------------------
@@ -39719,7 +39708,7 @@ def main(holder: Holder):
 		playlist_playing=playlist_playing,
 		playlist_view_position=playlist_view_position,
 		selected_in_playlist=selected_in_playlist,
-		album_mode_art_size=album_mode_art_size,
+		album_mode_art_size=int(200 * scale),
 		tls_context=tls_context,
 		track_queue=track_queue,
 		volume=volume,
@@ -39876,7 +39865,7 @@ def main(holder: Holder):
 			gui.vis_want = save[22]
 			selected_in_playlist = save[23]
 			if save[24] is not None:
-				album_mode_art_size = save[24]
+				bag.album_mode_art_size = save[24]
 			if save[25] is not None:
 				draw_border = save[25]
 			if save[26] is not None:
@@ -42895,7 +42884,7 @@ def main(holder: Holder):
 			if not gui.rename_folder_box and not rename_track_box.active and not gui.rename_playlist_box and not radiobox.active and not pref_box.enabled and not trans_edit_box.active:
 
 				if not quick_search_mode and not search_over.active:
-					if album_mode and gui.album_tab_mode \
+					if prefs.album_mode and gui.album_tab_mode \
 							and not key_ctrl_down \
 							and not key_meta \
 							and not key_lalt:
@@ -43043,7 +43032,7 @@ def main(holder: Holder):
 				if keymaps.test("toggle-right-panel"):
 					if gui.combo_mode:
 						exit_combo()
-					elif not album_mode:
+					elif not prefs.album_mode:
 						toggle_side_panel()
 					else:
 						toggle_album_mode(tauon=tauon)
@@ -43467,9 +43456,8 @@ def main(holder: Holder):
 		# THEME SWITCHER--------------------------------------------------------------------
 
 		if gui.reload_theme is True:
-
 			gui.pl_update = 1
-			theme_files = get_themes()
+			theme_files = get_themes(dirs=dirs)
 
 			if theme > len(theme_files):  # sic
 				theme = 0
@@ -43477,7 +43465,6 @@ def main(holder: Holder):
 			if theme > 0:
 				theme_number = theme - 1
 				try:
-
 					colours.column_colours.clear()
 					colours.column_colours_playing.clear()
 
@@ -43614,13 +43601,13 @@ def main(holder: Holder):
 				# Side Bar Draging----------
 
 				if not mouse_down:
-					side_drag = False
+					gui.side_drag = False
 
 				rect = (window_size[0] - gui.rspw - 5 * gui.scale, gui.panelY, 12 * gui.scale,
 						window_size[1] - gui.panelY - gui.panelBY)
 				fields.add(rect)
 
-				if (coll(rect) or side_drag is True) \
+				if (coll(rect) or gui.side_drag is True) \
 					and rename_track_box.active is False \
 					and radiobox.active is False \
 					and gui.rename_playlist_box is False \
@@ -43629,17 +43616,17 @@ def main(holder: Holder):
 					and track_box is False \
 					and not gui.rename_folder_box \
 					and not Menu.active \
-					and (gui.rsp or album_mode) \
+					and (gui.rsp or prefs.album_mode) \
 					and not artist_info_scroll.held \
 					and gui.layer_focus == 0 and gui.show_playlist:
 
-					if side_drag is True:
+					if gui.side_drag is True:
 						draw_sep_hl = True
 						# gui.update += 1
 						gui.update_on_drag = True
 
 					if inp.mouse_click:
-						side_drag = True
+						gui.side_drag = True
 						gui.side_bar_drag_source = mouse_position[0]
 						gui.side_bar_drag_original = gui.rspw
 
@@ -43647,14 +43634,14 @@ def main(holder: Holder):
 						gui.cursor_want = 1
 
 				# side drag update
-				if side_drag:
+				if gui.side_drag:
 
 					offset = gui.side_bar_drag_source - mouse_position[0]
 
 					target = gui.side_bar_drag_original + offset
 
 					# Snap to album mode position if close
-					if not album_mode and prefs.side_panel_layout == 1:
+					if not prefs.album_mode and prefs.side_panel_layout == 1:
 						if abs(target - gui.pref_gallery_w) < 35 * gui.scale:
 							target = gui.pref_gallery_w
 
@@ -43670,7 +43657,7 @@ def main(holder: Holder):
 					else:
 						max_w = window_size[0]
 
-					if not album_mode and target > max_w - 12 * gui.scale:
+					if not prefs.album_mode and target > max_w - 12 * gui.scale:
 						target = max_w
 						gui.rspw = target
 						gui.rsp_full_lock = True
@@ -43679,18 +43666,18 @@ def main(holder: Holder):
 						gui.rspw = target
 						gui.rsp_full_lock = False
 
-					if album_mode:
+					if prefs.album_mode:
 						pass
 						# gui.rspw = target
 
-					if album_mode and gui.rspw < album_mode_art_size + 50 * gui.scale:
-						target = album_mode_art_size + 50 * gui.scale
+					if prefs.album_mode and gui.rspw < bag.album_mode_art_size + 50 * gui.scale:
+						target = bag.album_mode_art_size + 50 * gui.scale
 
 					# Prevent side bar getting too small
 					target = max(target, 120 * gui.scale)
 
 					# Remember size for this view mode
-					if not album_mode:
+					if not prefs.album_mode:
 						gui.pref_rspw = target
 					else:
 						gui.pref_gallery_w = target
@@ -43701,7 +43688,7 @@ def main(holder: Holder):
 				# Gallery view
 				# C-AR
 
-				if album_mode:
+				if prefs.album_mode:
 					try:
 						# Arrow key input
 						if gal_right:
@@ -43761,7 +43748,7 @@ def main(holder: Holder):
 						area_x = w + 38 * gui.scale
 						# area_x = w - 40 * gui.scale
 
-						row_len = int((area_x - album_h_gap) / (album_mode_art_size + album_h_gap))
+						row_len = int((area_x - album_h_gap) / (bag.album_mode_art_size + album_h_gap))
 
 						#logging.info(row_len)
 
@@ -43794,7 +43781,7 @@ def main(holder: Holder):
 						album_on = 0
 
 						max_scroll = round(
-							(math.ceil((len(album_dex)) / row_len) - 1) * (album_mode_art_size + album_v_gap)) - round(
+							(math.ceil((len(album_dex)) / row_len) - 1) * (bag.album_mode_art_size + album_v_gap)) - round(
 							50 * gui.scale)
 
 						# Mouse wheel scrolling
@@ -43807,7 +43794,7 @@ def main(holder: Holder):
 								gui.frame_callback_list.append(TestTimer(0.9))
 
 							if prefs.gallery_row_scroll:
-								gui.album_scroll_px -= mouse_wheel * (album_mode_art_size + album_v_gap)  # 90
+								gui.album_scroll_px -= mouse_wheel * (bag.album_mode_art_size + album_v_gap)  # 90
 							else:
 								gui.album_scroll_px -= mouse_wheel * prefs.gallery_scroll_wheel_px
 
@@ -43885,9 +43872,9 @@ def main(holder: Holder):
 								if b_info_bar and render_pos > gui.album_scroll_px + b_info_y:
 									break
 
-								if render_pos < gui.album_scroll_px - album_mode_art_size - album_v_gap:
+								if render_pos < gui.album_scroll_px - bag.album_mode_art_size - album_v_gap:
 									# Skip row
-									render_pos += album_mode_art_size + album_v_gap
+									render_pos += bag.album_mode_art_size + album_v_gap
 									album_on += row_len
 								else:
 									# render row
@@ -43897,21 +43884,21 @@ def main(holder: Holder):
 										if album_on > len(album_dex) - 1:
 											break
 
-										x = (l_area + dev * a) - int(album_mode_art_size / 2) + int(dev / 2) + int(
+										x = (l_area + dev * a) - int(bag.album_mode_art_size / 2) + int(dev / 2) + int(
 											compact / 2) - a_offset
 
 										if album_dex[album_on] > len(default_playlist):
 											break
 
-										rect = (x, y, album_mode_art_size, album_mode_art_size + extend * gui.scale)
+										rect = (x, y, bag.album_mode_art_size, bag.album_mode_art_size + extend * gui.scale)
 										# fields.add(rect)
 										m_in = coll(rect) and gui.panelY < mouse_position[1] < window_size[1] - gui.panelBY
 
 										# if m_in:
-										#     ddt.rect_r((x - 7, y - 7, album_mode_art_size + 14, album_mode_art_size + extend + 55), [80, 80, 80, 80], True)
+										#     ddt.rect_r((x - 7, y - 7, bag.album_mode_art_size + 14, bag.album_mode_art_size + extend + 55), [80, 80, 80, 80], True)
 
 										# Quick drag and drop
-										if mouse_up and (playlist_hold and m_in) and not side_drag and shift_selection:
+										if mouse_up and (playlist_hold and m_in) and not gui.side_drag and shift_selection:
 
 											info = get_album_info(album_dex[album_on])
 											if info[1]:
@@ -43947,16 +43934,13 @@ def main(holder: Holder):
 												reload_albums(True)
 												pctl.notify_change()
 
-										elif not side_drag and is_level_zero():
-
+										elif not gui.side_drag and is_level_zero():
 											if coll_point(click_location, rect) and gui.panelY < mouse_position[1] < \
 													window_size[1] - gui.panelBY:
 												info = get_album_info(album_dex[album_on])
 
 												if m_in and mouse_up and prefs.gallery_single_click:
-
 													if is_level_zero() and gui.d_click_ref == album_dex[album_on]:
-
 														if info[0] == 1 and pctl.playing_state == 2:
 															pctl.play()
 														elif info[0] == 1 and pctl.playing_state > 0:
@@ -43966,9 +43950,7 @@ def main(holder: Holder):
 															pctl.playlist_view_position = album_dex[album_on]
 															logging.debug("Position changed by gallery click")
 															pctl.jump(default_playlist[album_dex[album_on]], album_dex[album_on])
-
 														pctl.show_current()
-
 												elif mouse_down and not m_in:
 													info = get_album_info(album_dex[album_on])
 													quick_drag = True
@@ -43979,17 +43961,12 @@ def main(holder: Holder):
 													click_location = [0, 0]
 
 										if m_in:
-
 											info = get_album_info(album_dex[album_on])
 											if inp.mouse_click:
-
 												if prefs.gallery_single_click:
 													gui.d_click_ref = album_dex[album_on]
-
 												else:
-
 													if d_click_timer.get() < 0.5 and gui.d_click_ref == album_dex[album_on]:
-
 														if info[0] == 1 and pctl.playing_state == 2:
 															pctl.play()
 														elif info[0] == 1 and pctl.playing_state > 0:
@@ -43999,7 +43976,6 @@ def main(holder: Holder):
 															pctl.playlist_view_position = album_dex[album_on]
 															logging.debug("Position changed by gallery click")
 															pctl.jump(default_playlist[album_dex[album_on]], album_dex[album_on])
-
 													else:
 														gui.d_click_ref = album_dex[album_on]
 														d_click_timer.set()
@@ -44008,7 +43984,6 @@ def main(holder: Holder):
 													logging.debug("Position changed by gallery click")
 													pctl.selected_in_playlist = album_dex[album_on]
 													gui.pl_update += 1
-
 											elif middle_click and is_level_zero():
 												# Middle click to add album to queue
 												if key_ctrl_down:
@@ -44024,10 +43999,8 @@ def main(holder: Holder):
 												else:
 													# Add to queue grouped
 													add_album_to_queue(default_playlist[album_dex[album_on]])
-
 											elif right_click:
 												if pctl.quick_add_target:
-
 													pl = id_to_pl(pctl.quick_add_target)
 													if pl is not None:
 														parent = pctl.get_track(
@@ -44042,9 +44015,7 @@ def main(holder: Holder):
 															for i in range(len(default_playlist)):
 																if pctl.get_track(default_playlist[i]).parent_folder_path == parent:
 																	pctl.multi_playlist[pl].playlist_ids.append(default_playlist[i])
-
 													reload_albums(True)
-
 												else:
 													pctl.selected_in_playlist = album_dex[album_on]
 													# playlist_position = pctl.playlist_selected
@@ -44066,7 +44037,7 @@ def main(holder: Holder):
 
 									if album_on > len(album_dex):
 										break
-									render_pos += album_mode_art_size + album_v_gap
+									render_pos += bag.album_mode_art_size + album_v_gap
 
 						render_pos = 0
 						album_on = 0
@@ -44077,13 +44048,12 @@ def main(holder: Holder):
 
 						# Render album grid
 						while render_pos < gui.album_scroll_px + window_size[1] and default_playlist:
-
 							if b_info_bar and render_pos > gui.album_scroll_px + b_info_y:
 								break
 
-							if render_pos < gui.album_scroll_px - album_mode_art_size - album_v_gap:
+							if render_pos < gui.album_scroll_px - bag.album_mode_art_size - album_v_gap:
 								# Skip row
-								render_pos += album_mode_art_size + album_v_gap
+								render_pos += bag.album_mode_art_size + album_v_gap
 								album_on += row_len
 							else:
 								# render row
@@ -44096,11 +44066,10 @@ def main(holder: Holder):
 								# if y >
 
 								for a in range(row_len):
-
 									if album_on > len(album_dex) - 1:
 										break
 
-									x = (l_area + dev * a) - int(album_mode_art_size / 2) + int(dev / 2) + int(
+									x = (l_area + dev * a) - int(bag.album_mode_art_size / 2) + int(dev / 2) + int(
 										compact / 2) - a_offset
 
 									if album_dex[album_on] > len(default_playlist):
@@ -44112,7 +44081,7 @@ def main(holder: Holder):
 									album = info[1]
 									# info = (0, 0, 0)
 
-									# rect = (x, y, album_mode_art_size, album_mode_art_size + extend * gui.scale)
+									# rect = (x, y, bag.album_mode_art_size, bag.album_mode_art_size + extend * gui.scale)
 									# fields.add(rect)
 									# m_in = coll(rect) and gui.panelY < mouse_position[1] < window_size[1] - gui.panelBY
 
@@ -44126,25 +44095,25 @@ def main(holder: Holder):
 										ddt.text_background_colour = colours.grey(250)
 										drop_shadow.render(
 											x + 3 * gui.scale, y + 3 * gui.scale,
-											album_mode_art_size + 11 * gui.scale,
-											album_mode_art_size + 45 * gui.scale + 13 * gui.scale)
+											bag.album_mode_art_size + 11 * gui.scale,
+											bag.album_mode_art_size + 45 * gui.scale + 13 * gui.scale)
 										ddt.rect(
-											(x, y, album_mode_art_size, album_mode_art_size + 45 * gui.scale), colours.grey(250))
+											(x, y, bag.album_mode_art_size, bag.album_mode_art_size + 45 * gui.scale), colours.grey(250))
 
 									# White background needs extra border
 									if colours.lm and not card_mode:
-										ddt.rect_a((x - 2, y - 2), (album_mode_art_size + 4, album_mode_art_size + 4), colours.grey(200))
+										ddt.rect_a((x - 2, y - 2), (bag.album_mode_art_size + 4, bag.album_mode_art_size + 4), colours.grey(200))
 
 									if a == row_len - 1:
 										gui.gallery_scroll_field_left = max(
-											x + album_mode_art_size,
+											x + bag.album_mode_art_size,
 											window_size[0] - round(50 * gui.scale))
 
 									if info[0] == 1 and 0 < pctl.playing_state < 3:
 										ddt.rect_a(
-											(x - 4, y - 4), (album_mode_art_size + 8, album_mode_art_size + 8),
+											(x - 4, y - 4), (bag.album_mode_art_size + 8, bag.album_mode_art_size + 8),
 											colours.gallery_highlight)
-										# ddt.rect_a((x, y), (album_mode_art_size, album_mode_art_size),
+										# ddt.rect_a((x, y), (bag.album_mode_art_size, bag.album_mode_art_size),
 										#            colours.gallery_background, True)
 
 									# Draw quick add highlight
@@ -44155,7 +44124,7 @@ def main(holder: Holder):
 											c = [110, 233, 90, 255]
 											if colours.lm:
 												c = [66, 244, 66, 255]
-											ddt.rect_a((x - 4, y - 4), (album_mode_art_size + 8, album_mode_art_size + 8), c)
+											ddt.rect_a((x - 4, y - 4), (bag.album_mode_art_size + 8, bag.album_mode_art_size + 8), c)
 
 									# Draw transcode highlight
 									if transcode_list and os.path.isdir(prefs.encoder_output):
@@ -44173,8 +44142,8 @@ def main(holder: Holder):
 											c = [244, 212, 66, 255]
 											if colours.lm:
 												c = [244, 64, 244, 255]
-											ddt.rect_a((x - 4, y - 4), (album_mode_art_size + 8, album_mode_art_size + 8), c)
-											# ddt.rect_a((x, y), (album_mode_art_size, album_mode_art_size),
+											ddt.rect_a((x - 4, y - 4), (bag.album_mode_art_size + 8, bag.album_mode_art_size + 8), c)
+											# ddt.rect_a((x, y), (bag.album_mode_art_size, bag.album_mode_art_size),
 											#            colours.gallery_background, True)
 
 									# Draw selection
@@ -44182,8 +44151,8 @@ def main(holder: Holder):
 									if (gui.album_tab_mode or gallery_menu.active) and info[2] is True:
 										c = colours.gallery_highlight
 										c = [c[1], c[2], c[0], c[3]]
-										ddt.rect_a((x - 4, y - 4), (album_mode_art_size + 8, album_mode_art_size + 8), c)  # [150, 80, 222, 255]
-										# ddt.rect_a((x, y), (album_mode_art_size, album_mode_art_size),
+										ddt.rect_a((x - 4, y - 4), (bag.album_mode_art_size + 8, bag.album_mode_art_size + 8), c)  # [150, 80, 222, 255]
+										# ddt.rect_a((x, y), (bag.album_mode_art_size, bag.album_mode_art_size),
 										#            colours.gallery_background, True)
 
 									# Draw selection animation
@@ -44200,22 +44169,22 @@ def main(holder: Holder):
 											a = int(255 - 255 * (t - 0.5))
 
 										c = [c[1], c[2], c[0], a]
-										ddt.rect_a((x - 5, y - 5), (album_mode_art_size + 10, album_mode_art_size + 10), c)  # [150, 80, 222, 255]
+										ddt.rect_a((x - 5, y - 5), (bag.album_mode_art_size + 10, bag.album_mode_art_size + 10), c)  # [150, 80, 222, 255]
 
 										gui.update += 1
 
 									# Draw faint outline
 									ddt.rect(
-										(x - 1, y - 1, album_mode_art_size + 2, album_mode_art_size + 2),
+										(x - 1, y - 1, bag.album_mode_art_size + 2, bag.album_mode_art_size + 2),
 										[255, 255, 255, 11])
 
 									if gui.album_tab_mode or gallery_menu.active:
 										if info[2] is False and info[0] != 1 and not colours.lm:
-											ddt.rect_a((x, y), (album_mode_art_size, album_mode_art_size), [0, 0, 0, 110])
+											ddt.rect_a((x, y), (bag.album_mode_art_size, bag.album_mode_art_size), [0, 0, 0, 110])
 											albumtitle = colours.grey(160)
 
 									elif info[0] != 1 and pctl.playing_state != 0 and prefs.dim_art:
-										ddt.rect_a((x, y), (album_mode_art_size, album_mode_art_size), [0, 0, 0, 110])
+										ddt.rect_a((x, y), (bag.album_mode_art_size, bag.album_mode_art_size), [0, 0, 0, 110])
 										albumtitle = colours.grey(160)
 
 									# Determine meta info
@@ -44245,16 +44214,16 @@ def main(holder: Holder):
 
 									back_colour = alpha_blend([10, 10, 10, 15], colours.gallery_background)
 
-									ddt.rect_a((x, y), (album_mode_art_size, album_mode_art_size), back_colour)
+									ddt.rect_a((x, y), (bag.album_mode_art_size, bag.album_mode_art_size), back_colour)
 
 									# Draw album art
 									if singles:
-										dia = math.sqrt(album_mode_art_size * album_mode_art_size * 2)
+										dia = math.sqrt(bag.album_mode_art_size * bag.album_mode_art_size * 2)
 										ran = dia * 0.25
 										off = (dia - ran) / 2
 										albs = min(len(album), 5)
 										spacing = ran / (albs - 1)
-										size = round(album_mode_art_size * 0.5)
+										size = round(bag.album_mode_art_size * 0.5)
 
 										i = 0
 										for p in album[:albs]:
@@ -44280,7 +44249,7 @@ def main(holder: Holder):
 										drawn_art = tauon.gall_ren.render(track, (x, y))
 
 									# Determine mouse collision
-									rect = (x, y, album_mode_art_size, album_mode_art_size + extend * gui.scale)
+									rect = (x, y, bag.album_mode_art_size, bag.album_mode_art_size + extend * gui.scale)
 									m_in = coll(rect) and gui.panelY < mouse_position[1] < window_size[1] - gui.panelBY
 									fields.add(rect)
 
@@ -44291,15 +44260,15 @@ def main(holder: Holder):
 
 									if drawn_art is False and gui.gallery_show_text is False:
 										ddt.text(
-											(x + int(album_mode_art_size / 2), y + album_mode_art_size - 22 * gui.scale, 2),
+											(x + int(bag.album_mode_art_size / 2), y + bag.album_mode_art_size - 22 * gui.scale, 2),
 											pctl.master_library[default_playlist[album_dex[album_on]]].parent_folder_name,
 											colours.gallery_artist_line,
 											13,
-											album_mode_art_size - 15 * gui.scale,
+											bag.album_mode_art_size - 15 * gui.scale,
 											bg=alpha_blend(back_colour, colours.gallery_background))
 
 									if prefs.art_bg and drawn_art:
-										rect = SDL_Rect(round(x), round(y), album_mode_art_size, album_mode_art_size)
+										rect = SDL_Rect(round(x), round(y), bag.album_mode_art_size, bag.album_mode_art_size)
 										if rect.y < gui.panelY:
 											diff = round(gui.panelY - rect.y)
 											rect.y += diff
@@ -44313,10 +44282,10 @@ def main(holder: Holder):
 
 									# # Drag over highlight
 									# if quick_drag and playlist_hold and mouse_down:
-									#     rect = (x, y, album_mode_art_size, album_mode_art_size + extend * gui.scale)
+									#     rect = (x, y, bag.album_mode_art_size, bag.album_mode_art_size + extend * gui.scale)
 									#     m_in = coll(rect) and gui.panelY < mouse_position[1] < window_size[1] - gui.panelBY
 									#     if m_in:
-									#         ddt.rect_a((x, y), (album_mode_art_size, album_mode_art_size), [120, 10, 255, 100], True)
+									#         ddt.rect_a((x, y), (bag.album_mode_art_size, bag.album_mode_art_size), [120, 10, 255, 100], True)
 
 									if gui.gallery_show_text:
 										c_index = default_playlist[album_dex[album_on]]
@@ -44357,7 +44326,7 @@ def main(holder: Holder):
 
 										text_align = 0
 										if prefs.center_gallery_text:
-											x += album_mode_art_size // 2
+											x += bag.album_mode_art_size // 2
 											text_align = 2
 										elif card_mode:
 											x += round(6 * gui.scale)
@@ -44367,55 +44336,55 @@ def main(holder: Holder):
 											if line2 == "":
 
 												ddt.text(
-													(x, y + album_mode_art_size + 8 * gui.scale, text_align),
+													(x, y + bag.album_mode_art_size + 8 * gui.scale, text_align),
 													line,
 													line1_colour,
 													310,
-													album_mode_art_size - 18 * gui.scale)
+													bag.album_mode_art_size - 18 * gui.scale)
 											else:
 
 												ddt.text(
-													(x, y + album_mode_art_size + 7 * gui.scale, text_align),
+													(x, y + bag.album_mode_art_size + 7 * gui.scale, text_align),
 													line2,
 													line2_colour,
 													311,
-													album_mode_art_size - 18 * gui.scale)
+													bag.album_mode_art_size - 18 * gui.scale)
 
 												ddt.text(
-													(x, y + album_mode_art_size + (10 + 14) * gui.scale, text_align),
+													(x, y + bag.album_mode_art_size + (10 + 14) * gui.scale, text_align),
 													line,
 													line1_colour,
 													10,
-													album_mode_art_size - 18 * gui.scale)
+													bag.album_mode_art_size - 18 * gui.scale)
 										elif line2 == "":
 
 											ddt.text(
-												(x, y + album_mode_art_size + 9 * gui.scale, text_align),
+												(x, y + bag.album_mode_art_size + 9 * gui.scale, text_align),
 												line,
 												line1_colour,
 												311,
-												album_mode_art_size - 5 * gui.scale)
+												bag.album_mode_art_size - 5 * gui.scale)
 										else:
 
 											ddt.text(
-												(x, y + album_mode_art_size + 8 * gui.scale, text_align),
+												(x, y + bag.album_mode_art_size + 8 * gui.scale, text_align),
 												line2,
 												line2_colour,
 												212,
-												album_mode_art_size)
+												bag.album_mode_art_size)
 
 											ddt.text(
-												(x, y + album_mode_art_size + (10 + 14) * gui.scale, text_align),
+												(x, y + bag.album_mode_art_size + (10 + 14) * gui.scale, text_align),
 												line,
 												line1_colour,
 												311,
-												album_mode_art_size - 5 * gui.scale)
+												bag.album_mode_art_size - 5 * gui.scale)
 
 									album_on += 1
 
 								if album_on > len(album_dex):
 									break
-								render_pos += album_mode_art_size + album_v_gap
+								render_pos += bag.album_mode_art_size + album_v_gap
 
 						# POWER TAG BAR --------------
 
@@ -44970,7 +44939,7 @@ def main(holder: Holder):
 
 					# Right side panel drawing
 
-					if gui.rsp and not album_mode:
+					if gui.rsp and not prefs.album_mode:
 						gui.showing_l_panel = False
 						target_track = pctl.show_object()
 
@@ -45178,7 +45147,7 @@ def main(holder: Holder):
 								window_size[1] - 50 * gui.scale, [100, 100, 100, 70])
 							draw_sep_hl = False
 
-				if (gui.artist_info_panel and not gui.combo_mode) and not (window_size[0] < 750 * gui.scale and album_mode):
+				if (gui.artist_info_panel and not gui.combo_mode) and not (window_size[0] < 750 * gui.scale and prefs.album_mode):
 					artist_info_box.draw(gui.playlist_left, gui.panelY, gui.plw, gui.artist_panel_height)
 
 				if gui.lsp and not gui.combo_mode:
@@ -46277,7 +46246,7 @@ def main(holder: Holder):
 					if inp.key_return_press is True and search_index > -1:
 						gui.pl_update = 1
 						pctl.jump(default_playlist[search_index], search_index)
-						if album_mode:
+						if prefs.album_mode:
 							goto_album(pctl.playlist_playing_position)
 						quick_search_mode = False
 						search_clear_timer.set()
@@ -46347,7 +46316,7 @@ def main(holder: Holder):
 							shift_selection = []
 						if default_playlist:
 							pctl.jump(default_playlist[pctl.selected_in_playlist], pctl.selected_in_playlist)
-							if album_mode:
+							if prefs.album_mode:
 								goto_album(pctl.playlist_playing_position)
 
 
