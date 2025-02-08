@@ -4068,14 +4068,14 @@ class LastScrob:
 
 				success = True
 
-				if tr[2] == "lfm" and self.prefs.auto_lfm and (lastfm.connected or lastfm.details_ready()):
-					success = lastfm.scrobble(tr[0], tr[1])
+				if tr[2] == "lfm" and self.prefs.auto_lfm and (tauon.lastfm.connected or tauon.lastfm.details_ready()):
+					success = tauon.lastfm.scrobble(tr[0], tr[1])
 				elif tr[2] == "lb" and lb.enable:
 					success = lb.listen_full(tr[0], tr[1])
 				elif tr[2] == "maloja":
 					success = maloja_scrobble(tr[0], tr[1])
 				elif tr[2] == "air":
-					success = subsonic.listen(tr[0], submit=True)
+					success = tauon.subsonic.listen(tr[0], submit=True)
 				elif tr[2] == "koel":
 					success = koel.listen(tr[0], submit=True)
 
@@ -4148,11 +4148,11 @@ class LastScrob:
 
 		if track_object.is_network:
 			if track_object.file_ext == "SUB":
-				subsonic.listen(track_object, submit=False)
+				tauon.subsonic.listen(track_object, submit=False)
 
 		if not self.prefs.scrobble_hold:
-			if self.prefs.auto_lfm and (lastfm.connected or lastfm.details_ready()):
-				mini_t = threading.Thread(target=lastfm.update, args=([track_object]))
+			if self.prefs.auto_lfm and (tauon.lastfm.connected or tauon.lastfm.details_ready()):
+				mini_t = threading.Thread(target=tauon.lastfm.update, args=([track_object]))
 				mini_t.daemon = True
 				mini_t.start()
 
@@ -4173,7 +4173,7 @@ class LastScrob:
 				self.queue.append((track_object, int(time.time()), "koel"))
 
 		if not prefs.scrobble_hold:
-			if prefs.auto_lfm and (lastfm.connected or lastfm.details_ready()):
+			if prefs.auto_lfm and (tauon.lastfm.connected or tauon.lastfm.details_ready()):
 				self.queue.append((track_object, int(time.time()), "lfm"))
 			if lb.enable:
 				self.queue.append((track_object, int(time.time()), "lb"))
@@ -5057,6 +5057,7 @@ class Tauon:
 	"""Root class for everything Tauon"""
 	def __init__(self, holder: Holder, bag: Bag, strings: Strings, gui: GuiVar):
 		self.bag                          = bag
+		self.t_window                     = holder.t_window
 		self.t_title                      = holder.t_title
 		self.t_version                    = holder.t_version
 		self.t_agent                      = holder.t_agent
@@ -5085,6 +5086,7 @@ class Tauon:
 		self.lfm_scrobbler:             LastScrob = self.pctl.lfm_scrobbler
 		self.star_store:                StarStore = StarStore(tauon=self)
 		self.bottom_bar1                          = BottomBarType1(tauon=self)
+		self.top_panel                            = TopPanel(tauon=self)
 		self.playlist_box                         = PlaylistBox(tauon=self)
 		self.cache_directory:                Path = bag.dirs.cache_directory
 		self.user_directory:          Path | None = bag.dirs.user_directory
@@ -5134,6 +5136,9 @@ class Tauon:
 		self.dl_menu         = Menu(self, 90)
 
 		self.cancel_menu     = Menu(self, 100)
+		self.extra_menu      = Menu(self, 175, show_icons=True)
+		self.shuffle_menu    = Menu(self, 120)
+		self.repeat_menu     = Menu(self, 120)
 
 		self.tray_lock = threading.Lock()
 		self.tray_releases = 0
@@ -5184,6 +5189,7 @@ class Tauon:
 		self.subsonic          = SubsonicService(bag)
 		self.koel              = KoelService()
 		self.tau               = TauService()
+		self.lastfm            = LastFMapi(tauon=self)
 
 		self.tls_context = bag.tls_context
 
@@ -13717,9 +13723,9 @@ class TopPanel:
 						lastfm.scanning_friends or \
 						tauon.after_scan or \
 						tauon.move_in_progress or \
-						plex.scanning or \
-						transcode_list or tauon.spot_ctl.launching_spotify or tauon.spot_ctl.spotify_com or subsonic.scanning or \
-						koel.scanning or gui.sync_progress or lastfm.scanning_scrobbles:
+						tauon.plex.scanning or \
+						tauon.transcode_list or tauon.spot_ctl.launching_spotify or tauon.spot_ctl.spotify_com or tauon.subsonic.scanning or \
+						tauon.koel.scanning or gui.sync_progress or lastfm.scanning_scrobbles:
 					ddt.rect(
 						(window_size[0] - (gui.panelY + 20), gui.panelY - gui.panelY2, gui.panelY + 25, gui.panelY2),
 						colours.top_panel_background)
@@ -13814,7 +13820,7 @@ class TopPanel:
 		#     self.playlist_icon.render(13 * gui.scale, yy + 8 * gui.scale, colour)
 
 		if tauon.playlist_box.drag:
-			drag_mode = False
+			inp.drag_mode = False
 
 		# Need to test length
 		self.tab_text_spaces = []
@@ -14471,7 +14477,7 @@ class TopPanel:
 		elif tauon.to_scan:
 			text = _("Rescanning Tags...  {N} remaining").format(N=str(len(tauon.to_scan)))
 			bg = [100, 200, 100, 255]
-		elif plex.scanning:
+		elif tauon.plex.scanning:
 			text = _("Accessing PLEX library...")
 			if gui.to_got:
 				text += f" {gui.to_got}"
@@ -14485,32 +14491,32 @@ class TopPanel:
 		elif tauon.spot_ctl.spotify_com:
 			text = _("Accessing Spotify library...")
 			bg = [30, 215, 96, 255]
-		elif subsonic.scanning:
+		elif tauon.subsonic.scanning:
 			text = _("Accessing AIRSONIC library...")
 			if gui.to_got:
 				text += f" {gui.to_got}"
 			bg = [58, 194, 224, 255]
-		elif koel.scanning:
+		elif tauon.koel.scanning:
 			text = _("Accessing KOEL library...")
 			bg = [111, 98, 190, 255]
-		elif jellyfin.scanning:
+		elif tauon.jellyfin.scanning:
 			text = _("Accessing JELLYFIN library...")
 			bg = [90, 170, 240, 255]
 		elif tauon.chrome_mode:
 			text = _("Chromecast Mode")
 			bg = [207, 94, 219, 255]
-		elif gui.sync_progress and not transcode_list:
+		elif gui.sync_progress and not tauon.transcode_list:
 			text = gui.sync_progress
 			bg = [100, 200, 100, 255]
 			if right_click and tauon.coll([x, y, 280 * gui.scale, 18 * gui.scale]):
 				cancel_menu.activate(position=(x + 20 * gui.scale, y + 23 * gui.scale))
-		elif transcode_list and gui.tc_cancel:
+		elif tauon.transcode_list and gui.tc_cancel:
 			bg = [150, 150, 150, 255]
 			text = _("Stopping transcode...")
-		elif lastfm.scanning_friends or lastfm.scanning_loves:
-			text = _("Scanning: ") + lastfm.scanning_username
+		elif tauon.lastfm.scanning_friends or tauon.lastfm.scanning_loves:
+			text = _("Scanning: ") + tauon.lastfm.scanning_username
 			bg = [200, 150, 240, 255]
-		elif lastfm.scanning_scrobbles:
+		elif tauon.lastfm.scanning_scrobbles:
 			text = _("Scanning Scrobbles...")
 			bg = [219, 88, 18, 255]
 		elif gui.buffering:
@@ -14518,7 +14524,7 @@ class TopPanel:
 			text += gui.buffering_text
 			bg = [18, 180, 180, 255]
 
-		elif lfm_scrobbler.queue and scrobble_warning_timer.get() < 260:
+		elif tauon.lfm_scrobbler.queue and scrobble_warning_timer.get() < 260:
 			text = _("Network error. Will try again later.")
 			bg = [250, 250, 250, 255]
 			last_fm_icon.render(x - 4 * gui.scale, y + 4 * gui.scale, [250, 40, 40, 255])
@@ -14539,7 +14545,7 @@ class TopPanel:
 			x += ddt.text((x, y), text, bg, 311)
 			# x += ddt.get_text_w(text, 11)
 		# TODO list listenieng clients
-		elif transcode_list:
+		elif tauon.transcode_list:
 			bg = colours.status_info_text
 			# if inp.key_ctrl_down and key_c_press:
 			#     del transcode_list[1:]
@@ -14600,9 +14606,15 @@ class TopPanel:
 
 class BottomBarType1:
 	def __init__(self, tauon: Tauon):
+		self.tauon       = tauon
+		self.gui         = tauon.gui
+		self.inp         = tauon.gui.inp
+		self.prefs       = tauon.prefs
+		self.pctl        = tauon.pctl
+		self.colours     = tauon.bag.colours
 		self.window_size = tauon.bag.window_size
-		self.gui = tauon.gui
-		self.mode = 0
+		self.ddt         = tauon.bag.ddt
+		self.mode        = 0
 
 		self.seek_time = 0
 
@@ -14657,6 +14669,16 @@ class BottomBarType1:
 		global volume_store
 		global clicked
 
+		window_size = self.window_size
+		tauon       = self.tauon
+		ddt         = self.ddt
+		gui         = self.gui
+		prefs       = self.prefs
+		pctl        = self.pctl
+		inp         = self.inp
+		colours     = self.colours
+		fonts       = self.tauon.bag.fonts
+
 		ddt.rect_a((0, self.window_size[1] - self.gui.panelBY), (self.window_size[0], self.gui.panelBY), colours.bottom_panel_colour)
 
 		ddt.rect_a(self.seek_bar_position, self.seek_bar_size, colours.seek_bar_background)
@@ -14665,7 +14687,7 @@ class BottomBarType1:
 		if gui.display_time_mode >= 2:
 			right_offset = 22 * self.gui.scale
 
-		if window_size[0] < 670 * self.gui.scale:
+		if self.window_size[0] < 670 * self.gui.scale:
 			right_offset -= 90 * self.gui.scale
 		# Scrobble marker
 
@@ -14741,11 +14763,10 @@ class BottomBarType1:
 				self.seek_down = False
 				self.seek_hit = True
 
-		if (inp.mouse_up and tauon.coll(self.seek_bar_position + self.seek_bar_size) and coll_point(
-			inp.last_click_location, self.seek_bar_position + self.seek_bar_size)
-			and coll_point(
-				inp.click_location, self.seek_bar_position + self.seek_bar_size)) or (inp.mouse_up and self.volume_hit) or self.seek_hit:
-
+		if (inp.mouse_up and tauon.coll(self.seek_bar_position + self.seek_bar_size) \
+		and coll_point(inp.last_click_location, self.seek_bar_position + self.seek_bar_size) \
+		and coll_point(				inp.click_location, self.seek_bar_position + self.seek_bar_size)) \
+		or (inp.mouse_up and self.volume_hit) or self.seek_hit:
 			self.volume_hit = False
 			self.seek_down = False
 			self.seek_hit = False
@@ -14761,7 +14782,7 @@ class BottomBarType1:
 
 			self.seek_time = pctl.playing_time
 
-		if radiobox.load_connecting or gui.buffering:
+		if tauon.radiobox.load_connecting or gui.buffering:
 			x = self.seek_bar_position[0] - round(26 - gui.scale)
 			y = self.seek_bar_position[1]
 			while x < self.seek_bar_position[0] + self.seek_bar_size[0]:
@@ -14783,9 +14804,7 @@ class BottomBarType1:
 				colours.bottom_panel_colour)
 
 		if pctl.playing_length > 0:
-
 			if pctl.download_time != 0:
-
 				if pctl.download_time == -1:
 					pctl.download_time = pctl.playing_length
 
@@ -14806,7 +14825,6 @@ class BottomBarType1:
 			ddt.rect(gui.seek_bar_rect, colours.seek_bar_fill)
 
 		if gui.seek_cur_show:
-
 			if tauon.coll(
 				[self.seek_bar_position[0] - 50, self.seek_bar_position[1] - 50, self.seek_bar_size[0] + 50, self.seek_bar_size[1] + 100]):
 				if inp.mouse_position[0] > self.seek_bar_position[0] - 1:
@@ -14821,16 +14839,14 @@ class BottomBarType1:
 					ddt.rect(
 						[inp.mouse_position[0], self.seek_bar_position[1], 2, self.seek_bar_size[1]],
 						[100, 100, 20, 255])
-
 			else:
 				gui.seek_cur_show = False
 
 		if gui.buffering and pctl.buffering_percent:
 			ddt.rect_a((self.seek_bar_position[0], self.seek_bar_position[1] + self.seek_bar_size[1] - round(3 * gui.scale)), (self.seek_bar_size[0] * pctl.buffering_percent / 100, round(3 * gui.scale)), [255, 255, 255, 50])
 		# Volume mouse wheel control -----------------------------------------
-		if inp.mouse_wheel != 0 and inp.mouse_position[1] > self.seek_bar_position[1] + 4 and not coll_point(
-			inp.mouse_position, self.seek_bar_position + self.seek_bar_size):
-
+		if inp.mouse_wheel != 0 and inp.mouse_position[1] > self.seek_bar_position[1] + 4 \
+		and not coll_point(inp.mouse_position, self.seek_bar_position + self.seek_bar_size):
 			pctl.player_volume += inp.mouse_wheel * prefs.volume_wheel_increment
 			if pctl.player_volume < 1:
 				pctl.player_volume = 0
@@ -14942,7 +14958,7 @@ class BottomBarType1:
 					pctl.player_volume = int(pctl.player_volume)
 					pctl.set_volume(False)
 
-			if right_click and tauon.coll((
+			if inp.right_click and tauon.coll((
 					self.volume_bar_position[0] - 15 * gui.scale, self.volume_bar_position[1] - 10 * gui.scale,
 					self.volume_bar_size[0] + 30 * gui.scale,
 					self.volume_bar_size[1] + 20 * gui.scale)):
@@ -15001,22 +15017,21 @@ class BottomBarType1:
 				(x, self.seek_bar_position[1] + 24 * gui.scale), line, colours.bar_title_text,
 				fonts.panel_title, max_w=mx)
 
-		if (inp.mouse_click or right_click) and tauon.coll((
+		if (inp.mouse_click or inp.right_click) and tauon.coll((
 				self.seek_bar_position[0] - 10 * gui.scale, self.seek_bar_position[1] + 20 * gui.scale,
 				window_size[0] - 710 * gui.scale, 30 * gui.scale)):
 			# if pctl.playing_state == 3:
 			#     copy_to_clipboard(pctl.tag_meta)
 			#     show_message("Copied text to clipboard")
-			#     if input.mouse_click or right_click:
+			#     if input.mouse_click or inp.right_click:
 			#         input.mouse_click = False
-			#         right_click = False
+			#         inp.right_click = False
 			# else:
 			if inp.mouse_click and pctl.playing_state != 3:
 				pctl.show_current()
 
 			if pctl.playing_ready() and not gui.fullscreen:
-
-				if right_click:
+				if inp.right_click:
 					mode_menu.activate()
 
 				if d_click_timer.get() < 0.3 and inp.mouse_click:
@@ -15084,11 +15099,8 @@ class BottomBarType1:
 			ddt.text(
 				(x + offset2, y), text_time, colours.time_sub,
 				fonts.bottom_panel_time)
-
 		elif gui.display_time_mode == 3:
-
 			# colours.time_sub = alpha_blend([255, 255, 255, 80], colours.bottom_panel_colour)
-
 			track = pctl.playing_object()
 			if track and track.index != gui.dtm3_index:
 
@@ -15301,14 +15313,14 @@ class BottomBarType1:
 			rect = (x - 9 * gui.scale, y - 5 * gui.scale, 40 * gui.scale, 25 * gui.scale)
 			tauon.fields.add(rect)
 			if tauon.coll(rect):
-				if not extra_menu.active:
+				if not tauon.extra_menu.active:
 					tool_tip.test(x, y - 28 * gui.scale, _("Playback menu"))
 				rpbc = colours.mode_button_over
 				if inp.mouse_click:
-					extra_menu.activate(position=(x - 115 * gui.scale, y - 6 * gui.scale))
-				elif right_click:
+					tauon.extra_menu.activate(position=(x - 115 * gui.scale, y - 6 * gui.scale))
+				elif inp.right_click:
 					mode_menu.activate(position=(x - 115 * gui.scale, y - 6 * gui.scale))
-			if extra_menu.active:
+			if tauon.extra_menu.active:
 				rpbc = colours.mode_button_active
 
 			spacing = round(5 * gui.scale)
@@ -15329,15 +15341,14 @@ class BottomBarType1:
 
 				rpbc = colours.mode_button_off
 				off = True
-				if (inp.mouse_click or right_click) and tauon.coll(rect):
-
+				if (inp.mouse_click or inp.right_click) and tauon.coll(rect):
 					if inp.mouse_click:
 						# pctl.random_mode ^= True
 						toggle_random()
 						if pctl.random_mode is False:
 							self.random_click_off = True
 					else:
-						shuffle_menu.activate(position=(x + 30 * gui.scale, y - 7 * gui.scale))
+						tauon.shuffle_menu.activate(position=(x + 30 * gui.scale, y - 7 * gui.scale))
 
 				if pctl.random_mode:
 					rpbc = colours.mode_button_active
@@ -15356,7 +15367,7 @@ class BottomBarType1:
 					self.random_click_off = False
 
 				# Keep hover highlight on if menu is open
-				if shuffle_menu.active and not pctl.random_mode:
+				if tauon.shuffle_menu.active and not pctl.random_mode:
 					rpbc = colours.mode_button_over
 
 				#self.shuffle_button.render(x + round(1 * gui.scale), y + round(1 * gui.scale), rpbc)
@@ -15385,14 +15396,13 @@ class BottomBarType1:
 
 				rect = (x - 6 * gui.scale, y - 5 * gui.scale, 61 * gui.scale, 25 * gui.scale)
 				tauon.fields.add(rect)
-				if (inp.mouse_click or right_click) and tauon.coll(rect):
-
+				if (inp.mouse_click or inp.right_click) and tauon.coll(rect):
 					if inp.mouse_click:
 						toggle_repeat()
 						if pctl.repeat_mode is False:
 							self.repeat_click_off = True
 					else:  # right click
-						repeat_menu.activate(position=(x + 30 * gui.scale, y - 7 * gui.scale))
+						tauon.repeat_menu.activate(position=(x + 30 * gui.scale, y - 7 * gui.scale))
 						# pctl.album_repeat_mode ^= True
 						# if not pctl.repeat_mode:
 						#     self.repeat_click_off = True
@@ -15408,7 +15418,7 @@ class BottomBarType1:
 				elif tauon.coll(rect):
 
 					# Tooltips. But don't show tooltips if menus open
-					if not repeat_menu.active and not shuffle_menu.active:
+					if not tauon.repeat_menu.active and not tauon.shuffle_menu.active:
 						if pctl.album_repeat_mode:
 							tool_tip.test(x, y - 28 * gui.scale, _("Repeat album"))
 						else:
@@ -15424,7 +15434,7 @@ class BottomBarType1:
 					self.repeat_click_off = False
 
 				# Keep hover highlight on if menu is open
-				if repeat_menu.active and not pctl.repeat_mode:
+				if tauon.repeat_menu.active and not pctl.repeat_mode:
 					rpbc = colours.mode_button_over
 
 				rpbc = alpha_blend(rpbc, colours.bottom_panel_colour)  # bake in alpha in case of overlap
@@ -16060,7 +16070,7 @@ class MiniMode:
 			tool_rect[0] = 0
 		tauon.fields.add(tool_rect)
 		if tauon.coll(tool_rect):
-			draw_window_tools()
+			draw_window_tools(tauon)
 
 		if w != h:
 			ddt.rect_s((1, 1, w - 2, h - 2), colours.mini_mode_border, 1 * gui.scale)
@@ -16160,7 +16170,7 @@ class MiniMode2:
 			tool_rect[0] = 0
 		tauon.fields.add(tool_rect)
 		if tauon.coll(tool_rect):
-			draw_window_tools()
+			draw_window_tools(tauon)
 
 		# Seek bar
 		bg_rect = (h, h - round(5 * gui.scale), w - h, round(5 * gui.scale))
@@ -16481,8 +16491,7 @@ class MiniMode3:
 			tool_rect[0] = 0
 		tauon.fields.add(tool_rect)
 		if tauon.coll(tool_rect):
-			draw_window_tools()
-
+			draw_window_tools(tauon)
 
 		# if w != h:
 		#     ddt.rect_s((1, 1, w - 2, h - 2), colours.mini_mode_border, 1 * gui.scale)
@@ -20137,7 +20146,7 @@ class ArtistList:
 				text = _("Artist threshold not met")
 			if self.load:
 				text = _("Loading Artist List...")
-				if pctl.loading_in_progress or transcode_list or tauon.after_scan:
+				if pctl.loading_in_progress or tauon.transcode_list or tauon.after_scan:
 					text = _("Busy...")
 
 			ddt.text(
@@ -25734,7 +25743,6 @@ def do_exit_button() -> None:
 			tauon.exit("User clicked X button")
 
 def do_maximize_button() -> None:
-	global drag_mode
 	if gui.fullscreen:
 		gui.fullscreen = False
 		SDL_SetWindowFullscreen(t_window, 0)
@@ -25747,10 +25755,9 @@ def do_maximize_button() -> None:
 
 	inp.mouse_down = False
 	inp.mouse_click = False
-	drag_mode = False
+	inp.drag_mode = False
 
 def do_minimize_button():
-	global drag_mode
 	if macos:
 		# hack
 		SDL_SetWindowBordered(t_window, True)
@@ -25761,10 +25768,15 @@ def do_minimize_button():
 
 	inp.mouse_down = False
 	inp.mouse_click = False
-	drag_mode = False
+	inp.drag_mode = False
 
-def draw_window_tools():
-	global drag_mode
+def draw_window_tools(tauon: Tauon) -> None:
+	bag         = tauon.bag
+	gui         = tauon.gui
+	colours     = tauon.bag.colours
+	window_size = tauon.bag.window_size
+	ddt         = tauon.bag.ddt
+	prefs       = tauon.prefs
 
 	# rect = (window_size[0] - 55 * gui.scale, window_size[1] - 35 * gui.scale, 53 * gui.scale, 33 * gui.scale)
 	# tauon.fields.add(rect)
@@ -25792,7 +25804,7 @@ def draw_window_tools():
 	xx = 0
 	l = prefs.left_window_control
 	r = not l
-	focused = window_is_focused()
+	focused = window_is_focused(tauon.t_window)
 
 	# Close
 	if r:
@@ -25819,11 +25831,11 @@ def draw_window_tools():
 		tauon.fields.add(rect)
 		if tauon.coll(rect) and not gui.mouse_unknown:
 			ddt.rect((rect[0], rect[1], rect[2], rect[3]), bg_on)
-			top_panel.exit_button.render(rect[0] + 8 * gui.scale, rect[1] + 8 * gui.scale, x_on)
+			tauon.top_panel.exit_button.render(rect[0] + 8 * gui.scale, rect[1] + 8 * gui.scale, x_on)
 			if coll_point(inp.last_click_location, rect):
 				do_exit_button()
 		else:
-			top_panel.exit_button.render(rect[0] + 8 * gui.scale, rect[1] + 8 * gui.scale, x_off)
+			tauon.top_panel.exit_button.render(rect[0] + 8 * gui.scale, rect[1] + 8 * gui.scale, x_off)
 
 	# Macstyle restore
 	if gui.mode == 3:
@@ -25846,7 +25858,7 @@ def draw_window_tools():
 
 	# maximize
 
-	if self.draw_max_button and gui.mode != 3:
+	if bag.draw_max_button and gui.mode != 3:
 		if macstyle:
 			if r:
 				xx -= round(20 * gui.scale)
@@ -25874,11 +25886,11 @@ def draw_window_tools():
 			tauon.fields.add(rect)
 			if tauon.coll(rect):
 				ddt.rect_a((rect[0], rect[1]), (rect[2], rect[3]), bg_on)
-				top_panel.maximize_button.render(rect[0] + 10 * gui.scale, rect[1] + 10 * gui.scale, fg_on)
+				tauon.top_panel.maximize_button.render(rect[0] + 10 * gui.scale, rect[1] + 10 * gui.scale, fg_on)
 				if (inp.mouse_up or ab_click) and coll_point(inp.last_click_location, rect):
 					do_maximize_button()
 			else:
-				top_panel.maximize_button.render(rect[0] + 10 * gui.scale, rect[1] + 10 * gui.scale, fg_off)
+				tauon.top_panel.maximize_button.render(rect[0] + 10 * gui.scale, rect[1] + 10 * gui.scale, fg_off)
 
 	# minimize
 
@@ -25941,12 +25953,12 @@ def draw_window_tools():
 			tauon.fields.add(rect)
 			if tauon.coll(rect):
 				ddt.rect_a((rect[0], rect[1]), (rect[2], rect[3]), bg_on)
-				top_panel.restore_button.render(rect[0] + 8 * gui.scale, rect[1] + 9 * gui.scale, fg_on)
+				tauon.top_panel.restore_button.render(rect[0] + 8 * gui.scale, rect[1] + 9 * gui.scale, fg_on)
 				if (inp.mouse_click or ab_click) and coll_point(inp.click_location, rect):
 					restore_full_mode()
 					gui.update += 2
 			else:
-				top_panel.restore_button.render(rect[0] + 8 * gui.scale, rect[1] + 9 * gui.scale, fg_off)
+				tauon.top_panel.restore_button.render(rect[0] + 8 * gui.scale, rect[1] + 9 * gui.scale, fg_off)
 
 def draw_window_border():
 	corner_icon.render(window_size[0] - corner_icon.w, window_size[1] - corner_icon.h, colours.corner_icon)
@@ -33939,7 +33951,7 @@ def spot_import_playlist_menu() -> None:
 				spotify_playlist_menu.add(MenuItem(item[0], tauon.spot_ctl.playlist, pass_ref=True, set_ref=item[1]))
 
 			spotify_playlist_menu.add(MenuItem(_("> Import All Playlists"), spot_import_playlists))
-			spotify_playlist_menu.activate(position=(extra_menu.pos[0], window_size[1] - gui.panelBY))
+			spotify_playlist_menu.activate(position=(tauon.extra_menu.pos[0], window_size[1] - gui.panelBY))
 	else:
 		show_message(_("Please wait until current job is finished"))
 
@@ -38448,7 +38460,7 @@ def update_layout_do(tauon: Tauon):
 	if prefs.art_bg:
 		tauon.thread_manager.ready("style")
 
-def window_is_focused() -> bool:
+def window_is_focused(t_window) -> bool:
 	"""Thread safe?"""
 	if SDL_GetWindowFlags(t_window) & SDL_WINDOW_INPUT_FOCUS:
 		return True
@@ -38758,7 +38770,6 @@ def is_level_zero(include_menus: bool = True) -> bool:
 
 def drop_file(target):
 	global new_playlist_cooldown
-	global drag_mode
 
 	if system != "windows" and sdl_version >= 204:
 		gmp = get_global_mouse()
@@ -38853,7 +38864,7 @@ def drop_file(target):
 	#logging.info('dropped: ' + str(dropped_file))
 	gui.update += 1
 	inp.mouse_down = False
-	drag_mode = False
+	inp.drag_mode = False
 
 def main(holder: Holder):
 	t_window               = holder.t_window
@@ -40413,7 +40424,6 @@ def main(holder: Holder):
 		bag=bag,
 		strings=strings,
 		gui=gui)
-	lastfm = LastFMapi(tauon=tauon)
 	radiobox = tauon.radiobox
 	tauon.dummy_track = radiobox.dummy_track
 	star_store=tauon.star_store
@@ -40902,8 +40912,8 @@ def main(holder: Holder):
 	gallery_menu          = Menu(tauon, 175, show_icons=True)
 	artist_info_menu      = Menu(tauon, 135)
 	queue_menu            = Menu(tauon, 150)
-	repeat_menu           = Menu(tauon, 120)
-	shuffle_menu          = Menu(tauon, 120)
+	repeat_menu           = tauon.repeat_menu
+	shuffle_menu          = tauon.shuffle_menu
 	artist_list_menu      = Menu(tauon, 165, show_icons=True)
 	lightning_menu        = Menu(tauon, 165)
 	lsp_menu              = Menu(tauon, 145)
@@ -41469,6 +41479,8 @@ def main(holder: Holder):
 	vis_menu        = Menu(tauon, 140)
 	window_menu     = Menu(tauon, 140)
 
+	extra_menu      = tauon.extra_menu
+
 	window_menu.add(MenuItem(_("Minimize"), do_minimize_button))
 	window_menu.add(MenuItem(_("Maximize"), do_maximize_button))
 	window_menu.add(MenuItem(_("Exit"), do_exit_button))
@@ -41603,7 +41615,6 @@ def main(holder: Holder):
 	mode_menu.br()
 	mode_menu.add(MenuItem(_("Copy Title to Clipboard"), copy_bb_metadata))
 
-	extra_menu = Menu(tauon, 175, show_icons=True)
 	extra_menu.add(MenuItem(_("Random Track"), random_track, hint=";"))
 
 	radiorandom_icon = MenuIcon(asset_loader(bag, loaded_asset_dc, "radiorandom.png", True))
@@ -41707,7 +41718,7 @@ def main(holder: Holder):
 	else:
 		listen_icon = None
 
-	x_menu.add(MenuItem("LFM", lastfm.toggle, last_fm_menu_deco, icon=listen_icon, show_test=lastfm_menu_test))
+	x_menu.add(MenuItem("LFM", tauon.lastfm.toggle, last_fm_menu_deco, icon=listen_icon, show_test=lastfm_menu_test))
 	x_menu.add(MenuItem(_("Exit Shuffle Lockdown"), toggle_shuffle_layout, show_test=exit_shuffle_layout))
 	x_menu.add(MenuItem(_("Donate"), open_donate_link))
 	x_menu.add(MenuItem(_("Exit"), tauon.exit, hint="Alt+F4", set_ref="User clicked menu exit button", pass_ref=+True))
@@ -41755,7 +41766,6 @@ def main(holder: Holder):
 	dec_arrow = asset_loader(bag, loaded_asset_dc, "dec.png", True)
 	corner_icon = asset_loader(bag, loaded_asset_dc, "corner.png", True)
 
-	top_panel = TopPanel(tauon=tauon)
 	bottom_bar_ao1 = BottomBarType_ao1(bag=bag, gui=gui)
 	mini_mode = MiniMode(bag=bag, gui=gui)
 	mini_mode2 = MiniMode2(bag=bag, gui=gui)
@@ -42650,7 +42660,7 @@ def main(holder: Holder):
 			time.sleep(0.03)
 
 			if (
-					pctl.playing_state == 0 or pctl.playing_state == 2) and not load_orders and gui.update == 0 and not tauon.gall_ren.queue and not transcode_list and not gui.frame_callback_list:
+					pctl.playing_state == 0 or pctl.playing_state == 2) and not load_orders and gui.update == 0 and not tauon.gall_ren.queue and not tauon.transcode_list and not gui.frame_callback_list:
 				pass
 			else:
 				sleep_timer.set()
@@ -43391,9 +43401,9 @@ def main(holder: Holder):
 		# 		not gui.pl_pulse and\
 		# 		not pctl.loading_in_progress and\
 		# 		not tauon.to_scan and\
-		# 		not plex.scanning and\
+		# 		not tauon.plex.scanning and\
 		# 		not tauon.cm_clean_db and\
-		# 		not lastfm.scanning_friends and\
+		# 		not tauon.lastfm.scanning_friends and\
 		# 		not tauon.move_in_progress:
 		# 	save_state()
 		# 	cue_list.clear()
@@ -44073,8 +44083,7 @@ def main(holder: Holder):
 											ddt.rect_a((x - 4, y - 4), (bag.album_mode_art_size + 8, bag.album_mode_art_size + 8), c)
 
 									# Draw transcode highlight
-									if transcode_list and os.path.isdir(prefs.encoder_output):
-
+									if tauon.transcode_list and os.path.isdir(prefs.encoder_output):
 										tr = False
 
 										if (encode_folder_name(track) in os.listdir(prefs.encoder_output)):
@@ -44343,7 +44352,7 @@ def main(holder: Holder):
 							tauon.fields.add(hot_r)
 
 							if gui.pt == 0:  # mouse moves in
-								if tauon.coll(hot_r) and window_is_focused():
+								if tauon.coll(hot_r) and window_is_focused(t_window):
 									gui.pt_on.set()
 									gui.pt = 1
 							elif gui.pt == 1:  # wait then trigger if stays, reset if goes out
@@ -44560,8 +44569,8 @@ def main(holder: Holder):
 					# playlist hit test
 					if tauon.coll((
 							gui.playlist_left, gui.playlist_top, gui.plw,
-							window_size[1] - gui.panelY - gui.panelBY)) and not drag_mode and (
-							inp.mouse_click or inp.mouse_wheel != 0 or right_click or middle_click or inp.mouse_up or inp.mouse_down):
+							window_size[1] - gui.panelY - gui.panelBY)) and not inp.drag_mode and (
+							inp.mouse_click or inp.mouse_wheel != 0 or inp.right_click or inp.middle_click or inp.mouse_up or inp.mouse_down):
 						gui.pl_update = 1
 
 					if gui.combo_mode and inp.mouse_wheel != 0:
@@ -45310,7 +45319,7 @@ def main(holder: Holder):
 				# C-TBR
 
 				if gui.mode == 1:
-					top_panel.render()
+					tauon.top_panel.render()
 
 				# RENDER EXTRA FRAME DOUBLE
 				if colours.lm:
@@ -45345,7 +45354,7 @@ def main(holder: Holder):
 				if prefs.shuffle_lock:
 					bottom_bar_ao1.render()
 				else:
-					bottom_bar1.render()
+					tauon.bottom_bar1.render()
 
 				if prefs.art_bg and not prefs.bg_showcase_only:
 					style_overlay.display()
@@ -45834,7 +45843,7 @@ def main(holder: Holder):
 						tool_rect[0] = 0
 					tauon.fields.add(tool_rect)
 					if not gui.top_bar_mode2 or tauon.coll(tool_rect):
-						draw_window_tools()
+						draw_window_tools(tauon)
 
 					if not gui.fullscreen and not gui.maximized:
 						draw_window_border()
@@ -46937,7 +46946,7 @@ def main(holder: Holder):
 			if int(pctl.playing_time) != int(pctl.last_playing_time):
 				pctl.last_playing_time = pctl.playing_time
 				bottom_bar1.seek_time = pctl.playing_time
-				if not prefs.power_save or window_is_focused():
+				if not prefs.power_save or window_is_focused(tauon.bag.t_window):
 					gui.update = 1
 
 		# Auto save play times to disk
