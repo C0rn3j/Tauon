@@ -1577,15 +1577,17 @@ class PlayerCtl:
 
 	# C-PC
 	def __init__(self, tauon: Tauon):
-		self.tauon                    = tauon
-		self.gui                      = self.tauon.gui
-		self.bag                      = self.tauon.bag
-		self.smtc:               bool = self.tauon.bag.smtc
-		self.radiobox                 = self.tauon.radiobox
-		self.running:            bool = True
-		self.prefs:             Prefs = self.bag.prefs
-		self.lfm_scrobbler            = LastScrob(tauon=self.tauon, pctl=self)
-		self.install_directory:  Path = self.bag.dirs.install_directory
+		self.tauon                     = tauon
+		self.gui                       = self.tauon.gui
+		self.bag                       = self.tauon.bag
+		self.smtc:                bool = self.tauon.bag.smtc
+		self.radiobox                  = self.tauon.radiobox
+		self.running:             bool = True
+		self.prefs:              Prefs = self.bag.prefs
+		self.lfm_scrobbler             = LastScrob(tauon=self.tauon, pctl=self)
+		self.install_directory:   Path = self.bag.dirs.install_directory
+		self.loading_in_progress: bool = False
+
 
 		# Database
 
@@ -5065,6 +5067,7 @@ class Tauon:
 		self.move_jobs:              list = []
 		self.to_scan:                list = []
 		self.after_scan: list[TrackClass] = []
+		self.move_in_progress:       bool = False
 		self.worker2_lock                 = threading.Lock()
 		#TODO(Martin) : Fix this by moving the class to root of the module
 		self.cachement:  player4.Cachement | None = None
@@ -5124,7 +5127,13 @@ class Tauon:
 		self.listen_alongers                      = {}
 		self.encode_folder_name                   = encode_folder_name
 		self.encode_track_name                    = encode_track_name
+		# Create top menu
+		self.x_menu          = Menu(self, 190, show_icons=True)
+		self.set_menu        = Menu(self, 150)
+		self.field_menu      = Menu(self, 140)
+		self.dl_menu         = Menu(self, 90)
 
+		self.cancel_menu     = Menu(self, 100)
 
 		self.tray_lock = threading.Lock()
 		self.tray_releases = 0
@@ -13702,12 +13711,12 @@ class TopPanel:
 			tr = pctl.playing_object()
 			if tr:
 				album_art_gen.display(tr, (window_size[0] - gui.panelY - 1, 0), (gui.panelY, gui.panelY))
-				if loading_in_progress or \
+				if pctl.loading_in_progress or \
 						tauon.to_scan or \
 						tauon.cm_clean_db or \
 						lastfm.scanning_friends or \
-						bag.after_scan or \
-						move_in_progress or \
+						tauon.after_scan or \
+						tauon.move_in_progress or \
 						plex.scanning or \
 						transcode_list or tauon.spot_ctl.launching_spotify or tauon.spot_ctl.spotify_com or subsonic.scanning or \
 						koel.scanning or gui.sync_progress or lastfm.scanning_scrobbles:
@@ -14340,20 +14349,20 @@ class TopPanel:
 		hit = tauon.coll(rect)
 		tauon.fields.add(rect)
 
-		if (x_menu.active or hit) and not tab_menu.active:
+		if (tauon.x_menu.active or hit) and not tauon.tab_menu.active:
 			bg = colours.status_text_over
 		else:
 			bg = colours.status_text_normal
 		ddt.text((x, y), word, bg, 212)
 
 		if hit and inp.mouse_click:
-			if x_menu.active:
-				x_menu.active = False
+			if tauon.x_menu.active:
+				tauon.x_menu.active = False
 			else:
 				xx = x
 				if x > window_size[0] - (210 * gui.scale):
 					xx = window_size[0] - round(210 * gui.scale)
-				x_menu.activate(position=(xx + round(12 * gui.scale), gui.panelY))
+				tauon.x_menu.activate(position=(xx + round(12 * gui.scale), gui.panelY))
 				view_box.activate(xx)
 
 		# if True:
@@ -14362,8 +14371,8 @@ class TopPanel:
 		#     rect = (5 * gui.scale, gui.panelY, round(90 * gui.scale), round(25 * gui.scale))
 		#
 
-		dl = len(dl_mon.ready)
-		watching = len(dl_mon.watching)
+		dl = len(tauon.dl_mon.ready)
+		watching = len(tauon.dl_mon.watching)
 
 		if (dl > 0 or watching > 0) and core_timer.get() > 2 and prefs.auto_extract and prefs.monitor_downloads:
 			x += 52 * gui.scale
@@ -14376,11 +14385,11 @@ class TopPanel:
 				#     colour = [40, 40, 40, 255]
 				if dl > 0 or watching > 0:
 					if right_click:
-						dl_menu.activate(position=(inp.mouse_position[0], gui.panelY))
+						tauon.dl_menu.activate(position=(inp.mouse_position[0], gui.panelY))
 				if dl > 0:
 					if inp.mouse_click:
 						pln = 0
-						for item in dl_mon.ready:
+						for item in tauon.dl_mon.ready:
 							load_order = LoadClass()
 							load_order.target = item
 							pln = pctl.active_playlist_viewing
@@ -14401,8 +14410,8 @@ class TopPanel:
 
 							load_orders.append(copy.deepcopy(load_order))
 
-						if len(dl_mon.ready) > 0:
-							dl_mon.ready.clear()
+						if len(tauon.dl_mon.ready) > 0:
+							tauon.dl_mon.ready.clear()
 							switch_playlist(pln)
 
 							pctl.playlist_view_position = len(pctl.default_playlist)
@@ -14422,7 +14431,7 @@ class TopPanel:
 				colour = colours.corner_button  # [60, 60, 60, 255]
 				if colours.lm:
 					# colour = [180, 180, 180, 255]
-					if dl_mon.ready:
+					if tauon.dl_mon.ready:
 						colour = colours.corner_button_active  # [60, 60, 60, 255]
 
 			self.dl_button.render(x, y + 1 * gui.scale, colour)
@@ -14436,7 +14445,7 @@ class TopPanel:
 		self.drag_zone_start_x = x - 5 * gui.scale
 		status = True
 
-		if loading_in_progress:
+		if pctl.loading_in_progress:
 			bg = colours.status_info_text
 			if to_got == "xspf":
 				text = _("Importing XSPF playlist")
@@ -14447,12 +14456,12 @@ class TopPanel:
 			else:
 				text = _("Importing...  ") + str(to_got)  # + "/" + str(to_get)
 				if right_click and tauon.coll([x, y, 180 * gui.scale, 18 * gui.scale]):
-					cancel_menu.activate(position=(x + 20 * gui.scale, y + 23 * gui.scale))
-		elif bag.after_scan:
+					tauon.cancel_menu.activate(position=(x + 20 * gui.scale, y + 23 * gui.scale))
+		elif tauon.after_scan:
 			# bg = colours.status_info_text
 			bg = [100, 200, 100, 255]
-			text = _("Scanning Tags...  {N} remaining").format(N=str(len(bag.after_scan)))
-		elif move_in_progress:
+			text = _("Scanning Tags...  {N} remaining").format(N=str(len(tauon.after_scan)))
+		elif tauon.move_in_progress:
 			text = _("File copy in progress...")
 			bg = colours.status_info_text
 		elif tauon.cm_clean_db and to_get > 0:
@@ -19454,7 +19463,7 @@ class ArtistList:
 
 	def worker(self):
 		if self.load:
-			if bag.after_scan:
+			if tauon.after_scan:
 				return
 
 			self.prep()
@@ -20128,7 +20137,7 @@ class ArtistList:
 				text = _("Artist threshold not met")
 			if self.load:
 				text = _("Loading Artist List...")
-				if loading_in_progress or transcode_list or bag.after_scan:
+				if pctl.loading_in_progress or transcode_list or tauon.after_scan:
 					text = _("Busy...")
 
 			ddt.text(
@@ -27288,7 +27297,7 @@ def cancel_import():
 	if transcode_list:
 		del transcode_list[1:]
 		gui.tc_cancel = True
-	if loading_in_progress:
+	if pctl.loading_in_progress:
 		gui.im_cancel = True
 	if gui.sync_progress:
 		gui.stop_sync = True
@@ -35232,7 +35241,6 @@ def worker2(tauon: Tauon) -> None:
 def worker1(tauon: Tauon) -> None:
 	global cue_list
 	global home
-	global loading_in_progress
 	global added
 	global to_get
 	global to_got
@@ -35711,7 +35719,7 @@ def worker1(tauon: Tauon) -> None:
 			if prefs.auto_sort or force_scan:
 				tag_scan(nt)
 			else:
-				bag.after_scan.append(nt)
+				tauon.after_scan.append(nt)
 				tauon.thread_manager.ready("worker")
 
 			pctl.master_count += 1
@@ -35826,7 +35834,6 @@ def worker1(tauon: Tauon) -> None:
 	global album_art_gen
 	global to_got
 	global to_get
-	global move_in_progress
 
 	active_timer = Timer()
 	while True:
@@ -35883,7 +35890,7 @@ def worker1(tauon: Tauon) -> None:
 			gui.regen_single = -1
 			regenerate_playlist(target, silent=True)
 
-		if pctl.after_import_flag and not tauon.after_scan and not tauon.search_over.active and not loading_in_progress:
+		if pctl.after_import_flag and not tauon.after_scan and not tauon.search_over.active and not pctl.loading_in_progress:
 			pctl.after_import_flag = False
 
 			for i, plist in enumerate(pctl.multi_playlist):
@@ -35902,13 +35909,13 @@ def worker1(tauon: Tauon) -> None:
 
 		if tauon.worker_save_state and \
 				not gui.pl_pulse and \
-				not loading_in_progress and \
+				not pctl.loading_in_progress and \
 				not tauon.to_scan and not tauon.after_scan and \
 				not plex.scanning and \
 				not jellyfin.scanning and \
 				not tauon.cm_clean_db and \
 				not lastfm.scanning_friends and \
-				not move_in_progress and \
+				not tauon.move_in_progress and \
 				(gui.lowered or not window_is_focused() or not gui.mouse_in_window):
 			save_state()
 			cue_list.clear()
@@ -35917,21 +35924,21 @@ def worker1(tauon: Tauon) -> None:
 		# Folder moving
 		if len(tauon.move_jobs) > 0:
 			gui.update += 1
-			move_in_progress = True
+			tauon.move_in_progress = True
 			job = tauon.move_jobs[0]
 			del tauon.move_jobs[0]
 
 			if job[0].strip("\\/") == job[1].strip("\\/"):
 				show_message(_("Folder copy error."), _("The target and source are the same."), mode="info")
 				gui.update += 1
-				move_in_progress = False
+				tauon.move_in_progress = False
 				continue
 
 			try:
 				shutil.copytree(job[0], job[1])
 			except Exception:
 				logging.exception("Failed to copy directory")
-				move_in_progress = False
+				tauon.move_in_progress = False
 				gui.update += 1
 				show_message(_("The folder copy has failed!"), _("Some files may have been written."), mode="warning")
 				continue
@@ -35944,14 +35951,14 @@ def worker1(tauon: Tauon) -> None:
 					logging.exception("Failed to delete directory")
 					show_message(_("Something has gone horribly wrong!"), _("Could not delete {name}").format(name=job[0]), mode="error")
 					gui.update += 1
-					move_in_progress = False
+					tauon.move_in_progress = False
 					return
 
 				show_message(_("Folder move complete."), _("Folder name: {name}").format(name=job[3]), mode="done")
 			else:
 				show_message(_("Folder copy complete."), _("Folder name: {name}").format(name=job[3]), mode="done")
 
-			move_in_progress = False
+			tauon.move_in_progress = False
 			load_orders.append(job[4])
 			gui.update += 1
 
@@ -38610,7 +38617,7 @@ def save_state() -> None:
 		prefs.bg_showcase_only,
 		None,  # prefs.discogs_pat,
 		prefs.mini_mode_mode,
-		bag.after_scan,
+		tauon.after_scan,
 		gui.gallery_positions,
 		prefs.chart_bg,
 		prefs.left_panel_mode,
@@ -39549,8 +39556,6 @@ def main(holder: Holder):
 	playlist_view_position = 0
 	playlist_playing = -1
 
-	loading_in_progress = False
-
 	core_use = 0
 	dl_use = 0
 
@@ -40043,7 +40048,7 @@ def main(holder: Holder):
 			if save[130] is not None:
 				prefs.mini_mode_mode = save[130]
 			if save[131] is not None:
-				bag.after_scan = save[131]
+				tauon.after_scan = save[131]
 			if save[132] is not None:
 				gui.gallery_positions = save[132]
 			if save[133] is not None:
@@ -40893,7 +40898,7 @@ def main(holder: Holder):
 	radio_entry_menu      = Menu(tauon, 125)
 	showcase_menu         = Menu(tauon, 135)
 	center_info_menu      = Menu(tauon, 125)
-	cancel_menu           = Menu(tauon, 100)
+	cancel_menu           = tauon.cancel_menu
 	gallery_menu          = Menu(tauon, 175, show_icons=True)
 	artist_info_menu      = Menu(tauon, 135)
 	queue_menu            = Menu(tauon, 150)
@@ -40965,8 +40970,6 @@ def main(holder: Holder):
 	info_icon.colour = [61, 247, 163, 255]
 
 	power_bar_icon = asset_loader(bag, loaded_asset_dc, "power.png", True)
-
-	move_in_progress = False
 
 	folder_tree_stem_menu.add(MenuItem(_("Open Folder"), open_folder_stem, pass_ref=True, icon=folder_icon))
 	folder_tree_menu.add(MenuItem(_("Open Folder"), open_folder, pass_ref=True, pass_ref_deco=True, icon=folder_icon, disable_test=open_folder_disable_test))
@@ -41457,16 +41460,15 @@ def main(holder: Holder):
 
 
 	# Create top menu
-	x_menu          = Menu(tauon, 190, show_icons=True)
+	x_menu          = tauon.x_menu
+	set_menu        = tauon.set_menu
+	field_menu      = tauon.field_menu
+	dl_menu         = tauon.dl_menu
 	view_menu       = Menu(tauon, 170)
-	set_menu        = Menu(tauon, 150)
 	set_menu_hidden = Menu(tauon, 100)
 	vis_menu        = Menu(tauon, 140)
 	window_menu     = Menu(tauon, 140)
-	field_menu      = Menu(tauon, 140)
-	dl_menu         = Menu(tauon, 90)
 
-	window_menu = Menu(tauon, 140)
 	window_menu.add(MenuItem(_("Minimize"), do_minimize_button))
 	window_menu.add(MenuItem(_("Maximize"), do_maximize_button))
 	window_menu.add(MenuItem(_("Exit"), do_exit_button))
@@ -43331,7 +43333,7 @@ def main(holder: Holder):
 			inp.media_key = ""
 
 		if len(load_orders) > 0:
-			loading_in_progress = True
+			pctl.loading_in_progress = True
 			pctl.after_import_flag = True
 			tauon.thread_manager.ready("worker")
 			if tauon.loaderCommand == tauon.LC_None:
@@ -43371,15 +43373,15 @@ def main(holder: Holder):
 						tauon.thread_manager.ready("worker")
 						break
 
-		elif loading_in_progress is True:
-			loading_in_progress = False
+		elif pctl.loading_in_progress is True:
+			pctl.loading_in_progress = False
 			pctl.notify_change()
 
 		if tauon.loaderCommand == tauon.LC_Done:
 			tauon.loaderCommand = tauon.LC_None
 			gui.update += 1
 			# gui.pl_update = 1
-			# loading_in_progress = False
+			# pctl.loading_in_progress = False
 
 		if update_layout:
 			update_layout_do(tauon=tauon)
@@ -43387,12 +43389,12 @@ def main(holder: Holder):
 
 		# if tauon.worker_save_state and\
 		# 		not gui.pl_pulse and\
-		# 		not loading_in_progress and\
+		# 		not pctl.loading_in_progress and\
 		# 		not tauon.to_scan and\
 		# 		not plex.scanning and\
 		# 		not tauon.cm_clean_db and\
 		# 		not lastfm.scanning_friends and\
-		# 		not move_in_progress:
+		# 		not tauon.move_in_progress:
 		# 	save_state()
 		# 	cue_list.clear()
 		# 	tauon.worker_save_state = False
@@ -44547,7 +44549,7 @@ def main(holder: Holder):
 										year_sort(target_pl)
 
 							if not load_orders:
-								loading_in_progress = False
+								pctl.loading_in_progress = False
 								pctl.notify_change()
 								gui.auto_play_import = False
 								album_artist_dict.clear()
