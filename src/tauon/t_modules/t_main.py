@@ -4320,7 +4320,7 @@ class Menu:
 		if self.tauon.gui.scale == 2:
 			self.w += 15
 
-	def __init__(self, tauon: Tauon, bag: Bag, width: int, show_icons: bool = False) -> None:
+	def __init__(self, tauon: Tauon, width: int, show_icons: bool = False) -> None:
 		self.tauon = tauon
 		self.base_v_size = 22
 		self.active = False
@@ -4338,7 +4338,7 @@ class Menu:
 		self.down = False
 		self.font = 412
 		self.show_icons: bool = show_icons
-		self.sub_arrow = MenuIcon(asset_loader(bag, bag.loaded_asset_dc, "sub.png", True))
+		self.sub_arrow = MenuIcon(asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "sub.png", True))
 
 		self.id = Menu.count
 		self.break_height = round(4 * tauon.gui.scale)
@@ -17934,7 +17934,7 @@ class RadioBox:
 		self.hosts = None
 		self.host = None
 
-		self.search_menu = Menu(tauon, tauon.bag, 170)
+		self.search_menu = Menu(tauon, 170)
 		self.search_menu.add(MenuItem(_("Search Tag"), self.search_tag, pass_ref=True))
 		self.search_menu.add(MenuItem(_("Search Country Code"), self.search_country, pass_ref=True))
 		self.search_menu.add(MenuItem(_("Search Title"), self.search_title, pass_ref=True))
@@ -40889,25 +40889,25 @@ def main(holder: Holder):
 	tool_tip_instant = ToolTip3(bag, gui)
 
 	# Create empty area menu
-	playlist_menu = Menu(tauon, bag, 130)
-	radio_entry_menu = Menu(tauon, bag, 125)
-	showcase_menu = Menu(tauon, bag, 135)
-	center_info_menu = Menu(tauon, bag, 125)
-	cancel_menu = Menu(tauon, bag, 100)
-	gallery_menu = Menu(tauon, bag, 175, show_icons=True)
-	artist_info_menu = Menu(tauon, bag, 135)
-	queue_menu = Menu(tauon, bag, 150)
-	repeat_menu = Menu(tauon, bag, 120)
-	shuffle_menu = Menu(tauon, bag, 120)
-	artist_list_menu = Menu(tauon, bag, 165, show_icons=True)
-	lightning_menu = Menu(tauon, bag, 165)
-	lsp_menu = Menu(tauon, bag, 145)
-	folder_tree_menu = Menu(tauon, bag, 175, show_icons=True)
-	folder_tree_stem_menu = Menu(tauon, bag, 190, show_icons=True)
-	overflow_menu = Menu(tauon, bag, 175)
-	spotify_playlist_menu = Menu(tauon, bag, 175)
-	radio_context_menu = Menu(tauon, bag, 175)
-	#chrome_menu = Menu(tauon, bag, 175)
+	playlist_menu         = Menu(tauon, 130)
+	radio_entry_menu      = Menu(tauon, 125)
+	showcase_menu         = Menu(tauon, 135)
+	center_info_menu      = Menu(tauon, 125)
+	cancel_menu           = Menu(tauon, 100)
+	gallery_menu          = Menu(tauon, 175, show_icons=True)
+	artist_info_menu      = Menu(tauon, 135)
+	queue_menu            = Menu(tauon, 150)
+	repeat_menu           = Menu(tauon, 120)
+	shuffle_menu          = Menu(tauon, 120)
+	artist_list_menu      = Menu(tauon, 165, show_icons=True)
+	lightning_menu        = Menu(tauon, 165)
+	lsp_menu              = Menu(tauon, 145)
+	folder_tree_menu      = Menu(tauon, 175, show_icons=True)
+	folder_tree_stem_menu = Menu(tauon, 190, show_icons=True)
+	overflow_menu         = Menu(tauon, 175)
+	spotify_playlist_menu = Menu(tauon, 175)
+	radio_context_menu    = Menu(tauon, 175)
+	#chrome_menu          = Menu(tauon, 175)
 
 	# . Menu entry: A side panel view layout
 	lsp_menu.add(MenuItem(_("Playlists + Queue"), enable_playlist_list, disable_test=lsp_menu_test_playlist))
@@ -41018,7 +41018,7 @@ def main(holder: Holder):
 	center_info_menu.add_to_sub(0, MenuItem(_("Toggle art position"),
 		toggle_lyrics_panel_position, toggle_lyrics_panel_position_deco, show_test=lyrics_in_side_show))
 
-	picture_menu = Menu(tauon, bag, 175)
+	picture_menu = Menu(tauon, 175)
 	picture_menu.add(MenuItem(_("Open Image"), open_image, open_image_deco, pass_ref=True, pass_ref_deco=True, disable_test=open_image_disable_test))
 	# Next and previous pictures
 	picture_menu.add(MenuItem(_("Next Image"), cycle_offset, cycle_image_deco, pass_ref=True, pass_ref_deco=True))
@@ -41051,10 +41051,10 @@ def main(holder: Holder):
 	# playlist_menu.add('Paste', append_here, paste_deco)
 
 	# Create playlist tab menu
-	tab_menu = Menu(tauon, bag, 160, show_icons=True)
+	tab_menu = Menu(tauon, 160, show_icons=True)
 	tab_menu.add(MenuItem(_("Rename"), rename_playlist, pass_ref=True, hint="Ctrl+R"))
 
-	radio_tab_menu = Menu(tauon, bag, 160, show_icons=True)
+	radio_tab_menu = Menu(tauon, 160, show_icons=True)
 	radio_tab_menu.add(MenuItem(_("Rename"), rename_playlist, pass_ref=True, hint="Ctrl+R"))
 	tab_menu.add(MenuItem("Pin", pin_playlist_toggle, pl_pin_deco, pass_ref=True, pass_ref_deco=True))
 
@@ -41125,7 +41125,7 @@ def main(holder: Holder):
 		"CUE",
 	)
 
-	extra_tab_menu = Menu(tauon, bag, 155, show_icons=True)
+	extra_tab_menu = Menu(tauon, 155, show_icons=True)
 
 	extra_tab_menu.add(MenuItem(_("New Playlist"), new_playlist, icon=add_icon))
 
@@ -41252,7 +41252,7 @@ def main(holder: Holder):
 		show_test=spotify_show_test))
 
 	# Create track context menu
-	track_menu = Menu(tauon, bag, 195, show_icons=True)
+	track_menu = Menu(tauon, 195, show_icons=True)
 
 	track_menu.add(MenuItem(_("Open Folder"), open_folder, pass_ref=True, pass_ref_deco=True, icon=folder_icon, disable_test=open_folder_disable_test))
 	track_menu.add(MenuItem(_("Track Info…"), activate_track_box, pass_ref=True, icon=info_icon))
@@ -41342,8 +41342,8 @@ def main(holder: Holder):
 	track_menu.add_to_sub(0, MenuItem(_("Fix Mojibake"), intel_moji, pass_ref=True))
 	# track_menu.add_to_sub("Copy Playlist", 1, transfer, pass_ref=True, args=[1, 3])
 
-	selection_menu = Menu(tauon, bag, 200, show_icons=False)
-	folder_menu = Menu(tauon, bag, 193, show_icons=True)
+	selection_menu = Menu(tauon, 200, show_icons=False)
+	folder_menu = Menu(tauon, 193, show_icons=True)
 
 	folder_menu.add(MenuItem(_("Open Folder"), open_folder, pass_ref=True, pass_ref_deco=True, icon=folder_icon, disable_test=open_folder_disable_test))
 
@@ -41457,16 +41457,16 @@ def main(holder: Holder):
 
 
 	# Create top menu
-	x_menu: Menu = Menu(tauon, bag, 190, show_icons=True)
-	view_menu = Menu(tauon, bag, 170)
-	set_menu = Menu(tauon, bag, 150)
-	set_menu_hidden = Menu(tauon, bag, 100)
-	vis_menu = Menu(tauon, bag, 140)
-	window_menu = Menu(tauon, bag, 140)
-	field_menu = Menu(tauon, bag, 140)
-	dl_menu = Menu(tauon, bag, 90)
+	x_menu          = Menu(tauon, 190, show_icons=True)
+	view_menu       = Menu(tauon, 170)
+	set_menu        = Menu(tauon, 150)
+	set_menu_hidden = Menu(tauon, 100)
+	vis_menu        = Menu(tauon, 140)
+	window_menu     = Menu(tauon, 140)
+	field_menu      = Menu(tauon, 140)
+	dl_menu         = Menu(tauon, 90)
 
-	window_menu = Menu(tauon, bag, 140)
+	window_menu = Menu(tauon, 140)
 	window_menu.add(MenuItem(_("Minimize"), do_minimize_button))
 	window_menu.add(MenuItem(_("Maximize"), do_maximize_button))
 	window_menu.add(MenuItem(_("Exit"), do_exit_button))
@@ -41589,7 +41589,7 @@ def main(holder: Holder):
 
 	#x_menu.add(_("Cast…"), cast_search, cast_deco)
 
-	mode_menu = Menu(tauon, bag, 175)
+	mode_menu = Menu(tauon, 175)
 
 	mode_menu.add(MenuItem(_("Tab"), set_mini_mode_D))
 	mode_menu.add(MenuItem(_("Mini"), set_mini_mode_A1))
@@ -41601,7 +41601,7 @@ def main(holder: Holder):
 	mode_menu.br()
 	mode_menu.add(MenuItem(_("Copy Title to Clipboard"), copy_bb_metadata))
 
-	extra_menu = Menu(tauon, bag, 175, show_icons=True)
+	extra_menu = Menu(tauon, 175, show_icons=True)
 	extra_menu.add(MenuItem(_("Random Track"), random_track, hint=";"))
 
 	radiorandom_icon = MenuIcon(asset_loader(bag, loaded_asset_dc, "radiorandom.png", True))
