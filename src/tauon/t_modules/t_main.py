@@ -365,6 +365,7 @@ class GuiVar:
 		self.request_raise = False
 		self.maximized = False
 		self.side_drag = False
+		self.ext_drop_mode = False
 
 		self.message_box = False
 		self.message_text = ""
@@ -14548,6 +14549,9 @@ class TopPanel:
 			ddt.text((x + self.tab_text_start_space, y + self.tab_text_y_offset), text, fg, self.tab_text_font, bg=bg)
 
 			# Drop pulse
+			if gui.ext_drop_mode and coll(rect):
+				ddt.rect_si(rect, [50, 230, 250, 255], round(3 * gui.scale))
+
 			if gui.pl_pulse and gui.drop_playlist_target == i:
 				if tab_pulse.render(x, y + self.height - bar_highlight_size, tab_width, bar_highlight_size, r=200,
 									g=130) is False:
@@ -16844,6 +16848,9 @@ class StandardPlaylist:
 
 		rect = (left, gui.panelY, width, window_size[1] - (gui.panelBY + gui.panelY))
 		ddt.rect(rect, colours.playlist_panel_background)
+
+		if gui.ext_drop_mode and coll(rect):
+			ddt.rect(rect, [255,0,0,255])
 
 		# This draws an optional background image
 		if pl_bg:
@@ -38640,7 +38647,9 @@ def is_level_zero(include_menus: bool = True) -> bool:
 		and not trans_edit_box.active
 
 def drop_file(target: str) -> None:
-	if system != "windows" and sdl3.SDL_version >= 204:
+	"""Deprecated, move to individual UI components"""
+
+	if system != "windows":
 		gmp = get_global_mouse()
 		gwp = get_window_position()
 		i_x = gmp[0] - gwp[0]
@@ -42078,14 +42087,25 @@ def main(holder: Holder) -> None:
 						target = str(urllib.parse.unquote(line)).replace("file:///", "/")
 						drop_file(target)
 
-			if event.type == sdl3.SDL_EVENT_DROP_FILE:
-				power += 5
-				dropped_file_sdl = event.drop.file
-				#logging.info(dropped_file_sdl)
-				target = str(urllib.parse.unquote(
-					dropped_file_sdl.decode("utf-8", errors="surrogateescape"))).replace("file:///", "/").replace("\r", "")
-				#logging.info(target)
-				drop_file(target)
+		if event.type == sdl3.SDL_EVENT_DROP_BEGIN:
+			gui.ext_drop_mode = True
+		elif event.type == sdl3.SDL_EVENT_DROP_POSITION:
+			mouse_position[0] = int(event.drop.x / logical_size[0] * window_size[0])
+			mouse_position[1] = int(event.drop.y / logical_size[0] * window_size[0])
+			mouse_moved = True
+			gui.mouse_unknown = False
+			gui.ext_drop_mode = True
+		elif event.type == sdl3.SDL_EVENT_DROP_COMPLETE:
+			gui.ext_drop_mode = False
+		elif event.type == sdl3.SDL_EVENT_DROP_FILE:
+			gui.ext_drop_mode = False
+			power += 5
+			dropped_file_sdl = event.drop.data
+			logging.info(f"Dropped data: {dropped_file_sdl}")
+			target = str(urllib.parse.unquote(
+				dropped_file_sdl.decode("utf-8", errors="surrogateescape"))).replace("file:///", "/").replace("\r", "")
+			#logging.info(target)
+			drop_file(target)
 
 
 			elif event.type == 8192:
@@ -44554,6 +44574,12 @@ def main(holder: Holder) -> None:
 						#     combo_pl_render.cache_render()
 					else:
 						playlist_render.cache_render()
+
+				rect = (gui.playlist_left, gui.panelY, gui.plw, window_size[1] - (gui.panelBY + gui.panelY))
+
+				if gui.ext_drop_mode and coll(rect):
+					ddt.rect_si(rect, [50, 230, 250, 255], round(5 * gui.scale))
+				fields.add(rect)
 
 					if gui.combo_mode and inp.key_esc_press and is_level_zero():
 						exit_combo()
