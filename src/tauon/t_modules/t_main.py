@@ -1410,11 +1410,14 @@ class PlayerCtl:
 		self.bag                       = self.tauon.bag
 		self.smtc:                bool = self.tauon.bag.smtc
 		self.radiobox                  = self.tauon.radiobox
+		self.msys                      = self.tauon.msys
 		self.running:             bool = True
 		self.prefs:              Prefs = self.bag.prefs
+		self.star_store                = self.tauon.star_store
 		self.lfm_scrobbler             = LastScrob(tauon=self.tauon, pctl=self)
 		self.install_directory:   Path = self.bag.dirs.install_directory
 		self.loading_in_progress: bool = False
+		self.taskbar_progress:    bool = True
 
 		self.cargo: list[int]          = []
 		# Database
@@ -1655,7 +1658,7 @@ class PlayerCtl:
 				if on == p:
 					break
 				if self.multi_playlist[on].hidden is False or not self.prefs.tabs_on_top or (
-						self.gui.lsp and prefs.left_panel_mode == "playlist"):
+						self.gui.lsp and self.prefs.left_panel_mode == "playlist"):
 					self.switch_playlist(on)
 					break
 				on += 1
@@ -1716,7 +1719,7 @@ class PlayerCtl:
 		# Backup the playlist to be deleted
 		# self.playlist_backup.append(self.multi_playlist[index])
 		# self.playlist_backup.append(self.multi_playlist[index])
-		undo.bk_playlist(index)
+		self.tauon.undo.bk_playlist(index)
 
 		# If we're deleting the final playlist, delete it and create a blank one in place
 		if len(self.multi_playlist) == 1:
@@ -1776,7 +1779,7 @@ class PlayerCtl:
 			self.active_playlist_playing = self.active_playlist_viewing
 			self.playlist_playing_position = -1
 
-		test_show_add_home_music(tauon=tauon)
+		test_show_add_home_music(tauon=self.tauon)
 
 		# Cleanup
 		ids = []
@@ -1808,8 +1811,8 @@ class PlayerCtl:
 			self.delete_playlist(index)
 			return
 
-		gui.message_box_confirm_callback = delete_playlist_by_id
-		gui.message_box_confirm_reference = (self.pl_to_id(index), True, True)
+		self.gui.message_box_confirm_callback = delete_playlist_by_id
+		self.gui.message_box_confirm_reference = (self.pl_to_id(index), True, True)
 		show_message(_("Are you sure you want to delete playlist: {name}?").format(name=self.multi_playlist[index].title), mode="confirm")
 
 	def id_to_pl(self, id: int):
@@ -1993,7 +1996,7 @@ class PlayerCtl:
 		return self.default_playlist and self.selected_in_playlist < len(self.default_playlist)
 
 	def render_playlist(self) -> None:
-		if taskbar_progress and self.msys and self.windows_progress:
+		if self.taskbar_progress and self.msys and self.windows_progress:
 			self.windows_progress.update(True)
 		self.gui.pl_update = 1
 
@@ -2124,7 +2127,7 @@ class PlayerCtl:
 							tr = self.get_track(p)
 							if tr.misc.get("spotify-track-url") == sptr:
 								index = tr.index
-								pctl.switch_playlist(i)
+								self.switch_playlist(i)
 								break
 						else:
 							continue
@@ -2143,7 +2146,7 @@ class PlayerCtl:
 		if not no_switch:
 			if self.active_playlist_viewing != self.active_playlist_playing and (
 					track_index not in self.multi_playlist[self.active_playlist_viewing].playlist_ids):
-				pctl.switch_playlist(self.active_playlist_playing)
+				self.switch_playlist(self.active_playlist_playing)
 
 		if self.gui.playlist_view_length < 1:
 			return 0
@@ -2209,7 +2212,7 @@ class PlayerCtl:
 			if not this_only:
 				for i, playlist in enumerate(self.multi_playlist):
 					if track_index in playlist.playlist_ids:
-						pctl.switch_playlist(i, quiet=True)
+						self.switch_playlist(i, quiet=True)
 						self.show_current(select, playing, quiet, this_only=True, index=track_index)
 						break
 
@@ -2489,7 +2492,7 @@ class PlayerCtl:
 		self.lfm_scrobbler.start_queue()
 		self.gui.pl_update += 1
 
-	def stop(self, block: bool = False, run : bool = False) -> None:
+	def stop(self, block: bool = False, run : bool = False) -> int:
 		self.playerCommand = "stop"
 		if run:
 			self.playerCommand = "runstop"
@@ -2532,7 +2535,7 @@ class PlayerCtl:
 			loop = 0
 			sleep_timeout(lambda: self.playerSubCommand != "stopped", 2)
 			if self.tauon.stream_proxy.download_running:
-				sleep_timeout(lambda: tauon.stream_proxy.download_running, 2)
+				sleep_timeout(lambda: self.tauon.stream_proxy.download_running, 2)
 
 		if self.tauon.spot_ctl.playing or self.tauon.spot_ctl.coasting:
 			logging.info("Spotify stop")
@@ -2613,7 +2616,7 @@ class PlayerCtl:
 			self.playerCommandReady = True
 			self.playing_time = self.new_time
 
-			if self.msys and taskbar_progress and self.windows_progress:
+			if self.msys and self.taskbar_progress and self.windows_progress:
 				self.windows_progress.update(True)
 
 			if self.mpris is not None:
@@ -2692,7 +2695,7 @@ class PlayerCtl:
 				# self.test_progress()
 				self.tauon.spot_ctl.progress_timer.set()
 				if len(self.track_queue) > 0 and 2 > add_time > 0:
-					star_store.add(self.track_queue[self.queue_step], add_time)
+					self.star_store.add(self.track_queue[self.queue_step], add_time)
 			if self.tauon.spot_ctl.update_timer.get() > th:
 				self.tauon.spot_ctl.update_timer.set()
 				shooter(self.tauon.spot_ctl.monitor)
@@ -2752,7 +2755,7 @@ class PlayerCtl:
 		if self.tauon.spot_ctl.playing or self.tauon.chrome_mode:
 			gap_extra = 3
 
-		if self.msys and taskbar_progress and self.windows_progress:
+		if self.msys and self.taskbar_progress and self.windows_progress:
 			self.windows_progress.update(True)
 
 		if self.commit is not None:
@@ -3454,6 +3457,7 @@ class LastFMapi:
 
 	def __init__(self, tauon: Tauon) -> None:
 		self.tauon          = tauon
+		self.star_store     = tauon.star_store
 		self.last_fm_enable = tauon.bag.last_fm_enable
 		self.gui            = self.tauon.gui
 		self.pctl           = self.tauon.pctl
@@ -5209,6 +5213,7 @@ class Tauon:
 		self.tool_tip                             = ToolTip(tauon=self)
 		self.tool_tip2                            = ToolTip(tauon=self)
 		self.tool_tip2.trigger                    = 1.8
+		self.undo                                 = Undo(tauon=self)
 		self.cache_directory:                Path = bag.dirs.cache_directory
 		self.user_directory:          Path | None = bag.dirs.user_directory
 		self.music_directory:         Path | None = bag.dirs.music_directory
@@ -6729,12 +6734,13 @@ class PlexService:
 class SubsonicService:
 
 	def __init__(self, tauon: Tauon) -> None:
-		self.prefs = tauon.prefs
-		self.t_title = tauon.t_title
-		self.scanning = False
-		self.playlists = tauon.prefs.subsonic_playlists
+		self.prefs      = tauon.prefs
+		self.t_title    = tauon.t_title
+		self.star_store = tauon.star_store
+		self.scanning   = False
+		self.playlists  = tauon.prefs.subsonic_playlists
 
-	def r(self, point, p=None, binary: bool = False, get_url: bool = False):
+	def r(self, point: str, p: dict[str, str] | None = None, binary: bool = False, get_url: bool = False):
 		salt = secrets.token_hex(8)
 		server = self.prefs.subsonic_server.rstrip("/") + "/"
 
@@ -6780,7 +6786,6 @@ class SubsonicService:
 		return io.BytesIO(response)
 
 	def resolve_stream(self, key):
-
 		p = {"id": key}
 		if prefs.network_stream_bitrate > 0:
 			p["maxBitRate"] = prefs.network_stream_bitrate
@@ -6961,10 +6966,10 @@ class SubsonicService:
 
 				playlist.append(nt.index)
 
-				if star_store.get_rating(nt.index) == 0 and rating == 0:
+				if self.star_store.get_rating(nt.index) == 0 and rating == 0:
 					pass
 				else:
-					star_store.set_rating(nt.index, rating * 2)
+					self.star_store.set_rating(nt.index, rating * 2)
 
 		self.scanning = False
 		if return_list:
@@ -24433,12 +24438,12 @@ class EdgePulse2:
 
 class Undo:
 
-	def __init__(self):
-
+	def __init__(self, tauon: Tauon) -> None:
+		self.pctl = tauon.pctl
+		self.gui  = tauon.gui
 		self.e = []
 
-	def undo(self):
-
+	def undo(self) -> None:
 		if not self.e:
 			show_message(_("There are no more steps to undo."))
 			return
@@ -24446,17 +24451,17 @@ class Undo:
 		job = self.e.pop()
 
 		if job[0] == "playlist":
-			pctl.multi_playlist.append(job[1])
-			pctl.switch_playlist(len(pctl.multi_playlist) - 1)
+			self.pctl.multi_playlist.append(job[1])
+			self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 		elif job[0] == "tracks":
 
 			uid = job[1]
 			li = job[2]
 
-			for i, playlist in enumerate(pctl.multi_playlist):
+			for i, playlist in enumerate(pctl.self.multi_playlist):
 				if playlist.uuid_int == uid:
 					pl = playlist.playlist_ids
-					pctl.switch_playlist(i)
+					self.pctl.switch_playlist(i)
 					break
 			else:
 				logging.info("No matching playlist ID to restore tracks to")
@@ -24469,25 +24474,23 @@ class Undo:
 					continue
 				pl.insert(i, ref)
 
-				if not pctl.playlist_view_position < i < pctl.playlist_view_position + gui.playlist_view_length:
-					pctl.playlist_view_position = i
+				if not self.pctl.playlist_view_position < i < self.pctl.playlist_view_position + self.gui.playlist_view_length:
+					self.pctl.playlist_view_position = i
 					logging.debug("Position changed by undo")
 		elif job[0] == "ptt":
 			j, fr, fr_s, fr_scr, so, to_s, to_scr = job
-			star_store.insert(fr.index, fr_s)
-			star_store.insert(to.index, to_s)
+			self.star_store.insert(fr.index, fr_s)
+			self.star_store.insert(to.index, to_s)
 			to.lfm_scrobbles = to_scr
 			fr.lfm_scrobbles = fr_scr
 
-		gui.pl_update = 1
+		self.gui.pl_update = 1
 
 	def bk_playlist(self, pl_index: int) -> None:
-
 		self.e.append(("playlist", pctl.multi_playlist[pl_index]))
 
 	def bk_tracks(self, pl_index: int, indis) -> None:
-
-		uid = pctl.multi_playlist[pl_index].uuid_int
+		uid = self.pctl.multi_playlist[pl_index].uuid_int
 		self.e.append(("tracks", uid, indis))
 
 	def bk_playtime_transfer(self, fr, fr_s, fr_scr, so, to_s, to_scr) -> None:
@@ -39168,7 +39171,6 @@ def main(holder: Holder) -> None:
 
 	track_box = False
 
-	taskbar_progress = True
 	track_queue: list[int] = []
 
 	playing_in_queue: int = 0
@@ -40041,7 +40043,7 @@ def main(holder: Holder) -> None:
 		bag=bag,
 		gui=gui)
 	radiobox = tauon.radiobox
-	star_store=tauon.star_store
+	star_store = tauon.star_store
 	pctl = tauon.pctl
 	pctl.default_playlist = default_playlist
 	lb = ListenBrainz(prefs)
@@ -40287,7 +40289,7 @@ def main(holder: Holder) -> None:
 	c_xay_timer = Timer()
 	rt = 0
 
-	if (system == "Windows" or msys) and taskbar_progress:
+	if (system == "Windows" or msys) and pctl.taskbar_progress:
 		if (install_directory / "TaskbarLib.tlb").is_file():
 			logging.info("Taskbar progress enabled")
 			pctl.windows_progress = WinTask()
@@ -41437,7 +41439,6 @@ def main(holder: Holder) -> None:
 	if prefs.backend == 0:
 		show_message(_("ERROR: No backend found"), mode="error")
 
-	undo = Undo()
 
 	# SDL_RenderClear(renderer)
 	# SDL_RenderPresent(renderer)
