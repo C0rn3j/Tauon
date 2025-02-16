@@ -671,7 +671,7 @@ class GuiVar:
 		self.showed_title = False
 
 		self.to_get = 0
-		self.to_got = 0
+		self.to_got: int | str = 0
 		self.switch_showcase_off = False
 
 		self.backend_reloading = False
@@ -6271,7 +6271,7 @@ class Tauon:
 					if track_id is not None:
 						load_order.playlist_position = r_menu_position
 
-					load_orders.append(copy.deepcopy(load_order))
+					self.load_orders.append(copy.deepcopy(load_order))
 					found = True
 
 		if not found:
@@ -15444,7 +15444,7 @@ class TopPanel:
 										pln = i
 										break
 
-							load_orders.append(copy.deepcopy(load_order))
+							tauon.load_orders.append(copy.deepcopy(load_order))
 
 						if len(tauon.dl_mon.ready) > 0:
 							tauon.dl_mon.ready.clear()
@@ -15483,14 +15483,14 @@ class TopPanel:
 
 		if pctl.loading_in_progress:
 			bg = colours.status_info_text
-			if to_got == "xspf":
+			if gui.to_got == "xspf":
 				text = _("Importing XSPF playlist")
-			elif to_got == "xspfl":
+			elif gui.to_got == "xspfl":
 				text = _("Importing XSPF playlist...")
-			elif to_got == "ex":
+			elif gui.to_got == "ex":
 				text = _("Extracting Archive...")
 			else:
-				text = _("Importing...  ") + str(to_got)  # + "/" + str(to_get)
+				text = _("Importing...  ") + str(gui.to_got)  # + "/" + str(gui.to_get)
 				if inp.right_click and tauon.coll([x, y, 180 * gui.scale, 18 * gui.scale]):
 					tauon.cancel_menu.activate(position=(x + 20 * gui.scale, y + 23 * gui.scale))
 		elif tauon.after_scan:
@@ -15500,8 +15500,8 @@ class TopPanel:
 		elif tauon.move_in_progress:
 			text = _("File copy in progress...")
 			bg = colours.status_info_text
-		elif tauon.cm_clean_db and to_get > 0:
-			per = str(int(to_got / to_get * 100))
+		elif tauon.cm_clean_db and gui.to_get > 0:
+			per = str(int(gui.to_got / gui.to_get * 100))
 			text = _("Cleaning db...  ") + per + "%"
 			bg = [100, 200, 100, 255]
 		elif tauon.to_scan:
@@ -24769,7 +24769,7 @@ def open_uri(uri:str) -> None:
 		load_order.play = True
 		gui.auto_play_import = True
 
-	load_orders.append(copy.deepcopy(load_order))
+	tauon.load_orders.append(copy.deepcopy(load_order))
 	gui.update += 1
 
 def toast(text: str) -> None:
@@ -27610,8 +27610,6 @@ def load_pls(path: str) -> None:
 		f.close()
 
 def load_xspf(path: str) -> None:
-	global to_got
-
 	name = os.path.basename(path)[:-5]
 	# tauon.log("Importing XSPF playlist: " + path, title=True)
 	logging.info("Importing XSPF playlist: " + path)
@@ -27689,7 +27687,7 @@ def load_xspf(path: str) -> None:
 	missing = 0
 
 	if len(a) > 5000:
-		to_got = "xspfl"
+		gui.to_got = "xspfl"
 
 	# Generate location dict
 	location_dict = {}
@@ -28205,7 +28203,7 @@ def re_import4(id):
 	load_order.target = pctl.get_track(id).parent_folder_path
 	load_order.notify = True
 	load_order.playlist = pctl.multi_playlist[pctl.active_playlist_viewing].uuid_int
-	load_orders.append(copy.deepcopy(load_order))
+	tauon.load_orders.append(copy.deepcopy(load_order))
 	show_message(_("Rescanning folder..."), pctl.get_track(id).parent_folder_path, mode="info")
 
 def re_import3(stem):
@@ -28224,7 +28222,7 @@ def re_import3(stem):
 	load_order.target = stem
 	load_order.notify = True
 	load_order.playlist = pctl.multi_playlist[pctl.active_playlist_viewing].uuid_int
-	load_orders.append(copy.deepcopy(load_order))
+	tauon.load_orders.append(copy.deepcopy(load_order))
 	show_message(_("Rescanning folder..."), stem, mode="info")
 
 def collapse_tree_deco():
@@ -29469,7 +29467,7 @@ def rescan_tags(tauon: Tauon, pl: int) -> None:
 #	 load_order.replace_stem = True
 #	 load_order.target = path
 #	 load_order.playlist = pctl.multi_playlist[pl].uuid_int
-#	 load_orders.append(copy.deepcopy(load_order))
+#	 tauon.load_orders.append(copy.deepcopy(load_order))
 
 def re_import2(pl: int) -> None:
 	paths = pctl.multi_playlist[pl].last_folder
@@ -29483,7 +29481,7 @@ def re_import2(pl: int) -> None:
 			load_order.target = path
 			load_order.notify = True
 			load_order.playlist = pctl.multi_playlist[pl].uuid_int
-			load_orders.append(copy.deepcopy(load_order))
+			tauon.load_orders.append(copy.deepcopy(load_order))
 
 	if paths:
 		show_message(_("Rescanning folders..."), mode="info")
@@ -33872,7 +33870,7 @@ def import_music():
 	load_order = LoadClass()
 	load_order.target = str(music_directory)
 	load_order.playlist = pl.uuid_int
-	load_orders.append(load_order)
+	tauon.load_orders.append(load_order)
 	pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 	gui.add_music_folder_ready = False
 
@@ -35542,8 +35540,6 @@ def worker1(tauon: Tauon) -> None:
 	global cue_list
 	global home
 	global added
-	global to_get
-	global to_got
 
 	gui = tauon.gui
 	pctl = tauon.pctl
@@ -35846,7 +35842,6 @@ def worker1(tauon: Tauon) -> None:
 
 	def add_file(path, force_scan: bool = False) -> int | None:
 		# bm.get("add file start")
-		global to_got
 
 		if not os.path.isfile(path):
 			logging.error("File to import missing")
@@ -35889,8 +35884,8 @@ def worker1(tauon: Tauon) -> None:
 					if not os.path.isdir(target_dir) and not os.path.isfile(target_dir):
 						if type == "zip":
 							try:
-								b = to_got
-								to_got = "ex"
+								b = gui.to_got
+								gui.to_got = "ex"
 								gui.update += 1
 								zip_ref = zipfile.ZipFile(path, "r")
 
@@ -35898,7 +35893,7 @@ def worker1(tauon: Tauon) -> None:
 								zip_ref.close()
 							except RuntimeError as e:
 								logging.exception("Zip error")
-								to_got = b
+								gui.to_got = b
 								if "encrypted" in e:
 									show_message(
 										_("Failed to extract zip archive."),
@@ -35912,7 +35907,7 @@ def worker1(tauon: Tauon) -> None:
 								return 1
 							except Exception:
 								logging.exception("Zip error 2")
-								to_got = b
+								gui.to_got = b
 								show_message(
 									_("Failed to extract zip archive."),
 									_("Maybe archive is corrupted? Does disk have enough space and have write permission?"),
@@ -35920,9 +35915,9 @@ def worker1(tauon: Tauon) -> None:
 								return 1
 
 						elif type == "rar":
-							b = to_got
+							b = gui.to_got
 							try:
-								to_got = "ex"
+								gui.to_got = "ex"
 								gui.update += 1
 								line = launch_prefix + "unrar x -y -p- " + shlex.quote(path) + " " + shlex.quote(
 									target_dir) + os.sep
@@ -35930,15 +35925,15 @@ def worker1(tauon: Tauon) -> None:
 								logging.info(result)
 							except Exception:
 								logging.exception("Failed to extract rar archive.")
-								to_got = b
+								gui.to_got = b
 								show_message(_("Failed to extract rar archive."), mode="warning")
 
 								return 1
 
 						elif type == "7z":
-							b = to_got
+							b = gui.to_got
 							try:
-								to_got = "ex"
+								gui.to_got = "ex"
 								gui.update += 1
 								line = launch_prefix + "7z x -y " + shlex.quote(path) + " -o" + shlex.quote(
 									target_dir) + os.sep
@@ -35946,7 +35941,7 @@ def worker1(tauon: Tauon) -> None:
 								logging.info(result)
 							except Exception:
 								logging.exception("Failed to extract 7z archive.")
-								to_got = b
+								gui.to_got = b
 								show_message(_("Failed to extract 7z archive."), mode="warning")
 
 								return 1
@@ -35977,14 +35972,14 @@ def worker1(tauon: Tauon) -> None:
 								logging.exception("Could not move archive to trash")
 								show_message(_("Could not move archive to trash"), path, mode="info")
 
-						to_got = b
+						gui.to_got = b
 						gets(target_dir)
 						tauon.quick_import_done.append(target_dir)
 					# gets(target_dir)
 
 			return 1
 
-		to_got += 1
+		gui.to_got += 1
 		gui.update = 1
 
 		path = path.replace("\\", "/")
@@ -36056,12 +36051,9 @@ def worker1(tauon: Tauon) -> None:
 
 	# Count the approx number of files to be imported
 	def pre_get(direc):
-
-		global to_get
-
-		to_get = 0
+		gui.to_get = 0
 		for root, dirs, files in os.walk(direc):
-			to_get += len(files)
+			gui.to_get += len(files)
 			if gui.im_cancel:
 				return
 			gui.update = 3
@@ -36131,16 +36123,13 @@ def worker1(tauon: Tauon) -> None:
 
 	#logging.info(pctl.master_library)
 
-	global to_got
-	global to_get
-
 	active_timer = Timer()
 	while True:
 		if not tauon.after_scan:
 			time.sleep(0.1)
 
 		if tauon.after_scan \
-		or tauon.bag.load_orders \
+		or tauon.load_orders \
 		or tauon.artist_list_box.load \
 		or tauon.artist_list_box.to_fetch \
 		or tauon.gui.regen_single_id \
@@ -36258,7 +36247,7 @@ def worker1(tauon: Tauon) -> None:
 				show_message(_("Folder copy complete."), _("Folder name: {name}").format(name=job[3]), mode="done")
 
 			tauon.move_in_progress = False
-			load_orders.append(job[4])
+			tauon.load_orders.append(job[4])
 			gui.update += 1
 
 		# Clean database
@@ -36266,17 +36255,17 @@ def worker1(tauon: Tauon) -> None:
 			items_removed = 0
 
 			# old_db = copy.deepcopy(pctl.master_library)
-			to_got = 0
-			to_get = len(pctl.master_library)
+			gui.to_got = 0
+			gui.to_get = len(pctl.master_library)
 			tauon.search_over.results.clear()
 
 			keys = set(pctl.master_library.keys())
 			for index in keys:
 				time.sleep(0.0001)
 				track = pctl.master_library[index]
-				to_got += 1
+				gui.to_got += 1
 
-				if to_got % 100 == 0:
+				if gui.to_got % 100 == 0:
 					gui.update = 1
 
 				if not prefs.remove_network_tracks and track.file_ext == "SPTY":
@@ -36449,11 +36438,11 @@ def worker1(tauon: Tauon) -> None:
 			gui.pl_update += 1
 
 		if tauon.loaderCommandReady is True:
-			for order in load_orders:
+			for order in tauon.load_orders:
 				if order.stage == 1:
 					if tauon.loaderCommand == tauon.LC_Folder:
-						to_get = 0
-						to_got = 0
+						gui.to_get = 0
+						gui.to_got = 0
 						loaded_pathes_cache, loaded_cue_cache = cache_paths()
 						# pre_get(order.target)
 						if order.force_scan:
@@ -36466,15 +36455,15 @@ def worker1(tauon: Tauon) -> None:
 
 					if gui.im_cancel:
 						gui.im_cancel = False
-						to_get = 0
-						to_got = 0
-						load_orders.clear()
+						gui.to_get = 0
+						gui.to_got = 0
+						tauon.load_orders.clear()
 						added = []
-						tauon.loaderCommand = LC_Done
+						tauon.loaderCommand = tauon.LC_Done
 						tauon.loaderCommandReady = False
 						break
 
-					tauon.loaderCommand = LC_Done
+					tauon.loaderCommand = tauon.LC_Done
 					#logging.info("LOAD ORDER")
 					order.tracks = added
 
@@ -39084,9 +39073,6 @@ def main(holder: Holder) -> None:
 
 
 	# row_alt = False
-
-	to_get = 0  # Used to store temporary import count display
-	to_got = 0
 
 	editline = ""
 	# gui.rsp = True
@@ -42146,7 +42132,7 @@ def main(holder: Holder) -> None:
 					del gui.frame_callback_list[i]
 				i -= 1
 
-		if animate_monitor_timer.get() < 1 or load_orders:
+		if animate_monitor_timer.get() < 1 or tauon.load_orders:
 			if cursor_blink_timer.get() > 0.65:
 				cursor_blink_timer.set()
 				TextBox.cursor ^= True
@@ -42199,7 +42185,7 @@ def main(holder: Holder) -> None:
 		if power < 500:
 			time.sleep(0.03)
 
-			if (pctl.playing_state == 0 or pctl.playing_state == 2) and not load_orders \
+			if (pctl.playing_state == 0 or pctl.playing_state == 2) and not tauon.load_orders \
 			and gui.update == 0 and not tauon.gall_ren.queue and not tauon.transcode_list and not gui.frame_callback_list:
 				pass
 			else:
@@ -42879,7 +42865,7 @@ def main(holder: Holder) -> None:
 
 			inp.media_key = ""
 
-		if len(load_orders) > 0:
+		if len(tauon.load_orders) > 0:
 			pctl.loading_in_progress = True
 			pctl.after_import_flag = True
 			tauon.thread_manager.ready("worker")
@@ -42888,21 +42874,21 @@ def main(holder: Holder) -> None:
 				# Fliter out files matching CUE filenames
 				# This isnt the only mechanism that does this. This one helps in the situation
 				# where the user drags and drops multiple files at onec. CUEs in folders are handled elsewhere
-				if len(load_orders) > 1:
-					for order in load_orders:
+				if len(tauon.load_orders) > 1:
+					for order in tauon.load_orders:
 						if order.stage == 0 and order.target.endswith(".cue"):
-							for order2 in load_orders:
+							for order2 in tauon.load_orders:
 								if not order2.target.endswith(".cue") and\
 										os.path.splitext(order2.target)[0] == os.path.splitext(order.target)[0] and\
 										os.path.isfile(order2.target):
 									order2.stage = -1
-					for i in reversed(range(len(load_orders))):
-						order = load_orders[i]
+					for i in reversed(range(len(tauon.load_orders))):
+						order = tauon.load_orders[i]
 						if order.stage == -1:
-							del load_orders[i]
+							del tauon.load_orders[i]
 
 				# Prepare loader thread with load order
-				for order in load_orders:
+				for order in tauon.load_orders:
 					if order.stage == 0:
 						order.traget = order.target.replace("\\", "/")
 						order.stage = 1
@@ -42911,11 +42897,11 @@ def main(holder: Holder) -> None:
 						else:
 							tauon.loaderCommand = tauon.LC_File
 							if order.traget.endswith(".xspf"):
-								to_got = "xspf"
-								to_get = 0
+								gui.to_got = "xspf"
+								gui.to_get = 0
 							else:
-								to_got = 1
-								to_get = 1
+								gui.to_got = 1
+								gui.to_get = 1
 						tauon.loaderCommandReady = True
 						tauon.thread_manager.ready("worker")
 						break
@@ -44005,9 +43991,8 @@ def main(holder: Holder) -> None:
 				# End of gallery view
 				# --------------------------------------------------------------------------
 				# Main Playlist:
-				if len(load_orders) > 0:
-
-					for i, order in enumerate(load_orders):
+				if len(tauon.load_orders) > 0:
+					for i, order in enumerate(tauon.load_orders):
 						if order.stage == 2:
 							target_pl = 0
 
@@ -44019,7 +44004,7 @@ def main(holder: Holder) -> None:
 									target_pl = p
 									break
 							else:
-								del load_orders[i]
+								del tauon.load_orders[i]
 								logging.error("Target playlist lost")
 								break
 
@@ -44046,7 +44031,7 @@ def main(holder: Holder) -> None:
 
 							gui.update += 2
 							gui.pl_update += 2
-							if order.notify and gui.message_box and len(load_orders) == 1:
+							if order.notify and gui.message_box and len(tauon.load_orders) == 1:
 								show_message(_("Rescan folders complete."), mode="done")
 							reload(tauon=tauon)
 							tree_view_box.clear_target_pl(target_pl)
@@ -44074,11 +44059,11 @@ def main(holder: Holder) -> None:
 
 								pctl.show_current(True, True, True, True, True)
 
-							del load_orders[i]
+							del tauon.load_orders[i]
 
 							# Are there more orders for this playlist?
 							# If not, decide on a name for the playlist
-							for item in load_orders:
+							for item in tauon.load_orders:
 								if item.playlist == order.playlist:
 									break
 							else:
@@ -44094,7 +44079,7 @@ def main(holder: Holder) -> None:
 										standard_sort(target_pl)
 										year_sort(target_pl)
 
-							if not load_orders:
+							if not tauon.load_orders:
 								pctl.loading_in_progress = False
 								pctl.notify_change()
 								gui.auto_play_import = False
