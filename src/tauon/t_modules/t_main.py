@@ -2341,7 +2341,7 @@ class PlayerCtl:
 		if self.tauon.stream_proxy.download_running:
 			self.tauon.stream_proxy.stop()
 
-		if update_title:
+		if self.prefs.update_title:
 			update_title_do()
 
 		self.deduct_shuffle(self.target_object.index)
@@ -2383,7 +2383,7 @@ class PlayerCtl:
 		self.deduct_shuffle(target.index)
 
 	def update_change(self) -> None:
-		if update_title:
+		if self.prefs.update_title:
 			update_title_do()
 		self.notify_update()
 		hit_discord()
@@ -2522,7 +2522,7 @@ class PlayerCtl:
 		self.gui.update_spec = 0
 		# gui.update_level = True  # Allows visualiser to enter decay sequence
 		self.gui.update = True
-		if update_title:
+		if self.prefs.update_title:
 			update_title_do()  # Update title bar text
 
 		if self.tauon.stream_proxy and self.tauon.stream_proxy.download_running:
@@ -2892,7 +2892,7 @@ class PlayerCtl:
 				self.gui.update += 1
 				self.gui.pl_update = 1
 
-				if update_title:
+				if self.prefs.update_title:
 					update_title_do()
 				self.notify_update()
 			else:
@@ -16754,6 +16754,7 @@ class MiniMode3:
 class StandardPlaylist:
 	def __init__(self, tauon: Tauon, pl_bg: LoadImageAsset | None) -> None:
 		self.tauon       = tauon
+		self.prefs       = tauon.prefs
 		self.pctl        = tauon.pctl
 		self.deco        = tauon.deco
 		self.gui         = tauon.gui
@@ -16774,6 +16775,7 @@ class StandardPlaylist:
 		global r_menu_position
 
 		tauon       = self.tauon
+		prefs       = self.prefs
 		pctl        = self.pctl
 		gui         = self.gui
 		inp         = self.inp
@@ -16937,7 +16939,7 @@ class StandardPlaylist:
 			input_box = (track_box[0] + 30 * gui.scale, track_box[1] + 1, track_box[2] - 36 * gui.scale, track_box[3])
 
 			# Are folder titles enabled?
-			if not pctl.multi_playlist[pctl.active_playlist_viewing].hide_title and break_enable:
+			if not pctl.multi_playlist[pctl.active_playlist_viewing].hide_title and prefs.break_enable:
 				# Is this track from a different folder than the last?
 				if track_position == 0 or track_object.parent_folder_path != pctl.get_track(
 						pctl.default_playlist[track_position - 1]).parent_folder_path:
@@ -17015,7 +17017,7 @@ class StandardPlaylist:
 
 						# Add folder to selection if clicked
 						if inp.mouse_click \
-						and not (scroll_enable and inp.mouse_position[0] < 30 * gui.scale) and not gui.side_drag:
+						and not (prefs.scroll_enable and inp.mouse_position[0] < 30 * gui.scale) and not gui.side_drag:
 							inp.quick_drag = True
 							set_drag_source()
 
@@ -17086,7 +17088,7 @@ class StandardPlaylist:
 				line_over = False
 
 			# Prevent click if near scroll bar
-			if scroll_enable and inp.mouse_position[0] < 30:
+			if prefs.scroll_enable and inp.mouse_position[0] < 30:
 				line_hit = False
 
 			# Double click to play
@@ -34291,7 +34293,7 @@ def break_deco():
 	tex = colours.menu_text
 	if gui.combo_mode or (gui.show_playlist is False and prefs.album_mode):
 		tex = colours.menu_text_disabled
-	if not break_enable:
+	if not prefs.break_enable:
 		tex = colours.menu_text_disabled
 
 	if not pctl.multi_playlist[pctl.active_playlist_viewing].hide_title:
@@ -36255,14 +36257,13 @@ def rating_toggle(mode: int = 0) -> bool | None:
 	return None
 
 def toggle_titlebar_line(mode: int = 0) -> bool | None:
-	global update_title
 	if mode == 1:
-		return update_title
+		return self.prefs.update_title
 
 	line = window_title
 	sdl3.SDL_SetWindowTitle(t_window, line)
-	update_title ^= True
-	if update_title:
+	self.prefs.update_title ^= True
+	if self.prefs.update_title:
 		update_title_do()
 	return None
 
@@ -36366,22 +36367,19 @@ def toggle_borderless(mode: int = 0) -> bool | None:
 	return None
 
 def toggle_break(mode: int = 0) -> bool | None:
-	global break_enable
 	if mode == 1:
-		return break_enable ^ True
-	break_enable ^= True
+		return prefs.break_enable ^ True
+	prefs.break_enable ^= True
 	gui.pl_update = 1
 	return None
 
 def toggle_scroll(mode: int = 0) -> bool | None:
-	global scroll_enable
-
 	if mode == 1:
-		if scroll_enable:
+		if prefs.scroll_enable:
 			return False
 		return True
 
-	scroll_enable ^= True
+	prefs.scroll_enable ^= True
 	gui.pl_update = 1
 	gui.update_layout = True
 	return None
@@ -38199,13 +38197,13 @@ def save_state() -> None:
 		return
 
 	# view_prefs['star-lines'] = star_lines
-	view_prefs["update-title"] = update_title
+	view_prefs["update-title"] = prefs.update_title
 	view_prefs["side-panel"] = prefs.prefer_side
 	view_prefs["dim-art"] = prefs.dim_art
 	#view_prefs['level-meter'] = gui.turbo
 	# view_prefs['pl-follow'] = pl_follow
-	view_prefs["scroll-enable"] = scroll_enable
-	view_prefs["break-enable"] = break_enable
+	view_prefs["scroll-enable"] = prefs.scroll_enable
+	view_prefs["break-enable"] = prefs.break_enable
 	# view_prefs['dd-index'] = dd_index
 	view_prefs["append-date"] = prefs.append_date
 
@@ -39082,15 +39080,15 @@ def main(holder: Holder) -> None:
 	pl_rect = (2, 12, 10, 10)
 
 	theme = 7
-	scroll_enable = True
+	prefs.scroll_enable = True
 	scroll_timer = Timer()
 	scroll_timer.set()
 	scroll_opacity = 0
-	break_enable = True
+	prefs.break_enable = True
 
 	source = None
 
-	update_title = False
+	prefs.update_title = False
 
 	selected_in_playlist = -1
 
@@ -39938,15 +39936,15 @@ def main(holder: Holder) -> None:
 	scale_assets(bag=bag, scale_want=prefs.scale_want)
 
 	try:
-		#star_lines        = view_prefs['star-lines']
-		update_title      = view_prefs["update-title"]
-		prefs.prefer_side = view_prefs["side-panel"]
-		prefs.dim_art     = False  # view_prefs['dim-art']
-		#gui.turbo         = view_prefs['level-meter']
-		#pl_follow         = view_prefs['pl-follow']
-		scroll_enable     = view_prefs["scroll-enable"]
+		#star_lines         = view_prefs['star-lines']
+		prefs.update_title  = view_prefs["update-title"]
+		prefs.prefer_side   = view_prefs["side-panel"]
+		prefs.dim_art       = False  # view_prefs['dim-art']
+		#gui.turbo          = view_prefs['level-meter']
+		#pl_follow          = view_prefs['pl-follow']
+		prefs.scroll_enable = view_prefs["scroll-enable"]
 		if "break-enable" in view_prefs:
-			break_enable    = view_prefs["break-enable"]
+			prefs.break_enable = view_prefs["break-enable"]
 		else:
 			logging.warning("break-enable not found in view_prefs[] when trying to load settings! First run?")
 		#dd_index          = view_prefs['dd-index']
@@ -42069,7 +42067,7 @@ def main(holder: Holder) -> None:
 					gui.pl_update = 1
 					gui.update += 2
 
-					if update_title:
+					if prefs.update_title:
 						update_title_do()
 						#logging.info("restore")
 
@@ -44713,7 +44711,7 @@ def main(holder: Holder) -> None:
 				# ------------------------------------------------
 				# Scroll Bar
 
-				# if not scroll_enable:
+				# if not prefs.scroll_enable:
 				top = gui.panelY
 				if gui.artist_info_panel:
 					top += gui.artist_panel_height
