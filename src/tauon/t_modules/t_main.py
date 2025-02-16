@@ -350,7 +350,7 @@ class GuiVar:
 		self.window_control_hit_area_w = 100 * self.scale
 		self.window_control_hit_area_h = 30 * self.scale
 
-	def __init__(self, bag: Bag, tracklist_texture_rect: SDL_Rect, tracklist_texture, album_v_slide_value: int, console: DConsole, main_texture_overlay_temp, main_texture, max_window_tex):
+	def __init__(self, bag: Bag, tracklist_texture_rect: sdl3.SDL_Rect, tracklist_texture, album_v_slide_value: int, console: DConsole, main_texture_overlay_temp, main_texture, max_window_tex):
 		self.inp = Input(gui=self)
 
 		self.bag = bag
@@ -447,7 +447,7 @@ class GuiVar:
 		self.playlist_text_offset: int = 0
 		self.row_font_size: int = 13
 		self.compact_bar = False
-		self.tracklist_texture_rect: SDL_Rect = tracklist_texture_rect
+		self.tracklist_texture_rect: sdl3.SDL_Rect = tracklist_texture_rect
 		self.tracklist_texture = tracklist_texture
 
 		self.trunk_end = "..."  # "…"
@@ -1382,10 +1382,10 @@ class GetSDLInput:
 
 	def test_capture_mouse(self) -> None:
 		if not self.mouse_capture and self.mouse_capture_want:
-			SDL_CaptureMouse(SDL_TRUE)
+			sdl3.SDL_CaptureMouse(sdl3.SDL_TRUE)
 			self.mouse_capture = True
 		elif self.mouse_capture and not self.mouse_capture_want:
-			SDL_CaptureMouse(SDL_FALSE)
+			sdl3.SDL_CaptureMouse(sdl3.SDL_FALSE)
 			self.mouse_capture = False
 
 class MOD(Structure):
