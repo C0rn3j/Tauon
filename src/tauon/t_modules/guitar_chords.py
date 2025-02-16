@@ -15,22 +15,34 @@ from typing import TYPE_CHECKING
 
 import requests
 
-from tauon.t_modules.t_extra import filename_safe
-from tauon.t_modules.t_main import copy_from_clipboard
+from tauon.t_modules.t_extra import TestTimer, filename_safe
 
 if TYPE_CHECKING:
 	from tauon.t_modules.t_draw import TDraw
-	from tauon.t_modules.t_main import GuiVar, Input, PlayerCtl, TrackClass
+	from tauon.t_modules.t_main import ColoursClass, GuiVar, Input, PlayerCtl, TrackClass
+
+# TODO(Martin): Dupe code here to make things work in a dirty fashion until t_main gets a bigger rework
+#from tauon.t_modules.t_main import copy_from_clipboard
+
+def copy_from_clipboard():
+	return sdl3.SDL_GetClipboardText().decode()
+# ENDTODO
 
 class GuitarChords:
-
-	def __init__(self, user_directory: Path, inp: Input, ddt: TDraw, gui: GuiVar, pctl: PlayerCtl) -> None:
+	def __init__(
+		self, user_directory: Path, inp: Input, ddt: TDraw, gui: GuiVar, pctl: PlayerCtl, colours: ColoursClass,
+		mouse_wheel: float, mouse_position: list[int], window_size: list[int],
+	) -> None:
 		self.store_a:         Path = user_directory / "guitar-chords-a"  # inline format
 		self.store_b:         Path = user_directory / "guitar-chords-b"  # 2 lines format
+		self.colours: ColoursClass = colours
 		self.inp:            Input = inp
 		self.ddt:            TDraw = ddt
 		self.gui:           GuiVar = gui
 		self.pctl:       PlayerCtl = pctl
+		self.mouse_wheel           = mouse_wheel
+		self.mouse_position        = mouse_position
+		self.window_size           = window_size
 		self.data:            list = []
 		self.current:          str = ""
 		self.auto_scroll:     bool = True
@@ -39,7 +51,6 @@ class GuitarChords:
 		self.widespace:        str = "　"
 
 	def clear(self, track: TrackClass) -> None:
-
 		cache_title = self.get_cache_title(track)
 		self.prep_folders()
 		self.current = ""
@@ -56,24 +67,33 @@ class GuitarChords:
 				(self.store_b / cache_title).unlink()
 
 	def search_guitarparty(self, track_object: TrackClass):
+		"""Search guitarparty.com for the lyrics with guitar chords.
+
+		[2025-01-22] Note from site owners:
+			We stopped maintaining a public facing Api with API keys in our latest version as of about late 2020.
+			We have focused on providing our own features and services for our subscribers instead.
+			You can use the internal public API intended for the frontend as you are doing, but it is undocumented and might not be stable.
+			That being said, you can search for songs using the search api: https://www.guitarparty.com/api/v3/core/search/?q=jolene
+			There is no filtering available in the core/songs url
+			The search API does search in title as well as lyrics, it's the exact same search function as the frontpage and header of the site use.
+			If you find a match in the search API, then you can fetch the song detail using the id, we have chords in all of our songs.
+		"""
 		if not track_object.title:
-			show_message(_("Insufficient metadata to search"))
+			self.gui.show_message(_("Insufficient metadata to search"))
 		self.fetch(track_object)
 
 	def paste_chord_lyrics(self, track_object: TrackClass) -> None:
 		if track_object.title:
 			self.save_format_b(track_object)
 
-
 	def clear_chord_lyrics(self, track_object: TrackClass) -> None:
 		if track_object.title:
 			self.clear(track_object)
 
 	def save_format_b(self, track: TrackClass) -> None:
-
 		t = copy_from_clipboard()
 		if not t:
-			show_message(_("Clipboard has no text"))
+			self.gui.show_message(_("Clipboard has no text"))
 			self.inp.mouse_click = False
 			return
 
@@ -85,14 +105,11 @@ class GuitarChords:
 		f.write(t)
 		f.close()
 
-	def parse_b(self, lines: list[str]):
-
+	def parse_b(self, lines: list[str]) -> None:
 		final: list[tuple[str, list[tuple[str, int]]]] = []
-
 		last = ""
 
 		for line in lines:
-
 			if line in (" ", "", "\n"):
 				line = "                                          "
 
@@ -129,7 +146,6 @@ class GuitarChords:
 			chords: list[tuple[str, int]] = []
 
 			while on < len(last):
-
 				if mode == 0:
 					if last[on] == " ":
 						on += 1
@@ -153,47 +169,96 @@ class GuitarChords:
 		self.data = final
 
 	def prep_folders(self) -> None:
-
 		if not self.store_a.exists():
-			os.makedirs(self.store_a)
+			Path.mkdir(self.store_a, parents=True)
 
 		if not self.store_b.exists():
-			os.makedirs(self.store_b)
+			Path.mkdir(self.store_b, parents=True)
 
 	def fetch(self, track: TrackClass) -> None:
-
 		if self.test_ready_status(track) != 0:
 			return
 
 		cache_title = self.get_cache_title(track)
 
 		try:
-
-			r = requests.get(
-				"http://api.guitarparty.com/v2/songs/?query=" + urllib.parse.quote(cache_title),
-				headers={"Guitarparty-Api-Key": "e9c0e543798c4249c24f698022ced5dd0c583ec7"},
-				timeout=10)
-			d = r.json()["objects"][0]["body"]
-
-			self.prep_folders()
-			f = (self.store_a / cache_title).open("w")
-			f.write(d)
-			f.close()
-
-			self.ready[cache_title] = 1
-
+			response = requests.get(
+				f"https://www.guitarparty.com/api/v3/core/search/?format=json&q={urllib.parse.quote(cache_title)}",
+				timeout=15)
 		except Exception:
-			logging.exception("Could not find matching track on GuitarParty")
-			show_message(_("Could not find matching track on GuitarParty"))
+			logging.exception("Error finding matching track on GuitarParty")
+			self.gui.show_message(_("Error finding matching track on GuitarParty"))
 			self.inp.mouse_click = False
 			self.ready[cache_title] = 2
+			return
+
+		try:
+			parsed_response = response.json()
+		except Exception:
+			logging.exception("Failed to parse search response from www.guitarparty.com")
+			logging.debug(response)
+			self.inp.mouse_click = False
+			self.ready[cache_title] = 2
+			return
+
+		if len(parsed_response) == 0:
+			logging.info("Track not found on GuitarParty")
+			self.gui.show_message(_("Track not found on GuitarParty"))
+			self.inp.mouse_click = False
+			self.ready[cache_title] = 2
+			return
+
+		logging.debug(f"Found {len(parsed_response)} results from guitarparty.com, using the first one")
+
+		song = parsed_response[0]
+
+		try:
+			response = requests.get(
+				f"https://www.guitarparty.com/api/v3/core/songs/{song['id']}/?format=json&q={urllib.parse.quote(cache_title)}",
+				timeout=15)
+		except Exception:
+			logging.exception("Error getting song from GuitarParty")
+			self.gui.show_message(_("Error getting song from GuitarParty"))
+			self.inp.mouse_click = False
+			self.ready[cache_title] = 2
+			return
+
+		try:
+			parsed_response = response.json()
+		except Exception:
+			logging.exception("Failed to parse response from www.guitarparty.com")
+			logging.debug(response)
+			self.inp.mouse_click = False
+			self.ready[cache_title] = 2
+			return
+
+		if "song" not in parsed_response:
+			logging.error("Field 'song' from guitarparty.com is empty!")
+			logging.debug(parsed_response)
+			self.inp.mouse_click = False
+			self.ready[cache_title] = 2
+			return
+
+		result = parsed_response["song"]
+
+		self.prep_folders()
+		with (self.store_a / cache_title).open("w") as file:
+			file.write(result)
+		self.ready[cache_title] = 1
+
+		if "title" in parsed_response:
+			logging.debug(f"Wrote chords for found song title: {parsed_response['title']}")
+		else:
+			logging.error(f"Song had no title?!")
+			logging.debug(parsed_response)
 
 	def test_ready_status(self, track: TrackClass) -> int:
+		"""Return:
 
-		# 0 not searched
-		# 1 ready
-		# 2 failed
-
+		0 not searched
+		1 ready
+		2 failed
+		"""
 		cache_title = self.get_cache_title(track)
 
 		if cache_title in self.ready:
@@ -214,7 +279,6 @@ class GuitarChords:
 		return 0
 
 	def parse(self, lines: list[str]) -> None:
-
 		final = []
 
 		for line in lines:
@@ -270,10 +334,8 @@ class GuitarChords:
 		self.data = final
 
 	def get_cache_title(self, track: TrackClass) -> str:
-
 		name = track.artist + " " + track.title
-		name = filename_safe(name, sub="_")
-		return name
+		return filename_safe(name, sub="_")
 
 	def render(self, track: TrackClass, x: int, y: int) -> bool:
 
@@ -302,29 +364,24 @@ class GuitarChords:
 			else:
 				return False
 
-		if self.auto_scroll:
+		if self.auto_scroll and self.pctl.playing_length > 20:
+			progress = max(0, self.pctl.playing_time - 12) / (self.pctl.playing_length - 3)
+			height = len(self.data) * (18 + 15) * self.gui.scale
 
-			if self.pctl.playing_length > 20:
-				progress = max(0, self.pctl.playing_time - 12) / (self.pctl.playing_length - 3)
-				height = len(self.data) * (18 + 15) * self.gui.scale
-
-				self.scroll_position = height * progress
-				# gui.update += 1
-				self.gui.frame_callback_list.append(TestTimer(0.3))
+			self.scroll_position = height * progress
+			# gui.update += 1
+			self.gui.frame_callback_list.append(TestTimer(0.3))
 				# time.sleep(0.032)
 
-		if mouse_wheel and self.gui.panelY < mouse_position[1] < window_size[1] - self.gui.panelBY:
-			self.scroll_position += int(mouse_wheel * 30 * gui.scale * -1)
+		if self.mouse_wheel and self.gui.panelY < self.mouse_position[1] < self.window_size[1] - self.gui.panelBY:
+			self.scroll_position += int(self.mouse_wheel * 30 * self.gui.scale * -1)
 			self.auto_scroll = False
 		y -= self.scroll_position
 
 		if self.data:
-
 			self.ready[cache_title] = 1
-
 			for line in self.data:
-
-				if window_size[0] > y > 0:
+				if self.window_size[0] > y > 0:
 					min_space = 0
 					for ch in line[1]:
 						xx = max(x + ch[1], min_space)
@@ -335,9 +392,9 @@ class GuitarChords:
 							min_space = 1 + xx + self.ddt.text((xx, y), ch[0], [140, 120, 240, 255], 213)
 				y += 15 * self.gui.scale
 
-				if window_size[0] > y > 0:
-					colour = colours.lyrics
-					if colours.lm:
+				if self.window_size[0] > y > 0:
+					colour = self.colours.lyrics
+					if self.colours.lm:
 						colour = [30, 30, 30, 255]
 					self.ddt.text((x, y), line[0], colour, 16)
 

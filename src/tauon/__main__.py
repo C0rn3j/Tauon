@@ -33,6 +33,10 @@ from tauon.t_modules.logging import CustomLoggingFormatter, LogHistoryHandler
 
 from tauon.t_modules.t_bootstrap import Holder
 
+debug = False
+if (install_directory / "debug").is_file():
+	debug = True
+
 log = LogHistoryHandler()
 formatter = logging.Formatter('[%(levelname)s] %(message)s')
 log.setFormatter(formatter)
@@ -48,7 +52,7 @@ logging.basicConfig(
 )
 # INFO+ to std_err
 # TODO(Martin): This hereabout section is wonk, setting INFO on streamhandler removes formatting for DEBUG
-logging.getLogger().handlers[0].setLevel(logging.DEBUG if (install_directory / "debug").is_file() else logging.INFO)
+logging.getLogger().handlers[0].setLevel(logging.DEBUG if debug else logging.INFO)
 logging.getLogger().handlers[0].setFormatter(CustomLoggingFormatter())
 
 # https://docs.python.org/3/library/warnings.html
@@ -156,6 +160,13 @@ asset_directory = install_directory / "assets"
 if not user_directory.is_dir():
 	user_directory.mkdir(parents=True)
 
+if debug:
+	file_handler = logging.FileHandler(user_directory / "tauon.log")
+	file_handler.setLevel(logging.DEBUG)
+	file_handler.setFormatter(formatter)
+	logging.getLogger().addHandler(file_handler)
+	logging.info("Debug mode enabled!")
+
 fp = None
 dev_mode = (install_directory / ".dev").is_file()
 if dev_mode:
@@ -194,10 +205,6 @@ fs_mode = False
 if os.environ.get("GAMESCOPE_WAYLAND_DISPLAY") is not None:
 	fs_mode = True
 	logging.info("Running in GAMESCOPE MODE")
-
-allow_hidpi = True
-if sys.platform == "win32" and sys.getwindowsversion().major < 10 or Path(user_directory / "nohidpi").is_file():
-	allow_hidpi = False
 
 sdl3.SDL_SetHint(sdl3.SDL_HINT_VIDEO_ALLOW_SCREENSAVER, b"1")
 sdl3.SDL_SetHint(sdl3.SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, b"1")
@@ -283,7 +290,7 @@ if err and "GLX" in err.decode():
 window_title = t_title
 window_title = window_title.encode("utf-8")
 
-flags = sdl3.SDL_WINDOW_RESIZABLE | sdl3.SDL_WINDOW_TRANSPARENT
+flags = sdl3.SDL_WINDOW_RESIZABLE | sdl3.SDL_WINDOW_TRANSPARENT | sdl3.SDL_WINDOW_HIGH_PIXEL_DENSITY
 
 if draw_border and not fs_mode:
 	flags |= sdl3.SDL_WINDOW_BORDERLESS
@@ -333,7 +340,11 @@ while True:
 
 logging.debug(f"SDL availiable drivers: {drivers}")
 
-renderer = sdl3.SDL_CreateRenderer(t_window, b"opengl")  # sdl3.SDL_RENDERER_PRESENTVSYNC
+driver = None
+if "opengl" in drivers:
+	driver = b"opengl"
+
+renderer = sdl3.SDL_CreateRenderer(t_window, driver)  # sdl3.SDL_RENDERER_PRESENTVSYNC
 
 if not renderer:
 	logging.error("ERROR CREATING RENDERER!")

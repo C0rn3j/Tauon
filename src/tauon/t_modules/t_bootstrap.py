@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 	from collections.abc import Callable
 	from io import TextIOWrapper
 	from pathlib import Path
-	from sdl2 import SDL_Renderer, SDL_Window
+	from sdl3 import SDL_Renderer, SDL_Window
 
 	from tauon.__main__ import LogHistoryHandler
 
