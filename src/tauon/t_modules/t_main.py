@@ -5658,7 +5658,7 @@ class SubsonicService:
 			return playlist
 
 		pctl.multi_playlist.append(pl_gen(title=_("Airsonic Collection"), playlist_ids=playlist))
-		pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "air"
+		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "air"
 		switch_playlist(len(pctl.multi_playlist) - 1)
 
 	# def get_music2(self, return_list=False):
@@ -5774,7 +5774,7 @@ class SubsonicService:
 	#		 return playlist
 	#
 	#	 pctl.multi_playlist.append(pl_gen(title="Airsonic Collection", playlist_ids=playlist))
-	#	 pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "air"
+	#	 pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "air"
 	#	 switch_playlist(len(pctl.multi_playlist) - 1)
 
 class STray:
@@ -9234,7 +9234,7 @@ class ExportPlaylistBox:
 
 		self.active = True
 		gui.box_over = True
-		self.id = pl_to_id(playlist)
+		self.id = pctl.pl_to_id(playlist)
 
 		# Prune old enteries
 		ids = []
@@ -9522,7 +9522,7 @@ class KoelService:
 			return playlist
 
 		pctl.multi_playlist.append(pl_gen(title=_("Koel Collection"), playlist_ids=playlist))
-		pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "koel path tn"
+		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "koel path tn"
 		standard_sort(len(pctl.multi_playlist) - 1)
 		switch_playlist(len(pctl.multi_playlist) - 1)
 
@@ -9625,7 +9625,7 @@ class TauService:
 			return playlist
 
 		pctl.multi_playlist.append(pl_gen(title=name, playlist_ids=playlist))
-		pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "tau path tn"
+		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "tau path tn"
 		standard_sort(len(pctl.multi_playlist) - 1)
 		switch_playlist(len(pctl.multi_playlist) - 1)
 		self.processing = False
@@ -9692,7 +9692,7 @@ class SearchOverlay:
 		if gui.combo_mode:
 			exit_combo()
 		switch_playlist(len(self.pctl.multi_playlist) - 1)
-		self.pctl.gen_codes[pl_to_id(len(self.pctl.multi_playlist) - 1)] = "a\"" + name + "\""
+		self.pctl.gen_codes[pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "a\"" + name + "\""
 
 		inp.key_return_press = False
 
@@ -9770,7 +9770,7 @@ class SearchOverlay:
 
 		switch_playlist(len(pctl.multi_playlist) - 1)
 
-		pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "p\"" + name + "\""
+		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "p\"" + name + "\""
 
 		inp.key_return_press = False
 
@@ -9815,9 +9815,9 @@ class SearchOverlay:
 		switch_playlist(len(pctl.multi_playlist) - 1)
 
 		if include_multi:
-			pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "gm\"" + name + "\""
+			pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "gm\"" + name + "\""
 		else:
-			pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "g=\"" + name + "\""
+			pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "g=\"" + name + "\""
 
 		inp.key_return_press = False
 
@@ -13990,7 +13990,7 @@ class TopPanel:
 			if tab_hit:
 				if not gui.radio_view:
 					# Double click to play
-					if inp.mouse_up and pl_to_id(i) == self.tab_d_click_ref == pl_to_id(pctl.active_playlist_viewing) and \
+					if inp.mouse_up and pctl.pl_to_id(i) == self.tab_d_click_ref == pctl.pl_to_id(pctl.active_playlist_viewing) and \
 							self.tab_d_click_timer.get() < 0.25 and point_distance(
 								inp.last_click_location, inp.mouse_up_position) < 5 * gui.scale:
 
@@ -14000,7 +14000,7 @@ class TopPanel:
 							pctl.jump(pctl.default_playlist[pctl.selected_in_playlist], pl_position=pctl.selected_in_playlist)
 					if inp.mouse_up:
 						self.tab_d_click_timer.set()
-						self.tab_d_click_ref = pl_to_id(i)
+						self.tab_d_click_ref = pctl.pl_to_id(i)
 
 				# Click to change playlist
 				if inp.mouse_click:
@@ -14055,8 +14055,8 @@ class TopPanel:
 				elif inp.quick_drag is True and inp.mouse_up:
 					self.tab_d_click_ref = -1
 					self.tab_d_click_timer.force_set(100)
-					if (pctl.gen_codes.get(pl_to_id(i)) and "self" not in pctl.gen_codes[pl_to_id(i)]):
-						clear_gen_ask(pl_to_id(i))
+					if (pctl.gen_codes.get(pctl.pl_to_id(i)) and "self" not in pctl.gen_codes[pctl.pl_to_id(i)]):
+						clear_gen_ask(pctl.pl_to_id(i))
 					inp.quick_drag = False
 					modified = False
 					gui.pl_update += 1
@@ -16652,7 +16652,7 @@ class StandardPlaylist:
 								parent = pctl.get_track(pctl.default_playlist[i]).parent_folder_path
 								while i < len(pctl.default_playlist) and parent == pctl.get_track(
 										pctl.default_playlist[i]).parent_folder_path:
-									pctl.force_queue.append(queue_item_gen(pctl.default_playlist[i], i, pl_to_id(
+									pctl.force_queue.append(queue_item_gen(pctl.default_playlist[i], i, pctl.pl_to_id(
 										pctl.active_playlist_viewing)))
 									i += 1
 								queue_timer_set(plural=True)
@@ -16792,7 +16792,7 @@ class StandardPlaylist:
 			if inp.middle_click and line_hit:
 				pctl.force_queue.append(
 					queue_item_gen(track_id,
-					track_position, pl_to_id(pctl.active_playlist_viewing)))
+					track_position, pctl.pl_to_id(pctl.active_playlist_viewing)))
 				pctl.selected_in_playlist = track_position
 				gui.shift_selection = [pctl.selected_in_playlist]
 				gui.pl_update += 1
@@ -18690,7 +18690,7 @@ class RenamePlaylistBox:
 				pctl.multi_playlist[self.playlist_index].title = rename_text_area.text
 
 			pl = self.playlist_index
-			id = pl_to_id(pl)
+			id = pctl.pl_to_id(pl)
 
 			text = pctl.gen_codes.get(id)
 			if not text:
@@ -18740,7 +18740,7 @@ class RenamePlaylistBox:
 
 		if self.edit_generator:
 			pl = self.playlist_index
-			id = pl_to_id(pl)
+			id = pctl.pl_to_id(pl)
 			pctl.gen_codes[id] = rename_text_area.text
 
 			if input_text or key_backspace_press:
@@ -19085,7 +19085,7 @@ class PlaylistBox:
 					gui.update += 1
 
 				# Double click to play
-				if inp.mouse_up and pl_to_id(i) == top_panel.tab_d_click_ref == pl_to_id(pctl.active_playlist_viewing) and \
+				if inp.mouse_up and pctl.pl_to_id(i) == top_panel.tab_d_click_ref == pctl.pl_to_id(pctl.active_playlist_viewing) and \
 					top_panel.tab_d_click_timer.get() < 0.25 and \
 					point_distance(inp.last_click_location, inp.mouse_up_position) < 5 * gui.scale:
 
@@ -19095,7 +19095,7 @@ class PlaylistBox:
 						pctl.jump(pctl.default_playlist[pctl.selected_in_playlist], pl_position=pctl.selected_in_playlist)
 				if inp.mouse_up:
 					top_panel.tab_d_click_timer.set()
-					top_panel.tab_d_click_ref = pl_to_id(i)
+					top_panel.tab_d_click_ref = pctl.pl_to_id(i)
 
 				if not draw_pin_indicator:
 					if inp.mouse_click:
@@ -19109,8 +19109,8 @@ class PlaylistBox:
 				if inp.quick_drag is True and inp.mouse_up:
 					top_panel.tab_d_click_ref = -1
 					top_panel.tab_d_click_timer.force_set(100)
-					if (pctl.gen_codes.get(pl_to_id(i)) and "self" not in pctl.gen_codes[pl_to_id(i)]):
-						clear_gen_ask(pl_to_id(i))
+					if (pctl.gen_codes.get(pctl.pl_to_id(i)) and "self" not in pctl.gen_codes[pctl.pl_to_id(i)]):
+						clear_gen_ask(pctl.pl_to_id(i))
 					inp.quick_drag = False
 					modified = False
 					gui.pl_update += 1
@@ -19175,7 +19175,7 @@ class PlaylistBox:
 			# Highlight target playlist when tragging tracks over
 			if tauon.coll(
 				(tab_start + 50 * gui.scale, yy - 1, tab_width - 50 * gui.scale, (self.tab_h + 1))) and inp.quick_drag and not (
-				pctl.gen_codes.get(pl_to_id(i)) and "self" not in pctl.gen_codes[pl_to_id(i)]):
+				pctl.gen_codes.get(pctl.pl_to_id(i)) and "self" not in pctl.gen_codes[pctl.pl_to_id(i)]):
 				# bg = [255, 255, 255, 15]
 				bg = rgb_add_hls(colours.playlist_box_background, 0, 0.04, 0)
 				if light_mode:
@@ -19193,7 +19193,7 @@ class PlaylistBox:
 				# text_start = 40 * gui.scale
 				text_start = 32 * gui.scale
 
-			if pctl.gen_codes.get(pl_to_id(i), "")[:3] in ["sal", "slt", "spl"]:
+			if pctl.gen_codes.get(pctl.pl_to_id(i), "")[:3] in ["sal", "slt", "spl"]:
 				text_start = 28 * gui.scale
 				self.spot_icon.render(tab_start + round(7 * gui.scale), yy + round(3 * gui.scale), alpha_mod(tab_title_colour, 170))
 
@@ -20169,7 +20169,7 @@ class TreeView:
 		self.trees.clear()
 
 	def collapse_all(self):
-		pl_id = pl_to_id(pctl.active_playlist_viewing)
+		pl_id = pctl.pl_to_id(pctl.active_playlist_viewing)
 
 		if self.lock_pl:
 			pl_id = self.lock_pl
@@ -20183,9 +20183,8 @@ class TreeView:
 		self.rows_id = ""
 
 	def clear_target_pl(self, pl_number, pl_id=None):
-
 		if pl_id is None:
-			pl_id = pl_to_id(pl_number)
+			pl_id = pctl.pl_to_id(pl_number)
 
 		if gui.lsp and prefs.left_panel_mode == "folder view":
 
@@ -20199,7 +20198,6 @@ class TreeView:
 			del self.trees[pl_id]
 
 	def show_track(self, track: TrackClass) -> None:
-
 		if track is None:
 			return
 
@@ -20754,7 +20752,7 @@ class QueueBox:
 			split_queue_album(pctl.force_queue[0].uuid_int)
 
 		playlist_index = pctl.active_playlist_viewing
-		playlist_id = pl_to_id(pctl.active_playlist_viewing)
+		playlist_id = pctl.pl_to_id(pctl.active_playlist_viewing)
 
 		main_track_position = gui.shift_selection[0]
 		main_track_id = pctl.default_playlist[main_track_position]
@@ -27172,13 +27170,13 @@ def finish_current():
 		pctl.force_queue.insert(
 			0, queue_item_gen(playing_object.index,
 			pctl.playlist_playing_position,
-			pl_to_id(pctl.active_playlist_playing), 1, 1))
+			pctl.pl_to_id(pctl.active_playlist_playing), 1, 1))
 
 def add_album_to_queue(ref, position=None, playlist_id=None):
 	if position is None:
 		position = r_menu_position
 	if playlist_id is None:
-		playlist_id = pl_to_id(pctl.active_playlist_viewing)
+		playlist_id = pctl.pl_to_id(pctl.active_playlist_viewing)
 
 	partway = 0
 	playing_object = pctl.playing_object()
@@ -27201,13 +27199,13 @@ def add_album_to_queue_fc(ref):
 
 	if not pctl.force_queue:
 		queue_item = queue_item_gen(
-			playing_object.index, pctl.playlist_playing_position, pl_to_id(pctl.active_playlist_playing), 1, 1)
+			playing_object.index, pctl.playlist_playing_position, pctl.pl_to_id(pctl.active_playlist_playing), 1, 1)
 		pctl.force_queue.insert(0, queue_item)
 		add_album_to_queue(ref)
 		return
 
 	if pctl.force_queue[0].album_stage == 1:
-		queue_item = queue_item_gen(ref, pctl.playlist_playing_position, pl_to_id(pctl.active_playlist_playing), 1, 0)
+		queue_item = queue_item_gen(ref, pctl.playlist_playing_position, pctl.pl_to_id(pctl.active_playlist_playing), 1, 0)
 		pctl.force_queue.insert(1, queue_item)
 	else:
 		p = pctl.get_track(ref).parent_folder_path
@@ -27223,12 +27221,12 @@ def add_album_to_queue_fc(ref):
 				queue_item = queue_item_gen(
 					ref,
 					pctl.playlist_playing_position,
-					pl_to_id(pctl.active_playlist_playing), 1, 0)
+					pctl.pl_to_id(pctl.active_playlist_playing), 1, 0)
 				pctl.force_queue.insert(i, queue_item)
 				break
 		else:
 			queue_item = queue_item_gen(
-				ref, pctl.playlist_playing_position, pl_to_id(pctl.active_playlist_playing), 1, 0)
+				ref, pctl.playlist_playing_position, pctl.pl_to_id(pctl.active_playlist_playing), 1, 0)
 			pctl.force_queue.insert(len(pctl.force_queue), queue_item)
 	if queue_item:
 		queue_timer_set(queue_object=queue_item)
@@ -28521,13 +28519,13 @@ def delete_playlist_ask(index: int):
 	if gui.radio_view:
 		delete_playlist_force(index)
 		return
-	gen = pctl.gen_codes.get(pl_to_id(index), "")
+	gen = pctl.gen_codes.get(pctl.pl_to_id(index), "")
 	if (gen and not gen.startswith("self ")) or len(pctl.multi_playlist[index].playlist_ids) < 2:
 		delete_playlist(index)
 		return
 
 	gui.message_box_confirm_callback = delete_playlist_by_id
-	gui.message_box_confirm_reference = (pl_to_id(index), True, True)
+	gui.message_box_confirm_reference = (pctl.pl_to_id(index), True, True)
 	show_message(_("Are you sure you want to delete playlist: {name}?").format(name=pctl.multi_playlist[index].title), mode="confirm")
 
 def rescan_tags(tauon: Tauon, pl: int) -> None:
@@ -29062,7 +29060,7 @@ def rescan_deco(pl: int):
 	return [line_colour, colours.menu_background, None]
 
 def regenerate_deco(pl: int):
-	id = pl_to_id(pl)
+	id = pctl.pl_to_id(pl)
 	value = pctl.gen_codes.get(id)
 
 	if value:
@@ -29101,7 +29099,7 @@ def parse_generator(string: str):
 	return cmds, quotes, inquote
 
 def upload_spotify_playlist(pl: int):
-	p_id = pl_to_id(pl)
+	p_id = pctl.pl_to_id(pl)
 	string = pctl.gen_codes.get(p_id)
 	id = None
 	if string:
@@ -29147,7 +29145,7 @@ def regenerate_playlist(pl: int = -1, silent: bool = False, id: int | None = Non
 		return
 
 	if id is None:
-		id = pl_to_id(pl)
+		id = pctl.pl_to_id(pl)
 
 	if pl == -1:
 		pl = id_to_pl(id)
@@ -29813,7 +29811,7 @@ def regenerate_playlist(pl: int = -1, silent: bool = False, id: int | None = Non
 	#logging.info(cmds)
 
 def make_auto_sorting(pl: int) -> None:
-	pctl.gen_codes[pl_to_id(pl)] = "self a path tn ypa auto"
+	pctl.gen_codes[pctl.pl_to_id(pl)] = "self a path tn ypa auto"
 	show_message(
 		_("OK. This playlist will automatically sort on import from now on"),
 		_("You remove or edit this behavior by going \"Misc...\" > \"Edit generator...\""), mode="done")
@@ -29856,7 +29854,7 @@ def remove_duplicates(pl: int) -> None:
 	pctl.multi_playlist[pl].playlist_ids[:] = playlist[:]
 
 def start_quick_add(pl: int) -> None:
-	pctl.quick_add_target = pl_to_id(pl)
+	pctl.quick_add_target = pctl.pl_to_id(pl)
 	show_message(
 		_("You can now add/remove albums to this playlist by right clicking in gallery of any playlist"),
 		_("To exit this mode, click \"Disengage\" from main MENU"))
@@ -30048,25 +30046,25 @@ def auto_sync(pl: int) -> None:
 	shoot_dl.start()
 
 def set_sync_playlist(pl: int) -> None:
-	id = pl_to_id(pl)
+	id = pctl.pl_to_id(pl)
 	if prefs.sync_playlist == id:
 		prefs.sync_playlist = None
 	else:
-		prefs.sync_playlist = pl_to_id(pl)
+		prefs.sync_playlist = pctl.pl_to_id(pl)
 
 def sync_playlist_deco(pl: int):
 	text = _("Set as Sync Playlist")
-	id = pl_to_id(pl)
+	id = pctl.pl_to_id(pl)
 	if id == prefs.sync_playlist:
 		text = _("Un-set as Sync Playlist")
 	return [colours.menu_text, colours.menu_background, text]
 
 def set_download_playlist(pl: int) -> None:
-	id = pl_to_id(pl)
+	id = pctl.pl_to_id(pl)
 	if prefs.download_playlist == id:
 		prefs.download_playlist = None
 	else:
-		prefs.download_playlist = pl_to_id(pl)
+		prefs.download_playlist = pctl.pl_to_id(pl)
 
 def set_podcast_playlist(pl: int) -> None:
 	pctl.multi_playlist[pl].persist_time_positioning ^= True
@@ -30177,7 +30175,7 @@ def gen_top_rating(index, custom_list=None):
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=True))
 
-	pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a rat>"
+	pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a rat>"
 
 def gen_top_100(index, custom_list=None):
 	source = custom_list
@@ -30195,7 +30193,7 @@ def gen_top_100(index, custom_list=None):
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=True))
 
-	pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a pt>"
+	pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a pt>"
 
 def gen_folder_top(pl: int, get_sets: bool = False, custom_list=None):
 	source = custom_list
@@ -30254,7 +30252,7 @@ def gen_folder_top(pl: int, get_sets: bool = False, custom_list=None):
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
 
-	pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[pl].title + "\" a pa>"
+	pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[pl].title + "\" a pa>"
 
 def gen_folder_top_rating(pl: int, get_sets: bool = False, custom_list=None):
 	source = custom_list
@@ -30303,7 +30301,7 @@ def gen_folder_top_rating(pl: int, get_sets: bool = False, custom_list=None):
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
 
-	pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[pl].title + "\" a rata>"
+	pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[pl].title + "\" a rata>"
 
 def gen_lyrics(plpl: int, custom_list=None):
 	playlist = []
@@ -30326,7 +30324,7 @@ def gen_lyrics(plpl: int, custom_list=None):
 				playlist_ids=copy.deepcopy(playlist),
 				hide_title=False))
 
-		pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[pl].title + "\" a ly"
+		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[pl].title + "\" a ly"
 
 	else:
 		show_message(_("No tracks with lyrics were found."))
@@ -30382,7 +30380,7 @@ def gen_incomplete(plpl: int, custom_list=None):
 				playlist_ids=copy.deepcopy(playlist),
 				hide_title=False))
 
-		# pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[pl].title + "\" a ly"
+		# pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[pl].title + "\" a ly"
 
 	else:
 		show_message(_("No incomplete albums were found."))
@@ -30458,7 +30456,7 @@ def gen_last_modified(index, custom_list=None, reverse=True):
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
 
-	pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a m>"
+	pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a m>"
 
 def gen_love(pl: int, custom_list=None):
 	playlist = []
@@ -30483,7 +30481,7 @@ def gen_love(pl: int, custom_list=None):
 				title=_("Loved"),
 				playlist_ids=copy.deepcopy(playlist),
 				hide_title=False))
-		pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[pl].title + "\" a l"
+		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[pl].title + "\" a l"
 	else:
 		show_message(_("No loved tracks were found."))
 
@@ -30560,7 +30558,7 @@ def gen_sort_len(index: int, custom_list=None):
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=True))
 
-	pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a d>"
+	pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a d>"
 
 def gen_folder_duration(pl: int, get_sets: bool = False):
 	if len(pctl.multi_playlist[pl].playlist_ids) < 3:
@@ -30653,9 +30651,9 @@ def gen_sort_date(index: int, rev: bool = False, custom_list=None):
 			hide_title=False))
 
 	if rev:
-		pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a y>"
+		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a y>"
 	else:
-		pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a y<"
+		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a y<"
 
 def gen_sort_date_new(index: int):
 	gen_sort_date(index, True)
@@ -30671,7 +30669,7 @@ def gen_500_random(index: int):
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=True))
 
-	pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a st"
+	pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a st"
 
 def gen_folder_shuffle(index, custom_list=None):
 	folders = []
@@ -30704,7 +30702,7 @@ def gen_folder_shuffle(index, custom_list=None):
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
 
-	pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a ra"
+	pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a ra"
 
 def gen_best_random(index: int):
 	playlist = []
@@ -30724,7 +30722,7 @@ def gen_best_random(index: int):
 				playlist_ids=copy.deepcopy(playlist),
 				hide_title=True))
 
-		pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a pt>300 rt"
+		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a pt>300 rt"
 
 def gen_reverse(index, custom_list=None):
 	source = custom_list
@@ -30742,7 +30740,7 @@ def gen_reverse(index, custom_list=None):
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=pctl.multi_playlist[index].hide_title))
 
-	pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a rv"
+	pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a rv"
 
 def gen_folder_reverse(index: int, custom_list=None):
 	source = custom_list
@@ -30774,7 +30772,7 @@ def gen_folder_reverse(index: int, custom_list=None):
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
 
-	pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a rva"
+	pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[index].title + "\" a rva"
 
 def gen_dupe(index: int) -> None:
 	playlist = pctl.multi_playlist[index].playlist_ids
@@ -31260,7 +31258,7 @@ def paste(tauon: Tauon, playlist_no: int | None = None, track_id: int | None = N
 				load_order.playlist = pctl.multi_playlist[pctl.active_playlist_viewing].uuid_int
 
 				if playlist_no is not None:
-					load_order.playlist = pl_to_id(playlist_no)
+					load_order.playlist = pctl.pl_to_id(playlist_no)
 				if track_id is not None:
 					load_order.playlist_position = r_menu_position
 
@@ -31468,7 +31466,7 @@ def spot_heart_menu_colour():
 	return None
 
 def add_to_queue(ref: int) -> None:
-	pctl.force_queue.append(queue_item_gen(ref, r_menu_position, pl_to_id(pctl.active_playlist_viewing)))
+	pctl.force_queue.append(queue_item_gen(ref, r_menu_position, pctl.pl_to_id(pctl.active_playlist_viewing)))
 	queue_timer_set()
 	if prefs.stop_end_queue:
 		pctl.auto_stop = False
@@ -31488,7 +31486,7 @@ def add_selected_to_queue(tauon: Tauon) -> None:
 		pctl.force_queue.append(
 			queue_item_gen(pctl.default_playlist[pctl.selected_in_playlist],
 			pctl.selected_in_playlist,
-			pl_to_id(pctl.active_playlist_viewing)))
+			pctl.pl_to_id(pctl.active_playlist_viewing)))
 		queue_timer_set()
 
 def add_selected_to_queue_multi():
@@ -31498,7 +31496,7 @@ def add_selected_to_queue_multi():
 		pctl.force_queue.append(
 			queue_item_gen(pctl.default_playlist[index],
 			index,
-			pl_to_id(pctl.active_playlist_viewing)))
+			pctl.pl_to_id(pctl.active_playlist_viewing)))
 
 def queue_timer_set(plural: bool = False, queue_object: TauonQueueItem | None = None) -> None:
 	queue_add_timer.set()
@@ -31539,7 +31537,7 @@ def add_to_queue_next(ref: int) -> None:
 	if pctl.force_queue and pctl.force_queue[0].album_stage == 1:
 		split_queue_album(None)
 
-	pctl.force_queue.insert(0, queue_item_gen(ref, r_menu_position, pl_to_id(pctl.active_playlist_viewing)))
+	pctl.force_queue.insert(0, queue_item_gen(ref, r_menu_position, pctl.pl_to_id(pctl.active_playlist_viewing)))
 
 def delete_track(track_ref):
 	tr = pctl.get_track(track_ref)
@@ -33041,7 +33039,7 @@ def path_stem_to_playlist(path: str, title: str) -> None:
 		playlist_ids=copy.deepcopy(playlist),
 		hide_title=False))
 
-	pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[pctl.active_playlist_viewing].title + "\" f\"" + path + "\""
+	pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[pctl.active_playlist_viewing].title + "\" f\"" + path + "\""
 
 	switch_playlist(len(pctl.multi_playlist) - 1)
 
@@ -35840,8 +35838,8 @@ def worker1(tauon: Tauon) -> None:
 			pctl.after_import_flag = False
 
 			for i, plist in enumerate(pctl.multi_playlist):
-				if pl_to_id(i) in pctl.gen_codes:
-					code = pctl.gen_codes[pl_to_id(i)]
+				if pctl.pl_to_id(i) in pctl.gen_codes:
+					code = pctl.gen_codes[pctl.pl_to_id(i)]
 					try:
 						if check_auto_update_okay(code, pl=i):
 							if not pl_is_locked(i):
@@ -36906,7 +36904,7 @@ def update_playlist_call():
 	gui.pl_update = 2
 
 def pl_is_mut(pl: int) -> bool:
-	id = pl_to_id(pl)
+	id = pctl.pl_to_id(pl)
 	if id is None:
 		return False
 	return not (pctl.gen_codes.get(id) and "self" not in pctl.gen_codes[id])
@@ -37281,7 +37279,7 @@ def line_render(n_track: TrackClass, p_track: TrackClass, y, this_line_playing, 
 			marks = []
 			album_type = False
 			for i, item in enumerate(pctl.force_queue):
-				if item.track_id == n_track.index and item.position == p_track and item.playlist_id == pl_to_id(
+				if item.track_id == n_track.index and item.position == p_track and item.playlist_id == pctl.pl_to_id(
 						pctl.active_playlist_viewing):
 					if item.type == 0:  # Only show mark if track type
 						marks.append(i)
@@ -37413,18 +37411,16 @@ def create_artist_pl(artist: str, replace: bool = False):
 					pctl.active_playlist_playing = source_pl
 					pctl.playlist_playing_position = pctl.multi_playlist[source_pl].playlist_ids.index(tr.index)
 
-		pctl.gen_codes[pl_to_id(this_pl)] = "s\"" + pctl.multi_playlist[source_pl].title + "\" a\"" + artist + "\""
-
+		pctl.gen_codes[pctl.pl_to_id(this_pl)] = "s\"" + pctl.multi_playlist[source_pl].title + "\" a\"" + artist + "\""
 	else:
-
 		pctl.multi_playlist.append(
 			pl_gen(
 				title=_("Artist: ") + artist,
 				playlist_ids=playlist,
 				hide_title=False,
-				parent=pl_to_id(source_pl)))
+				parent=pctl.pl_to_id(source_pl)))
 
-		pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[source_pl].title + "\" a\"" + artist + "\""
+		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[source_pl].title + "\" a\"" + artist + "\""
 
 		switch_playlist(len(pctl.multi_playlist) - 1)
 
@@ -43770,7 +43766,7 @@ def main(holder: Holder) -> None:
 													album = tauon.get_album_info(album_dex[album_on])[1]
 													for item in album:
 														pctl.force_queue.append(
-															queue_item_gen(pctl.default_playlist[item], item, pl_to_id(
+															queue_item_gen(pctl.default_playlist[item], item, pctl.pl_to_id(
 																pctl.active_playlist_viewing)))
 													queue_timer_set(plural=True)
 													if prefs.stop_end_queue:
@@ -45911,7 +45907,7 @@ def main(holder: Holder) -> None:
 									pctl.multi_playlist.append(pl_gen(
 										title=_("Search Results"),
 										playlist_ids=copy.deepcopy(playlist)))
-									pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[
+									pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[
 										pctl.active_playlist_viewing].title + "\" f\"" + search_text.text + "\""
 									switch_playlist(len(pctl.multi_playlist) - 1)
 							search_text.text = ""
@@ -46826,7 +46822,7 @@ def main(holder: Holder) -> None:
 		with (user_directory / "album-star.p").open("wb") as file:
 			pickle.dump(album_star_store.db, file, protocol=pickle.HIGHEST_PROTOCOL)
 
-	gui.gallery_positions[pl_to_id(pctl.active_playlist_viewing)] = gui.album_scroll_px
+	gui.gallery_positions[pctl.pl_to_id(pctl.active_playlist_viewing)] = gui.album_scroll_px
 	save_state()
 
 	date = datetime.date.today()
