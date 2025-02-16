@@ -2359,7 +2359,7 @@ class PlayerCtl:
 		if self.active_playlist_viewing == self.active_playlist_playing:
 			self.show_current(False, True)
 
-		if prefs.album_mode:
+		if self.prefs.album_mode:
 			goto_album(self.playlist_playing_position)
 		if self.gui.combo_mode and self.active_playlist_viewing == self.active_playlist_playing:
 			self.show_current()
@@ -8285,7 +8285,6 @@ class AlbumArt:
 
 		# Search fanart.tv for background
 		try:
-
 			r = requests.get(
 				"https://webservice.fanart.tv/v3/music/" \
 				+ artist_id + "?api_key=" + prefs.fatvap, timeout=(4, 10))
@@ -8327,7 +8326,6 @@ class AlbumArt:
 			return None
 
 	def get_blur_im(self, track: TrackClass) -> BytesIO | bool | None:
-
 		source_image = None
 		self.loaded_bg_type = 0
 		if prefs.enable_fanart_bg:
@@ -8462,11 +8460,11 @@ class AlbumArt:
 		index = track.index
 		filepath = track.fullpath
 
-		if prefs.colour_from_image and track.album != gui.theme_temp_current and box[0] != 115:
-			if track.album in gui.temp_themes:
+		if self.prefs.colour_from_image and track.album != self.gui.theme_temp_current and box[0] != 115:
+			if track.album in self.gui.temp_themes:
 				global colours
-				colours = gui.temp_themes[track.album]
-				gui.theme_temp_current = track.album
+				colours = self.gui.temp_themes[track.album]
+				self.gui.theme_temp_current = track.album
 
 		source = self.get_sources(track)
 
@@ -15627,7 +15625,6 @@ class BottomBarType_ao1:
 		self.scrob_stick = 0
 
 	def update(self):
-
 		if self.mode == 0:
 			self.volume_bar_position[0] = self.window_size[0] - (210 * self.gui.scale)
 			self.volume_bar_position[1] = self.window_size[1] - (27 * self.gui.scale)
@@ -23617,8 +23614,8 @@ class GetSDLInput:
 		i_y = pointer(c_float(0))
 		i_x = pointer(c_float(0))
 		sdl3.SDL_GetMouseState(i_x, i_y)
-		return (int(self.i_x.contents.value / self.logical_size[0] * self.window_size[0]),
-			int(self.i_y.contents.value / self.logical_size[0] * self.window_size[0]))
+		return (int(i_x.contents.value / self.logical_size[0] * self.window_size[0]),
+			int(i_y.contents.value / self.logical_size[0] * self.window_size[0]))
 
 	def test_capture_mouse(self) -> None:
 		if not self.mouse_capture and self.mouse_capture_want:
