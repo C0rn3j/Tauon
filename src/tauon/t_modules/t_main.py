@@ -912,6 +912,7 @@ class Input:
 
 	def __init__(self, gui: GuiVar) -> None:
 		self.gui = gui
+		self.ab_click:            bool = False
 		self.mouse_click:         bool = False
 		self.middle_click:        bool = False
 		self.right_click:         bool = False
@@ -25653,7 +25654,7 @@ def koel_get_album_thread() -> None:
 	shoot_dl.start()
 
 def do_exit_button() -> None:
-	if inp.mouse_up or ab_click:
+	if inp.mouse_up or inp.ab_click:
 		if gui.tray_active and prefs.min_to_tray:
 			if inp.key_shift_down:
 				tauon.exit("User clicked X button with shift key")
@@ -25775,7 +25776,7 @@ def draw_window_tools(tauon: Tauon) -> None:
 				colour = (86, 85, 86, 255)
 			mac_circle.render(xx + 6 * gui.scale, y, colour)
 			if tauon.coll(rect) and not gui.mouse_unknown:
-				if (inp.mouse_up or ab_click) and coll_point(inp.last_click_location, rect):
+				if (inp.mouse_up or inp.ab_click) and coll_point(inp.last_click_location, rect):
 					restore_full_mode()
 					gui.update += 2
 
@@ -25795,7 +25796,7 @@ def draw_window_tools(tauon: Tauon) -> None:
 				colour = (86, 85, 86, 255)
 			mac_circle.render(xx + 6 * gui.scale, y, colour)
 			if tauon.coll(rect) and not gui.mouse_unknown:
-				if (inp.mouse_up or ab_click) and coll_point(inp.last_click_location, rect):
+				if (inp.mouse_up or inp.ab_click) and coll_point(inp.last_click_location, rect):
 					do_minimize_button()
 
 		else:
@@ -25810,7 +25811,7 @@ def draw_window_tools(tauon: Tauon) -> None:
 			if tauon.coll(rect):
 				ddt.rect_a((rect[0], rect[1]), (rect[2], rect[3]), bg_on)
 				tauon.top_panel.maximize_button.render(rect[0] + 10 * gui.scale, rect[1] + 10 * gui.scale, fg_on)
-				if (inp.mouse_up or ab_click) and coll_point(inp.last_click_location, rect):
+				if (inp.mouse_up or inp.ab_click) and coll_point(inp.last_click_location, rect):
 					do_maximize_button()
 			else:
 				tauon.top_panel.maximize_button.render(rect[0] + 10 * gui.scale, rect[1] + 10 * gui.scale, fg_off)
@@ -25834,7 +25835,7 @@ def draw_window_tools(tauon: Tauon) -> None:
 				colour = (86, 85, 86, 255)
 			mac_circle.render(xx + 6 * gui.scale, y, colour)
 			if tauon.coll(rect) and not gui.mouse_unknown:
-				if (inp.mouse_up or ab_click) and coll_point(inp.last_click_location, rect):
+				if (inp.mouse_up or inp.ab_click) and coll_point(inp.last_click_location, rect):
 					do_maximize_button()
 		else:
 			if r:
@@ -25849,16 +25850,14 @@ def draw_window_tools(tauon: Tauon) -> None:
 			if tauon.coll(rect):
 				ddt.rect_a((rect[0], rect[1]), (rect[2], rect[3]), bg_on)
 				ddt.rect_a((rect[0] + 11 * gui.scale, rect[1] + 16 * gui.scale), (14 * gui.scale, 3 * gui.scale), fg_on)
-				if (inp.mouse_up or ab_click) and coll_point(inp.last_click_location, rect):
+				if (inp.mouse_up or inp.ab_click) and coll_point(inp.last_click_location, rect):
 					do_minimize_button()
 			else:
 				ddt.rect_a(
 					(rect[0] + 11 * gui.scale, rect[1] + 16 * gui.scale), (14 * gui.scale, 3 * gui.scale), fg_off)
 
 	# restore
-
 	if gui.mode == 3:
-
 		# bg_off = [0, 0, 0, 50]
 		# bg_on = [255, 255, 255, 10]
 		# fg_off =(255, 255, 255, 40)
@@ -25877,7 +25876,7 @@ def draw_window_tools(tauon: Tauon) -> None:
 			if tauon.coll(rect):
 				ddt.rect_a((rect[0], rect[1]), (rect[2], rect[3]), bg_on)
 				tauon.top_panel.restore_button.render(rect[0] + 8 * gui.scale, rect[1] + 9 * gui.scale, fg_on)
-				if (inp.mouse_click or ab_click) and coll_point(inp.click_location, rect):
+				if (inp.mouse_click or inp.ab_click) and coll_point(inp.click_location, rect):
 					restore_full_mode()
 					gui.update += 2
 			else:
@@ -41702,7 +41701,6 @@ def main(holder: Holder) -> None:
 
 	gui.playlist_view_length = int(((window_size[1] - gui.playlist_top) / 16) - 1)
 
-	ab_click = False
 	d_border = 1
 
 	update_layout = True
@@ -42849,7 +42847,7 @@ def main(holder: Holder) -> None:
 					restore_full_mode()
 					gui.update += 1
 
-			ab_click = False
+			inp.ab_click = False
 
 			if keymaps.test("new-playlist"):
 				new_playlist()
@@ -42881,7 +42879,7 @@ def main(holder: Holder) -> None:
 					if instance.active:
 						instance.click()
 						inp.mouse_click = False
-						ab_click = True
+						inp.ab_click = True
 				if tauon.view_box.active:
 					tauon.view_box.clicked = True
 
