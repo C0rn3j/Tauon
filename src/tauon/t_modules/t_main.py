@@ -3453,12 +3453,13 @@ class LastFMapi:
 	scanning_scrobbles = False
 
 	def __init__(self, tauon: Tauon) -> None:
-		self.tauon = tauon
-		self.gui   = self.tauon.gui
-		self.pctl  = self.tauon.pctl
-		self.prefs = self.tauon.prefs
-		self.sg    = None
-		self.url   = None
+		self.tauon          = tauon
+		self.last_fm_enable = tauon.bag.last_fm_enable
+		self.gui            = self.tauon.gui
+		self.pctl           = self.tauon.pctl
+		self.prefs          = self.tauon.prefs
+		self.sg             = None
+		self.url            = None
 
 	def get_network(self) -> LibreFMNetwork:
 		if self.prefs.use_libre_fm:
@@ -3466,7 +3467,7 @@ class LastFMapi:
 		return pylast.LastFMNetwork
 
 	def auth1(self) -> None:
-		if not last_fm_enable:
+		if not self.last_fm_enable:
 			show_message(_("Optional module python-pylast not installed"), mode="warning")
 			return
 		# This is step one where the user clicks "login"
@@ -3516,7 +3517,7 @@ class LastFMapi:
 		show_message(_("Logout will complete on app restart."))
 
 	def connect(self, m_notify: bool = True) -> bool | None:
-		if not last_fm_enable:
+		if not self.last_fm_enable:
 			return False
 
 		if self.connected is True:
@@ -3555,7 +3556,7 @@ class LastFMapi:
 		return False
 
 	def last_fm_only_connect(self) -> bool:
-		if not last_fm_enable:
+		if not self.last_fm_enable:
 			return False
 		try:
 			self.lastfm_network = pylast.LastFMNetwork(api_key=self.API_KEY, api_secret=self.API_SECRET)
@@ -3568,7 +3569,7 @@ class LastFMapi:
 			return False
 
 	def no_user_connect(self) -> bool:
-		if not last_fm_enable:
+		if not self.last_fm_enable:
 			return False
 		try:
 			self.network = self.get_network()(api_key=self.API_KEY, api_secret=self.API_SECRET)
@@ -3687,11 +3688,11 @@ class LastFMapi:
 		return ""
 
 	def sync_pull_love(self, track_object: TrackClass) -> None:
-		if not prefs.lastfm_pull_love or not (track_object.artist and track_object.title):
+		if not self.prefs.lastfm_pull_love or not (track_object.artist and track_object.title):
 			return
-		if not last_fm_enable:
+		if not self.last_fm_enable:
 			return
-		if prefs.auto_lfm:
+		if self.prefs.auto_lfm:
 			self.connect(False)
 		if not self.connected:
 			return
@@ -3701,7 +3702,7 @@ class LastFMapi:
 			if not track:
 				logging.error("Get love: track not found")
 				return
-			track.username = prefs.last_fm_username
+			track.username = self.prefs.last_fm_username
 
 			remote_loved = track.get_userloved()
 
@@ -3721,11 +3722,11 @@ class LastFMapi:
 			logging.exception("Failed to pull love")
 
 	def scrobble(self, track_object: TrackClass, timestamp: float | None = None) -> bool:
-		if not last_fm_enable:
+		if not self.last_fm_enable:
 			return True
-		if prefs.scrobble_hold:
+		if self.prefs.scrobble_hold:
 			return True
-		if prefs.auto_lfm:
+		if self.prefs.auto_lfm:
 			self.connect(False)
 
 		if timestamp is None:
@@ -3808,7 +3809,7 @@ class LastFMapi:
 			track.love()
 
 	def unlove(self, artist: str, title: str):
-		if not last_fm_enable:
+		if not self.last_fm_enable:
 			return
 		if not self.connected and self.prefs.auto_lfm:
 			self.connect(False)
@@ -3827,8 +3828,8 @@ class LastFMapi:
 
 		show_message(_("Removed {N} loves.").format(N=count))
 
-	def get_friends_love(self):
-		if not last_fm_enable:
+	def get_friends_love(self) -> None:
+		if not self.last_fm_enable:
 			return
 		self.scanning_friends = True
 
@@ -3875,9 +3876,9 @@ class LastFMapi:
 		self.scanning_friends = False
 
 	def dl_love(self) -> None:
-		if not last_fm_enable:
+		if not self.last_fm_enable:
 			return
-		username = prefs.last_fm_username
+		username = self.prefs.last_fm_username
 		show_message(_("Scanning loved tracks for: {username}").format(username=username), mode="info")
 		self.scanning_username = username
 
@@ -3909,20 +3910,20 @@ class LastFMapi:
 				title = track.track.title.casefold()
 				artist = track.track.artist.name.casefold()
 
-				for index, tr in pctl.master_library.items():
+				for index, tr in self.pctl.master_library.items():
 					if tr.title.casefold() == title and tr.artist.casefold() == artist:
 						matches += 1
 						logging.info("MATCH:")
 						logging.info("     " + artist + " - " + title)
-						star = star_store.full_get(index)
+						star = self.star_store.full_get(index)
 						if star is None:
-							star = star_store.new_object()
+							star = self.star_store.new_object()
 						if "L" not in star[1]:
 							updated += 1
 							logging.info("     NEW LOVE")
 							star[1] += "L"
 
-						star_store.insert(index, star)
+						self.star_store.insert(index, star)
 
 			self.scanning_loves = False
 			if len(tracks) == 0:
@@ -3942,13 +3943,13 @@ class LastFMapi:
 		self.scanning_loves = False
 
 	def update(self, track_object: TrackClass) -> int | None:
-		if not last_fm_enable:
+		if not self.last_fm_enable:
 			return None
-		if prefs.scrobble_hold:
+		if self.prefs.scrobble_hold:
 			return 0
-		if prefs.auto_lfm:
+		if self.prefs.auto_lfm:
 			if self.connect(False) is False:
-				prefs.auto_lfm = False
+				self.prefs.auto_lfm = False
 		else:
 			return 0
 
@@ -5304,6 +5305,771 @@ class Tauon:
 		self.lastfm            = LastFMapi(tauon=self)
 
 		self.tls_context = bag.tls_context
+
+
+	def toggle_gimage(self, mode: int = 0) -> bool:
+		if mode == 1:
+			return self.prefs.show_gimage
+		self.prefs.show_gimage ^= True
+		return None
+
+	def toggle_transcode(self, mode: int = 0) -> bool:
+		if mode == 1:
+			return self.prefs.enable_transcode
+		self.prefs.enable_transcode ^= True
+		return None
+
+	def toggle_chromecast(self, mode: int = 0) -> bool:
+		if mode == 1:
+			return self.prefs.show_chromecast
+		self.prefs.show_chromecast ^= True
+		return None
+
+	def toggle_transfer(self, mode: int = 0) -> bool:
+		if mode == 1:
+			return self.prefs.show_transfer
+		self.prefs.show_transfer ^= True
+
+		if self.prefs.show_transfer:
+			show_message(
+				_("Warning! Using this function moves physical folders."),
+				_("This menu entry appears after selecting 'copy'. See manual (github wiki) for more info."),
+				mode="info")
+		return None
+
+	def toggle_rym(self, mode: int = 0) -> bool:
+		if mode == 1:
+			return self.prefs.show_rym
+		self.prefs.show_rym ^= True
+		return None
+
+	def toggle_band(self, mode: int = 0) -> bool:
+		if mode == 1:
+			return self.prefs.show_band
+		self.prefs.show_band ^= True
+		return None
+
+	def toggle_wiki(self, mode: int = 0) -> bool:
+		if mode == 1:
+			return self.prefs.show_wiki
+		self.prefs.show_wiki ^= True
+		return None
+
+	# def toggle_show_discord(self, mode: int = 0) -> bool:
+	# 	if mode == 1:
+	# 	return self.prefs.discord_show
+	# 	if self.prefs.discord_show is False and discord_allow is False:
+	# 	show_message(_("Warning: pypresence package not installed"))
+	# 	self.prefs.discord_show ^= True
+
+	def toggle_gen(self, mode: int = 0) -> bool:
+		if mode == 1:
+			return self.prefs.show_gen
+		self.prefs.show_gen ^= True
+		return None
+
+	def toggle_dim_albums(self, mode: int = 0) -> bool:
+		if mode == 1:
+			return self.prefs.dim_art
+
+		self.prefs.dim_art ^= True
+		self.gui.pl_update = 1
+		self.gui.update += 1
+
+	def toggle_gallery_combine(self, mode: int = 0) -> bool:
+		if mode == 1:
+			return self.prefs.gallery_combine_disc
+
+		self.prefs.gallery_combine_disc ^= True
+		reload_albums()
+
+	def toggle_gallery_click(self, mode: int = 0) -> bool:
+		if mode == 1:
+			return self.prefs.gallery_single_click
+
+		self.prefs.gallery_single_click ^= True
+
+	def toggle_gallery_thin(self, mode: int = 0) -> bool:
+		if mode == 1:
+			return self.prefs.thin_gallery_borders
+
+		self.prefs.thin_gallery_borders ^= True
+		self.gui.update += 1
+		update_layout_do(tauon=tauon)
+
+	def toggle_gallery_row_space(self, mode: int = 0) -> bool:
+		if mode == 1:
+			return self.prefs.increase_gallery_row_spacing
+
+		self.prefs.increase_gallery_row_spacing ^= True
+		self.gui.update += 1
+		update_layout_do(tauon=tauon)
+
+	def toggle_galler_text(self, mode: int = 0) -> bool:
+		if mode == 1:
+			return self.gui.gallery_show_text
+
+		self.gui.gallery_show_text ^= True
+		self.gui.update += 1
+		update_layout_do(tauon=tauon)
+
+		# Jump to playing album
+		if self.prefs.album_mode and self.gui.first_in_grid is not None:
+			if self.gui.first_in_grid < len(self.pctl.default_playlist):
+				goto_album(self.gui.first_in_grid, force=True)
+
+	def toggle_card_style(self, mode: int = 0) -> bool:
+		if mode == 1:
+			return self.prefs.use_card_style
+
+		self.prefs.use_card_style ^= True
+		self.gui.update += 1
+
+	def toggle_side_panel(self, mode: int = 0) -> bool:
+		if mode == 1:
+			return self.prefs.prefer_side
+
+		self.prefs.prefer_side ^= True
+		self.gui.update_layout = True
+
+		if self.prefs.album_mode or self.prefs.prefer_side is True:
+			self.gui.rsp = True
+		else:
+			self.gui.rsp = False
+
+		if self.prefs.prefer_side:
+			self.gui.rspw = self.gui.pref_rspw
+
+	def toggle_auto_theme(self, mode: int = 0) -> None:
+		if mode == 1:
+			return self.prefs.colour_from_image
+
+		self.prefs.colour_from_image ^= True
+		self.gui.theme_temp_current = -1
+		self.gui.reload_theme = True
+
+		# if self.prefs.colour_from_image and self.prefs.art_bg and not self.inp.key_shift_down:
+		# 	toggle_auto_bg()
+
+	def toggle_transparent_accent(self, mode: int= 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.transparent_mode == 1
+
+		if self.prefs.transparent_mode == 1:
+			self.prefs.transparent_mode = 0
+		else:
+			self.prefs.transparent_mode = 1
+
+		self.gui.reload_theme = True
+		self.gui.update += 1
+		self.gui.pl_update += 1
+
+		return None
+
+	def toggle_auto_bg(self, mode: int= 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.art_bg
+		self.prefs.art_bg ^= True
+
+		if self.prefs.art_bg:
+			self.gui.update = 60
+
+		self.style_overlay.flush()
+		self.thread_manager.ready("style")
+		# if self.prefs.colour_from_image and self.prefs.art_bg and not self.inp.key_shift_down:
+		# 	toggle_auto_theme()
+		return None
+
+	def toggle_auto_bg_strong(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.art_bg_stronger == 2
+
+		if self.prefs.art_bg_stronger == 2:
+			self.prefs.art_bg_stronger = 1
+		else:
+			self.prefs.art_bg_stronger = 2
+		self.gui.update_layout = True
+		return None
+
+	def toggle_auto_bg_strong1(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.art_bg_stronger == 1
+		self.prefs.art_bg_stronger = 1
+		self.gui.update_layout = True
+		return None
+
+	def toggle_auto_bg_strong2(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.art_bg_stronger == 2
+		self.prefs.art_bg_stronger = 2
+		self.gui.update_layout = True
+		if self.prefs.art_bg:
+			self.gui.update = 60
+		return None
+
+	def toggle_auto_bg_strong3(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.art_bg_stronger == 3
+		self.prefs.art_bg_stronger = 3
+		self.gui.update_layout = True
+		if self.prefs.art_bg:
+			self.gui.update = 60
+		return None
+
+	def toggle_auto_bg_blur(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.art_bg_always_blur
+		self.prefs.art_bg_always_blur ^= True
+		self.style_overlay.flush()
+		self.thread_manager.ready("style")
+		return None
+
+	def toggle_auto_bg_showcase(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.bg_showcase_only
+		self.prefs.bg_showcase_only ^= True
+		self.gui.update_layout = True
+		return None
+
+	def toggle_notifications(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.show_notifications
+
+		self.prefs.show_notifications ^= True
+
+		if self.prefs.show_notifications:
+			if not de_notify_support:
+				show_message(_("Notifications for this DE not supported"), "", mode="warning")
+		return None
+
+	# def toggle_al_pref_album_artist(self, mode: int = 0) -> bool:
+	# 	if mode == 1:
+	# 		return self.prefs.artist_list_prefer_album_artist
+	# 	self.prefs.artist_list_prefer_album_artist ^= True
+	# 	self.artist_list_box.saves.clear()
+	# 	return None
+
+	def toggle_mini_lyrics(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.show_lyrics_side
+		self.prefs.show_lyrics_side ^= True
+		return None
+
+	def toggle_showcase_vis(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.showcase_vis
+
+		self.prefs.showcase_vis ^= True
+		self.gui.update_layout = True
+		return None
+
+	def toggle_level_meter(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.gui.vis_want != 0
+
+		if self.gui.vis_want == 0:
+			self.gui.vis_want = 1
+		else:
+			self.gui.vis_want = 0
+
+		self.gui.update_layout = True
+		return None
+
+	# def toggle_force_subpixel(self, mode: int = 0) -> bool | None:
+	# 	if mode == 1:
+	# 		return self.prefs.force_subpixel_text != 0
+	#
+	# 	self.prefs.force_subpixel_text ^= True
+	# 	self.ddt.force_subpixel_text = self.prefs.force_subpixel_text
+	# 	self.ddt.clear_text_cache()
+
+	# def toggle_queue(self, mode: int = 0) -> bool:
+	#	 if mode == 1:
+	#		 return self.prefs.show_queue
+	#	 self.prefs.show_queue ^= True
+	#	 self.prefs.show_queue ^= True
+
+	def star_line_toggle(self, mode: int= 0) -> bool | None:
+		if mode == 1:
+			return self.gui.star_mode == "line"
+
+		if self.gui.star_mode == "line":
+			self.gui.star_mode = "none"
+		else:
+			self.gui.star_mode = "line"
+
+		self.gui.show_ratings = False
+
+		self.gui.update += 1
+		self.gui.pl_update = 1
+		return None
+
+	def star_toggle(self, mode: int = 0) -> bool | None:
+		if self.gui.show_ratings:
+			if mode == 1:
+				return self.prefs.rating_playtime_stars
+			self.prefs.rating_playtime_stars ^= True
+		else:
+			if mode == 1:
+				return self.gui.star_mode == "star"
+
+			if self.gui.star_mode == "star":
+				self.gui.star_mode = "none"
+			else:
+				self.gui.star_mode = "star"
+
+		# self.gui.show_ratings = False
+		self.gui.update += 1
+		self.gui.pl_update = 1
+		return None
+
+	def heart_toggle(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.gui.show_hearts
+
+		self.gui.show_hearts ^= True
+		# self.gui.show_ratings = False
+
+		self.gui.update += 1
+		self.gui.pl_update = 1
+		return None
+
+	def album_rating_toggle(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.gui.show_album_ratings
+
+		self.gui.show_album_ratings ^= True
+		self.gui.update += 1
+		self.gui.pl_update = 1
+		return None
+
+	def rating_toggle(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.gui.show_ratings
+
+		self.gui.show_ratings ^= True
+
+		if self.gui.show_ratings:
+			# gui.show_hearts = False
+			self.gui.star_mode = "none"
+			self.prefs.rating_playtime_stars = True
+			if not self.prefs.write_ratings:
+				show_message(_("Note that ratings are stored in the local database and not written to tags."))
+
+		self.gui.update += 1
+		self.gui.pl_update = 1
+		return None
+
+	def toggle_titlebar_line(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.update_title
+
+		line = window_title
+		sdl3.SDL_SetWindowTitle(self.t_window, line)
+		self.prefs.update_title ^= True
+		if self.prefs.update_title:
+			update_title_do()
+		return None
+
+	def toggle_meta_persists_stop(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.meta_persists_stop
+		self.prefs.meta_persists_stop ^= True
+		return None
+
+	def toggle_side_panel_layout(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.side_panel_layout == 1
+
+		if self.prefs.side_panel_layout == 1:
+			self.prefs.side_panel_layout = 0
+		else:
+			self.prefs.side_panel_layout = 1
+		return None
+
+	def toggle_meta_shows_selected(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.meta_shows_selected_always
+		self.prefs.meta_shows_selected_always ^= True
+		return None
+
+	def scale1(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			if self.prefs.ui_scale == 1:
+				return True
+			return False
+
+		self.prefs.ui_scale = 1
+		self.pref_box.large_preset()
+
+		if self.prefs.ui_scale != self.gui.scale:
+			show_message(_("Change will be applied on restart."))
+		return None
+
+	def scale125(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			if self.prefs.ui_scale == 1.25:
+				return True
+			return False
+		return None
+
+		self.prefs.ui_scale = 1.25
+		self.pref_box.large_preset()
+
+		if self.prefs.ui_scale != self.gui.scale:
+			show_message(_("Change will be applied on restart."))
+		return None
+
+	def toggle_use_tray(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.use_tray
+		self.prefs.use_tray ^= True
+		if not self.prefs.use_tray:
+			self.prefs.min_to_tray = False
+			gnome.hide_indicator()
+		else:
+			gnome.show_indicator()
+		return None
+
+	def toggle_text_tray(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.tray_show_title
+		self.prefs.tray_show_title ^= True
+		self.pctl.notify_update()
+		return None
+
+	def toggle_min_tray(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.min_to_tray
+		self.prefs.min_to_tray ^= True
+		return None
+
+	def scale2(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			if self.prefs.ui_scale == 2:
+				return True
+			return False
+
+		self.prefs.ui_scale = 2
+		self.pref_box.large_preset()
+
+		if self.prefs.ui_scale != self.gui.scale:
+			show_message(_("Change will be applied on restart."))
+		return None
+
+	def toggle_borderless(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.draw_border
+
+		self.gui.update_layout = True
+		self.draw_border ^= True
+
+		if self.draw_border:
+			sdl3.SDL_SetWindowBordered(self.t_window, False)
+		else:
+			sdl3.SDL_SetWindowBordered(self.t_window, True)
+		return None
+
+	def toggle_break(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.break_enable ^ True
+		self.prefs.break_enable ^= True
+		self.gui.pl_update = 1
+		return None
+
+	def toggle_scroll(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			if self.prefs.scroll_enable:
+				return False
+			return True
+
+		self.prefs.scroll_enable ^= True
+		self.gui.pl_update = 1
+		self.gui.update_layout = True
+		return None
+
+	def toggle_hide_bar(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.gui.set_bar ^ True
+		self.gui.update_layout = True
+		self.gui.set_bar ^= True
+		show_message(_("Tip: You can also toggle this from a right-click context menu"))
+		return None
+
+	def toggle_append_total_time(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.append_total_time
+		self.prefs.append_total_time ^= True
+		self.gui.pl_update = 1
+		self.gui.update += 1
+		return None
+
+	def toggle_append_date(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.append_date
+		self.prefs.append_date ^= True
+		self.gui.pl_update = 1
+		self.gui.update += 1
+		return None
+
+	def toggle_true_shuffle(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.true_shuffle
+		self.prefs.true_shuffle ^= True
+		return None
+
+	def toggle_auto_artist_dl(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.auto_dl_artist_data
+		self.prefs.auto_dl_artist_data ^= True
+		for artist, value in list(self.artist_list_box.thumb_cache.items()):
+			if value is None:
+				del self.artist_list_box.thumb_cache[artist]
+		return None
+
+	def toggle_scrobble_mark(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.scrobble_mark
+		self.prefs.scrobble_mark ^= True
+		return None
+
+	def toggle_lfm_auto(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.auto_lfm
+		self.prefs.auto_lfm ^= True
+		if self.prefs.auto_lfm and not self.bag.last_fm_enable:
+			show_message(_("Optional module python-pylast not installed"), mode="warning")
+			self.prefs.auto_lfm = False
+		# if prefs.auto_lfm:
+		#     lastfm.hold = False
+		# else:
+		#     lastfm.hold = True
+		return None
+
+	def toggle_lb(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return lb.enable
+		if not lb.enable and not self.prefs.lb_token:
+			show_message(_("Can't enable this if there's no token."), mode="warning")
+			return None
+		lb.enable ^= True
+		return None
+
+	def toggle_maloja(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.maloja_enable
+		if not self.prefs.maloja_url or not self.prefs.maloja_key:
+			show_message(_("One or more fields is missing."), mode="warning")
+			return None
+		self.prefs.maloja_enable ^= True
+		return None
+
+	def toggle_ex_del(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.auto_del_zip
+		self.prefs.auto_del_zip ^= True
+		# if prefs.auto_del_zip is True:
+		#     show_message("Caution! This function deletes things!", mode='info', "This could result in data loss if the process were to malfunction.")
+		return None
+
+	def toggle_dl_mon(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.monitor_downloads
+		self.prefs.monitor_downloads ^= True
+		return None
+
+	def toggle_music_ex(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.extract_to_music
+		self.prefs.extract_to_music ^= True
+		return None
+
+	def toggle_extract(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.auto_extract
+		self.prefs.auto_extract ^= True
+		if self.prefs.auto_extract is False:
+			self.prefs.auto_del_zip = False
+		return None
+
+	def toggle_top_tabs(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.tabs_on_top
+		self.prefs.tabs_on_top ^= True
+		return None
+
+	def toggle_guitar_chords(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.guitar_chords
+		self.prefs.guitar_chords ^= True
+		return None
+
+	# def toggle_auto_lyrics(self, mode: int = 0) -> bool | None:
+	# 	if mode == 1:
+	# 		return self.prefs.auto_lyrics
+	# 	self.prefs.auto_lyrics ^= True
+
+	def switch_single(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			if self.prefs.transcode_mode == "single":
+				return True
+			return False
+		self.prefs.transcode_mode = "single"
+		return None
+
+	def switch_mp3(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			if self.prefs.transcode_codec == "mp3":
+				return True
+			return False
+		self.prefs.transcode_codec = "mp3"
+		return None
+
+	def switch_ogg(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			if self.prefs.transcode_codec == "ogg":
+				return True
+			return False
+		self.prefs.transcode_codec = "ogg"
+		return None
+
+	def switch_opus(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			if self.prefs.transcode_codec == "opus":
+				return True
+			return False
+		self.prefs.transcode_codec = "opus"
+		return None
+
+	def switch_opus_ogg(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			if self.prefs.transcode_opus_as:
+				return True
+			return False
+		self.prefs.transcode_opus_as ^= True
+		return None
+
+	def toggle_transcode_output(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			if self.prefs.transcode_inplace:
+				return False
+			return True
+		self.prefs.transcode_inplace ^= True
+		if self.prefs.transcode_inplace:
+			transcode_icon.colour = [250, 20, 20, 255]
+			show_message(
+				_("DANGER! This will delete the original files. Keeping a backup is recommended in case of malfunction."),
+				_("For safety, this setting will default to off. Embedded thumbnails are not kept so you may want to extract them first."),
+				mode="warning")
+		else:
+			transcode_icon.colour = [239, 74, 157, 255]
+		return None
+
+	def toggle_transcode_inplace(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			if self.prefs.transcode_inplace:
+				return True
+			return False
+
+		if self.gui.sync_progress:
+			self.prefs.transcode_inplace = False
+			return None
+
+		self.prefs.transcode_inplace ^= True
+		if self.prefs.transcode_inplace:
+			transcode_icon.colour = [250, 20, 20, 255]
+			show_message(
+				_("DANGER! This will delete the original files. Keeping a backup is recommended in case of malfunction."),
+				_("For safety, this setting will reset on restart. Embedded thumbnails are not kept so you may want to extract them first."),
+				mode="warning")
+		else:
+			transcode_icon.colour = [239, 74, 157, 255]
+		return None
+
+	def switch_flac(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			if self.prefs.transcode_codec == "flac":
+				return True
+			return False
+		self.prefs.transcode_codec = "flac"
+		return None
+
+	def toggle_sbt(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.prefer_bottom_title
+		self.prefs.prefer_bottom_title ^= True
+		return None
+
+	def toggle_bba(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.gui.bb_show_art
+		self.gui.bb_show_art ^= True
+		self.gui.update_layout = True
+		return None
+
+	def toggle_use_title(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.use_title
+		self.prefs.use_title ^= True
+		return None
+
+	def switch_rg_off(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return True if self.prefs.replay_gain == 0 else False
+		self.prefs.replay_gain = 0
+		return None
+
+	def switch_rg_track(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return True if self.prefs.replay_gain == 1 else False
+		self.prefs.replay_gain = 0 if self.prefs.replay_gain == 1 else 1
+		# self.prefs.replay_gain = 1
+		return None
+
+	def switch_rg_album(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return True if prefs.replay_gain == 2 else False
+		prefs.replay_gain = 0 if prefs.replay_gain == 2 else 2
+		return None
+
+	def switch_rg_auto(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return True if self.prefs.replay_gain == 3 else False
+		self.prefs.replay_gain = 0 if self.prefs.replay_gain == 3 else 3
+		return None
+
+	def toggle_jump_crossfade(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return True if self.prefs.use_jump_crossfade else False
+		self.prefs.use_jump_crossfade ^= True
+		return None
+
+	def toggle_pause_fade(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return True if self.prefs.use_pause_fade else False
+		self.prefs.use_pause_fade ^= True
+		return None
+
+	def toggle_transition_crossfade(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return True if self.prefs.use_transition_crossfade else False
+		self.prefs.use_transition_crossfade ^= True
+		return None
+
+	def toggle_transition_gapless(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return False if self.prefs.use_transition_crossfade else True
+		self.prefs.use_transition_crossfade ^= True
+		return None
+
+	def toggle_eq(self, mode: int = 0) -> bool | None:
+		if mode == 1:
+			return self.prefs.use_eq
+		self.prefs.use_eq ^= True
+		self.pctl.playerCommand = "seteq"
+		self.pctl.playerCommandReady = True
+		return None
+
 
 	def drop_file(self, target: str) -> None:
 		"""Deprecated, move to individual UI components"""
@@ -11064,43 +11830,43 @@ class Over:
 			# y += -19 * gui.scale
 
 			link_pa = draw_linked_text((x, y),
-			_("Based on") + " " + "https://love.holllo.cc/", colours.box_text_label, 312, replace="love.holllo.cc")
+			_("Based on") + " " + "https://love.holllo.cc/", self.colours.box_text_label, 312, replace="love.holllo.cc")
 			link_activate(x, y, link_pa, click=self.click)
 
-	def rg(self, x0, y0, w0, h0):
-		y = y0 + 55 * gui.scale
-		x = x0 + 130 * gui.scale
+	def rg(self, x0: int, y0: int, w0: int, h0: int) -> None:
+		y = y0 + 55 * self.gui.scale
+		x = x0 + 130 * self.gui.scale
 
-		if self.button(x - 110 * gui.scale, y + 180 * gui.scale, _("Return"), width=75 * gui.scale):
+		if self.button(x - 110 * gui.scale, y + 180 * gui.scale, _("Return"), width=75 * self.gui.scale):
 			self.rg_view = False
 
-		y = y0 + round(15 * gui.scale)
-		x = x0 + round(50 * gui.scale)
+		y = y0 + round(15 * self.gui.scale)
+		x = x0 + round(50 * self.gui.scale)
 
-		ddt.text((x, y), _("ReplayGain"), colours.box_text_label, 14)
-		y += round(25 * gui.scale)
+		ddt.text((x, y), _("ReplayGain"), self.colours.box_text_label, 14)
+		y += round(25 * self.gui.scale)
 
 		self.toggle_square(x, y, switch_rg_off, _("Off"))
-		self.toggle_square(x + round(80 * gui.scale), y, switch_rg_auto, _("Auto"))
-		y += round(22 * gui.scale)
+		self.toggle_square(x + round(80 * self.gui.scale), y, switch_rg_auto, _("Auto"))
+		y += round(22 * self.gui.scale)
 		self.toggle_square(x, y, switch_rg_album, _("Preserve album dynamics"))
-		y += round(22 * gui.scale)
+		y += round(22 * self.gui.scale)
 		self.toggle_square(x, y, switch_rg_track, _("Tracks equal loudness"))
 
-		y += round(25 * gui.scale)
-		ddt.text((x, y), _("Will only have effect if ReplayGain metadata is present."), colours.box_text_label, 12)
-		y += round(26 * gui.scale)
+		y += round(25 * self.gui.scale)
+		ddt.text((x, y), _("Will only have effect if ReplayGain metadata is present."), self.colours.box_text_label, 12)
+		y += round(26 * self.gui.scale)
 
-		ddt.text((x, y), _("Pre-amp"), colours.box_text_label, 14)
-		y += round(26 * gui.scale)
+		ddt.text((x, y), _("Pre-amp"), self.colours.box_text_label, 14)
+		y += round(26 * self.gui.scale)
 
-		sw = round(170 * gui.scale)
-		sh = round(2 * gui.scale)
+		sw = round(170 * self.gui.scale)
+		sh = round(2 * self.gui.scale)
 
 		slider = (x, y, sw, sh)
 
-		gh = round(14 * gui.scale)
-		gw = round(8 * gui.scale)
+		gh = round(14 * self.gui.scale)
+		gw = round(8 * self.gui.scale)
 		grip = [0, y - (gh // 2), gw, gh]
 
 		grip[0] = x
@@ -11146,35 +11912,34 @@ class Over:
 			_("Lower pre-amp values improve normalisation but will require a higher system volume."),
 			colours.box_text_label, 12)
 
-	def eq(self, x0, y0, w0, h0):
+	def eq(self, x0: int, y0: int, w0: int, h0: int) -> None:
+		y = y0 + 55 * self.gui.scale
+		x = x0 + 130 * self.gui.scale
 
-		y = y0 + 55 * gui.scale
-		x = x0 + 130 * gui.scale
-
-		if self.button(x - 110 * gui.scale, y + 180 * gui.scale, _("Return"), width=75 * gui.scale):
+		if self.button(x - 110 * self.gui.scale, y + 180 * self.gui.scale, _("Return"), width=75 * self.gui.scale):
 			self.eq_view = False
 
-		base_dis = 160 * gui.scale
+		base_dis = 160 * self.gui.scale
 		center = base_dis // 2
-		width = 25 * gui.scale
+		width = 25 * self.gui.scale
 
 		range = 12
 
-		self.toggle_square(x - 90 * gui.scale, y - 35 * gui.scale, toggle_eq, _("Enable"))
+		self.toggle_square(x - 90 * self.gui.scale, y - 35 * self.gui.scale, toggle_eq, _("Enable"))
 
-		ddt.text((x - 17 * gui.scale, y + 2 * gui.scale), "+", colours.grey(130), 16)
-		ddt.text((x - 17 * gui.scale, y + base_dis - 15 * gui.scale), "-", colours.grey(130), 16)
+		self.ddt.text((x - 17 * self.gui.scale, y + 2 * self.gui.scale), "+", colours.grey(130), 16)
+		self.ddt.text((x - 17 * self.gui.scale, y + base_dis - 15 * self.gui.scale), "-", colours.grey(130), 16)
 
 		for i, q in enumerate(prefs.eq):
 
 			bar = [x, y, width, base_dis]
 
-			ddt.rect(bar, [255, 255, 255, 20])
+			self.ddt.rect(bar, [255, 255, 255, 20])
 
-			bar[0] -= 2 * gui.scale
-			bar[1] -= 10 * gui.scale
-			bar[2] += 4 * gui.scale
-			bar[3] += 20 * gui.scale
+			bar[0] -= 2 * self.gui.scale
+			bar[1] -= 10 * self.gui.scale
+			bar[2] += 4 * self.gui.scale
+			bar[3] += 20 * self.gui.scale
 
 			if tauon.coll(bar):
 				if inp.mouse_down:
@@ -11199,14 +11964,14 @@ class Over:
 
 			bar = [x, y + center, width, start]
 
-			ddt.rect(bar, [100, 200, 100, 255])
+			self.ddt.rect(bar, [100, 200, 100, 255])
 
-			x += round(29 * gui.scale)
+			x += round(29 * self.gui.scale)
 
-	def audio(self, x0, y0, w0, h0):
-		ddt.text_background_colour = colours.box_background
-		y = y0 + 40 * gui.scale
-		x = x0 + 20 * gui.scale
+	def audio(self, x0: int, y0: int, w0: int, h0: int) -> None:
+		self.ddt.text_background_colour = self.colours.box_background
+		y = y0 + 40 * self.gui.scale
+		x = x0 + 20 * self.gui.scale
 
 		if self.eq_view:
 			self.eq(x0, y0, w0, h0)
@@ -11216,49 +11981,48 @@ class Over:
 			self.rg(x0, y0, w0, h0)
 			return
 
-		colour = colours.box_sub_text
+		colour = self.colours.box_sub_text
 
 		# if system == "Linux":
-		if not phazor_exists(tauon.pctl):
-			x += round(20 * gui.scale)
-			ddt.text((x, y - 25 * gui.scale), _("PHAzOR DLL not found!"), colour, 213)
+		if not phazor_exists(self.tauon.pctl):
+			x += round(20 * self.gui.scale)
+			ddt.text((x, y - 25 * self.gui.scale), _("PHAzOR DLL not found!"), colour, 213)
 
 		elif prefs.backend == 4:
+			y = y0 + round(20 * self.gui.scale)
+			x = x0 + 20 * self.gui.scale
 
-			y = y0 + round(20 * gui.scale)
-			x = x0 + 20 * gui.scale
-
-			x += round(2 * gui.scale)
+			x += round(2 * self.gui.scale)
 
 			self.toggle_square(x, y, toggle_pause_fade, _("Use fade on pause/stop"))
-			y += round(23 * gui.scale)
+			y += round(23 * self.gui.scale)
 			self.toggle_square(x, y, toggle_jump_crossfade, _("Use fade on track jump"))
-			y += round(23 * gui.scale)
+			y += round(23 * self.gui.scale)
 			prefs.back_restarts = self.toggle_square(x, y, prefs.back_restarts, _("Back restarts to beginning"))
 
-			y += round(40 * gui.scale)
+			y += round(40 * self.gui.scale)
 			if self.button(x, y, _("ReplayGain")):
 				inp.mouse_down = False
 				self.rg_view = True
 
-			y += round(45 * gui.scale)
+			y += round(45 * self.gui.scale)
 			prefs.precache = self.toggle_square(x, y, prefs.precache, _("Cache local files (for smb/nfs)"))
-			y += round(23 * gui.scale)
+			y += round(23 * self.gui.scale)
 			old = prefs.tmp_cache
 			prefs.tmp_cache = self.toggle_square(x, y, prefs.tmp_cache ^ True, _("Use persistent network cache")) ^ True
 			if old != prefs.tmp_cache and tauon.cachement:
 				tauon.cachement.__init__()
 
-			y += round(22 * gui.scale)
-			ddt.text((x + round(22 * gui.scale), y), _("Cache size"), colours.box_text, 312)
-			y += round(18 * gui.scale)
+			y += round(22 * self.gui.scale)
+			ddt.text((x + round(22 * self.gui.scale), y), _("Cache size"), colours.box_text, 312)
+			y += round(18 * self.gui.scale)
 			prefs.cache_limit = int(
 				self.slide_control(
-					x + round(22 * gui.scale), y, None, _(" GB"), prefs.cache_limit / 1000, 0.5,
+					x + round(22 * self.gui.scale), y, None, _(" GB"), prefs.cache_limit / 1000, 0.5,
 					1000, 0.5) * 1000)
 
-			y += round(30 * gui.scale)
-			# prefs.device_buffer = self.slide_control(x + round(270 * gui.scale), y, _("Output buffer"), 'ms',
+			y += round(30 * self.gui.scale)
+			# prefs.device_buffer = self.slide_control(x + round(270 * self.gui.scale), y, _("Output buffer"), 'ms',
 			#                                          prefs.device_buffer, 10,
 			#                                          500, 10, self.reload_device)
 
@@ -11267,22 +12031,22 @@ class Over:
 			# else:
 			#     prefs.pa_fast_seek = False
 
-			y = y0 + 37 * gui.scale
-			x = x0 + 270 * gui.scale
+			y = y0 + 37 * self.gui.scale
+			x = x0 + 270 * self.gui.scale
 			ddt.text_background_colour = colours.box_background
-			ddt.text((x, y - 22 * gui.scale), _("Set audio output device"), colours.box_text_label, 212)
+			ddt.text((x, y - 22 * self.gui.scale), _("Set audio output device"), colours.box_text_label, 212)
 
 			if platform_system == "Linux":
 				old = prefs.pipewire
-				prefs.pipewire = self.toggle_square(x + round(gui.scale * 110), self.box_y + self.h - 50 * gui.scale,
+				prefs.pipewire = self.toggle_square(x + round(self.gui.scale * 110), self.box_y + self.h - 50 * self.gui.scale,
 															prefs.pipewire, _("PipeWire (unstable)"))
-				prefs.pipewire = self.toggle_square(x, self.box_y + self.h - 50 * gui.scale,
+				prefs.pipewire = self.toggle_square(x, self.box_y + self.h - 50 * self.gui.scale,
 															prefs.pipewire ^ True, _("PulseAudio")) ^ True
 				if old != prefs.pipewire:
 					show_message(_("Please restart Tauon for this change to take effect"))
 
 			old = prefs.avoid_resampling
-			prefs.avoid_resampling = self.toggle_square(x, self.box_y + self.h - 27 * gui.scale, prefs.avoid_resampling, _("Avoid resampling"))
+			prefs.avoid_resampling = self.toggle_square(x, self.box_y + self.h - 27 * self.gui.scale, prefs.avoid_resampling, _("Avoid resampling"))
 			if prefs.avoid_resampling != old:
 				pctl.playerCommand = "reload"
 				pctl.playerCommandReady = True
@@ -11298,7 +12062,7 @@ class Over:
 
 			if len(prefs.phazor_devices) > 13:
 				self.device_scroll_bar_position = device_scroll.draw(
-					x + 250 * gui.scale, y, 11, 180,
+					x + 250 * self.gui.scale, y, 11, 180,
 					self.device_scroll_bar_position,
 					len(prefs.phazor_devices) - 11, click=self.click)
 
@@ -11308,27 +12072,27 @@ class Over:
 
 				if i < self.device_scroll_bar_position:
 					continue
-				if y > self.box_y + self.h - 40 * gui.scale:
+				if y > self.box_y + self.h - 40 * self.gui.scale:
 					break
 
-				rect = (x, y + 4 * gui.scale, 245 * gui.scale, 13)
+				rect = (x, y + 4 * self.gui.scale, 245 * self.gui.scale, 13)
 
-				if self.click and tauon.coll(rect):
+				if self.click and self.tauon.coll(rect):
 					prefs.phazor_device_selected = name
 					reload = True
 
-				line = trunc_line(name, 10, 245 * gui.scale)
+				line = trunc_line(name, 10, 245 * self.gui.scale)
 
-				tauon.fields.add(rect)
+				self.tauon.fields.add(rect)
 
 				if prefs.phazor_device_selected == name:
-					ddt.text((x, y), line, colours.box_sub_text, 10)
-					ddt.text((x - 12 * gui.scale, y + 1 * gui.scale), ">", colours.box_sub_text, 213)
-				elif tauon.coll(rect):
-					ddt.text((x, y), line, colours.box_sub_text, 10)
+					ddt.text((x, y), line, self.colours.box_sub_text, 10)
+					ddt.text((x - 12 * self.gui.scale, y + 1 * self.gui.scale), ">", self.colours.box_sub_text, 213)
+				elif self.tauon.coll(rect):
+					ddt.text((x, y), line, self.colours.box_sub_text, 10)
 				else:
-					ddt.text((x, y), line, colours.box_text_label, 10)
-				y += 14 * gui.scale
+					ddt.text((x, y), line, self.colours.box_text_label, 10)
+				y += 14 * self.gui.scale
 				i += 1
 
 			if reload:
@@ -11342,8 +12106,7 @@ class Over:
 	def toggle_lyrics_view(self) -> None:
 		self.lyrics_panel ^= True
 
-	def lyrics(self, x0, y0, w0, h0):
-
+	def lyrics(self, x0: int, y0: int, w0: int, h0: int) -> None:
 		x = x0 + 25 * gui.scale
 		y = y0 - 10 * gui.scale
 		y += 30 * gui.scale
@@ -11477,7 +12240,7 @@ class Over:
 			y += 38 * gui.scale
 
 			self.toggle_square(
-				x, y, toggle_auto_artist_dl,
+				x, y, tauon.toggle_auto_artist_dl,
 				_("Auto fetch artist data"),
 				subtitle=_("Downloads data in background when artist panel is open"))
 
@@ -11489,7 +12252,7 @@ class Over:
 
 			y += 38 * gui.scale
 			self.toggle_square(
-				x, y, toggle_top_tabs, _("Tabs in top panel"),
+				x, y, tauon.toggle_top_tabs, _("Tabs in top panel"),
 				subtitle=_("Uncheck to disable the tab pin function"))
 
 			y += 45 * gui.scale
@@ -11681,63 +12444,63 @@ class Over:
 	def button(self, x, y, text, plug=None, width=0, bg=None):
 		w = width
 		if w == 0:
-			w = ddt.get_text_w(text, 211) + round(10 * gui.scale)
+			w = self.ddt.get_text_w(text, 211) + round(10 * self.gui.scale)
 
-		h = round(20 * gui.scale)
-		border_size = round(2 * gui.scale)
+		h = round(20 * self.gui.scale)
+		border_size = round(2 * self.gui.scale)
 
 		rect = (round(x), round(y), round(w), round(h))
 		rect2 = (rect[0] - border_size, rect[1] - border_size, rect[2] + border_size * 2, rect[3] + border_size * 2)
 
 		if bg is None:
-			bg = colours.box_background
+			bg = self.colours.box_background
 
 		real_bg = bg
 		hit = False
 
-		ddt.rect(rect2, colours.box_check_border)
-		ddt.rect(rect, bg)
+		self.ddt.rect(rect2, self.colours.box_check_border)
+		self.ddt.rect(rect, bg)
 
-		tauon.fields.add(rect)
-		if tauon.coll(rect):
-			ddt.rect(rect, [255, 255, 255, 15])
+		self.tauon.fields.add(rect)
+		if self.tauon.coll(rect):
+			self.ddt.rect(rect, [255, 255, 255, 15])
 			real_bg = alpha_blend([255, 255, 255, 15], bg)
-			ddt.text((x + int(w / 2), rect[1] + 1 * gui.scale, 2), text, colours.box_title_text, 211, bg=real_bg)
+			self.ddt.text((x + int(w / 2), rect[1] + 1 * self.gui.scale, 2), text, self.colours.box_title_text, 211, bg=real_bg)
 			if self.click:
 				hit = True
 				if plug is not None:
 					plug()
 		else:
-			ddt.text((x + int(w / 2), rect[1] + 1 * gui.scale, 2), text, colours.box_sub_text, 211, bg=real_bg)
+			self.ddt.text((x + int(w / 2), rect[1] + 1 * self.gui.scale, 2), text, self.colours.box_sub_text, 211, bg=real_bg)
 
 		return hit
 
 	def button2(self, x, y, text, width=0, center_text=False, force_on=False):
 		w = width
 		if w == 0:
-			w = ddt.get_text_w(text, 211) + 10 * gui.scale
-		rect = (x, y, w, 20 * gui.scale)
+			w = self.ddt.get_text_w(text, 211) + 10 * self.gui.scale
+		rect = (x, y, w, 20 * self.gui.scale)
 
-		bg_colour = colours.box_button_background
+		bg_colour = self.colours.box_button_background
 		real_bg = bg_colour
 
-		ddt.rect(rect, bg_colour)
-		tauon.fields.add(rect)
+		self.ddt.rect(rect, bg_colour)
+		self.tauon.fields.add(rect)
 		hit = False
 
-		text_position = (x + int(7 * gui.scale), rect[1] + 1 * gui.scale)
+		text_position = (x + int(7 * self.gui.scale), rect[1] + 1 * self.gui.scale)
 		if center_text:
-			text_position = (x + rect[2] // 2, rect[1] + 1 * gui.scale, 2)
+			text_position = (x + rect[2] // 2, rect[1] + 1 * self.gui.scale, 2)
 
-		if tauon.coll(rect) or force_on:
-			ddt.rect(rect, colours.box_button_background_highlight)
-			bg_colour = colours.box_button_background
-			real_bg = alpha_blend(colours.box_button_background_highlight, bg_colour)
-			ddt.text(text_position, text, colours.box_button_text_highlight, 211, bg=real_bg)
+		if self.tauon.coll(rect) or force_on:
+			self.ddt.rect(rect, self.colours.box_button_background_highlight)
+			bg_colour = self.colours.box_button_background
+			real_bg = alpha_blend(self.colours.box_button_background_highlight, bg_colour)
+			self.ddt.text(text_position, text, self.colours.box_button_text_highlight, 211, bg=real_bg)
 			if self.click and not force_on:
 				hit = True
 		else:
-			ddt.text(text_position, text, colours.box_button_text, 211, bg=real_bg)
+			self.ddt.text(text_position, text, self.colours.box_button_text, 211, bg=real_bg)
 		return hit
 
 	def toggle_square(self, x, y, function, text: str , click: bool = False, subtitle: str = "") -> bool:
@@ -11771,7 +12534,7 @@ class Over:
 
 		# Check if box clicked
 		clicked = False
-		if (self.click or click) and tauon.coll(hit_rect):
+		if (self.click or click) and self.tauon.coll(hit_rect):
 			clicked = True
 
 		# There are two mode, function type, and passthrough bool type
@@ -13674,8 +14437,8 @@ class Over:
 
 	def close(self) -> None:
 		self.enabled = False
-		fader.fall()
-		if gui.opened_config_file:
+		self.tauon.fader.fall()
+		if self.gui.opened_config_file:
 			reload_config_file()
 
 	def render(self) -> None:
@@ -23838,6 +24601,7 @@ class Bag:
 	smtc:                   bool
 	draw_min_button:        bool
 	draw_max_button:        bool
+	last_fm_enable:         bool
 	desktop:                str | None
 	system:                 str
 	launch_prefix:          str
@@ -28239,12 +29003,6 @@ def delete_track_image(track_object: TrackClass):
 		gui.message_box_confirm_reference = (track_object, False)
 		show_message(_("This will erase any embedded image in {N} files. Are you sure?").format(N=n), mode="confirm")
 
-def toggle_gimage(mode: int = 0) -> bool:
-	if mode == 1:
-		return prefs.show_gimage
-	prefs.show_gimage ^= True
-	return None
-
 def search_image_deco(track_object: TrackClass):
 	if track_object.artist and track_object.album:
 		line_colour = colours.menu_text
@@ -32265,30 +33023,6 @@ def lightning_copy():
 	s_copy()
 	gui.lightning_copy = True
 
-def toggle_transcode(mode: int = 0) -> bool:
-	if mode == 1:
-		return prefs.enable_transcode
-	prefs.enable_transcode ^= True
-	return None
-
-def toggle_chromecast(mode: int = 0) -> bool:
-	if mode == 1:
-		return prefs.show_chromecast
-	prefs.show_chromecast ^= True
-	return None
-
-def toggle_transfer(mode: int = 0) -> bool:
-	if mode == 1:
-		return prefs.show_transfer
-	prefs.show_transfer ^= True
-
-	if prefs.show_transfer:
-		show_message(
-			_("Warning! Using this function moves physical folders."),
-			_("This menu entry appears after selecting 'copy'. See manual (github wiki) for more info."),
-			mode="info")
-	return None
-
 def transcode_deco():
 	if inp.key_shift_down or inp.key_shiftr_down:
 		return [colours.menu_text, colours.menu_background, _("Transcode Single")]
@@ -32354,37 +33088,6 @@ def selection_queue_deco():
 	text = (_("Queue {N}").format(N=len(gui.shift_selection))) + f" [{total}]"
 
 	return [colours.menu_text, colours.menu_background, text]
-
-def toggle_rym(mode: int = 0) -> bool:
-	if mode == 1:
-		return prefs.show_rym
-	prefs.show_rym ^= True
-	return None
-
-def toggle_band(mode: int = 0) -> bool:
-	if mode == 1:
-		return prefs.show_band
-	prefs.show_band ^= True
-	return None
-
-def toggle_wiki(mode: int = 0) -> bool:
-	if mode == 1:
-		return prefs.show_wiki
-	prefs.show_wiki ^= True
-	return None
-
-# def toggle_show_discord(mode: int = 0) -> bool:
-#     if mode == 1:
-#         return prefs.discord_show
-#     if prefs.discord_show is False and discord_allow is False:
-#         show_message(_("Warning: pypresence package not installed"))
-#     prefs.discord_show ^= True
-
-def toggle_gen(mode: int = 0) -> bool:
-	if mode == 1:
-		return prefs.show_gen
-	prefs.show_gen ^= True
-	return None
 
 def ser_band_done(result: str) -> None:
 	if result:
@@ -32866,78 +33569,6 @@ def bass_features_deco():
 	if prefs.backend != 1:
 		line_colour = colours.menu_text_disabled
 	return [line_colour, colours.menu_background, None]
-
-def toggle_dim_albums(mode: int = 0) -> bool:
-	if mode == 1:
-		return prefs.dim_art
-
-	prefs.dim_art ^= True
-	gui.pl_update = 1
-	gui.update += 1
-
-def toggle_gallery_combine(mode: int = 0) -> bool:
-	if mode == 1:
-		return prefs.gallery_combine_disc
-
-	prefs.gallery_combine_disc ^= True
-	reload_albums()
-
-def toggle_gallery_click(mode: int = 0) -> bool:
-	if mode == 1:
-		return prefs.gallery_single_click
-
-	prefs.gallery_single_click ^= True
-
-def toggle_gallery_thin(mode: int = 0) -> bool:
-	if mode == 1:
-		return prefs.thin_gallery_borders
-
-	prefs.thin_gallery_borders ^= True
-	gui.update += 1
-	update_layout_do(tauon=tauon)
-
-def toggle_gallery_row_space(mode: int = 0) -> bool:
-	if mode == 1:
-		return prefs.increase_gallery_row_spacing
-
-	prefs.increase_gallery_row_spacing ^= True
-	gui.update += 1
-	update_layout_do(tauon=tauon)
-
-def toggle_galler_text(mode: int = 0) -> bool:
-	if mode == 1:
-		return gui.gallery_show_text
-
-	gui.gallery_show_text ^= True
-	gui.update += 1
-	update_layout_do(tauon=tauon)
-
-	# Jump to playing album
-	if prefs.album_mode and gui.first_in_grid is not None:
-		if gui.first_in_grid < len(pctl.default_playlist):
-			goto_album(gui.first_in_grid, force=True)
-
-def toggle_card_style(mode: int = 0) -> bool:
-	if mode == 1:
-		return prefs.use_card_style
-
-	prefs.use_card_style ^= True
-	gui.update += 1
-
-def toggle_side_panel(tauon: Tauon, mode: int = 0) -> bool:
-	if mode == 1:
-		return prefs.prefer_side
-
-	prefs.prefer_side ^= True
-	gui.update_layout = True
-
-	if prefs.album_mode or prefs.prefer_side is True:
-		gui.rsp = True
-	else:
-		gui.rsp = False
-
-	if prefs.prefer_side:
-		gui.rspw = gui.pref_rspw
 
 def force_album_view(tauon: Tauon) -> None:
 	toggle_album_mode(tauon=tauon, force_on=True)
@@ -33762,153 +34393,6 @@ def get_artist_spot(tr: TrackClass = None) -> None:
 #         text = _("Lookup Spotify Album")
 #
 #     return [colours.menu_text, colours.menu_background, text]
-
-def toggle_auto_theme(mode: int = 0) -> None:
-	if mode == 1:
-		return prefs.colour_from_image
-
-	prefs.colour_from_image ^= True
-	gui.theme_temp_current = -1
-
-	gui.reload_theme = True
-
-	# if prefs.colour_from_image and prefs.art_bg and not inp.key_shift_down:
-	#     toggle_auto_bg()
-
-def toggle_transparent_accent(mode: int= 0) -> bool | None:
-	if mode == 1:
-		return prefs.transparent_mode == 1
-
-	if prefs.transparent_mode == 1:
-		prefs.transparent_mode = 0
-	else:
-		prefs.transparent_mode = 1
-
-	gui.reload_theme = True
-	gui.update += 1
-	gui.pl_update += 1
-
-	return None
-
-def toggle_auto_bg(mode: int= 0) -> bool | None:
-	if mode == 1:
-		return prefs.art_bg
-	prefs.art_bg ^= True
-
-	if prefs.art_bg:
-		gui.update = 60
-
-	style_overlay.flush()
-	tauon.thread_manager.ready("style")
-	# if prefs.colour_from_image and prefs.art_bg and not inp.key_shift_down:
-	#     toggle_auto_theme()
-	return None
-
-def toggle_auto_bg_strong(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.art_bg_stronger == 2
-
-	if prefs.art_bg_stronger == 2:
-		prefs.art_bg_stronger = 1
-	else:
-		prefs.art_bg_stronger = 2
-	gui.update_layout = True
-	return None
-
-def toggle_auto_bg_strong1(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.art_bg_stronger == 1
-	prefs.art_bg_stronger = 1
-	gui.update_layout = True
-	return None
-
-def toggle_auto_bg_strong2(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.art_bg_stronger == 2
-	prefs.art_bg_stronger = 2
-	gui.update_layout = True
-	if prefs.art_bg:
-		gui.update = 60
-	return None
-
-def toggle_auto_bg_strong3(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.art_bg_stronger == 3
-	prefs.art_bg_stronger = 3
-	gui.update_layout = True
-	if prefs.art_bg:
-		gui.update = 60
-	return None
-
-def toggle_auto_bg_blur(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.art_bg_always_blur
-	prefs.art_bg_always_blur ^= True
-	style_overlay.flush()
-	tauon.thread_manager.ready("style")
-	return None
-
-def toggle_auto_bg_showcase(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.bg_showcase_only
-	prefs.bg_showcase_only ^= True
-	gui.update_layout = True
-	return None
-
-def toggle_notifications(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.show_notifications
-
-	prefs.show_notifications ^= True
-
-	if prefs.show_notifications:
-		if not de_notify_support:
-			show_message(_("Notifications for this DE not supported"), "", mode="warning")
-	return None
-
-# def toggle_al_pref_album_artist(mode: int = 0) -> bool:
-#
-#     if mode == 1:
-#         return prefs.artist_list_prefer_album_artist
-#
-#     prefs.artist_list_prefer_album_artist ^= True
-#     artist_list_box.saves.clear()
-#     return None
-
-def toggle_mini_lyrics(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.show_lyrics_side
-	prefs.show_lyrics_side ^= True
-	return None
-
-def toggle_showcase_vis(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.showcase_vis
-
-	prefs.showcase_vis ^= True
-	gui.update_layout = True
-	return None
-
-def toggle_level_meter(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return gui.vis_want != 0
-
-	if gui.vis_want == 0:
-		gui.vis_want = 1
-	else:
-		gui.vis_want = 0
-
-	gui.update_layout = True
-	return None
-
-# def toggle_force_subpixel(mode: int = 0) -> bool | None:
-#
-#     if mode == 1:
-#         return prefs.force_subpixel_text != 0
-#
-#     prefs.force_subpixel_text ^= True
-#     ddt.force_subpixel_text = prefs.force_subpixel_text
-#     ddt.clear_text_cache()
 
 def level_meter_special_2():
 	gui.level_meter_colour_mode = 2
@@ -36182,489 +36666,6 @@ def reload_albums(tauon: Tauon, quiet: bool = False, return_playlist: int = -1, 
 	# Generate POWER BAR
 	gui.power_bar = gen_power2()
 	gui.pt = 0
-
-def star_line_toggle(mode: int= 0) -> bool | None:
-	if mode == 1:
-		return gui.star_mode == "line"
-
-	if gui.star_mode == "line":
-		gui.star_mode = "none"
-	else:
-		gui.star_mode = "line"
-
-	gui.show_ratings = False
-
-	gui.update += 1
-	gui.pl_update = 1
-	return None
-
-def star_toggle(mode: int = 0) -> bool | None:
-	if gui.show_ratings:
-		if mode == 1:
-			return prefs.rating_playtime_stars
-		prefs.rating_playtime_stars ^= True
-
-	else:
-		if mode == 1:
-			return gui.star_mode == "star"
-
-		if gui.star_mode == "star":
-			gui.star_mode = "none"
-		else:
-			gui.star_mode = "star"
-
-	# gui.show_ratings = False
-	gui.update += 1
-	gui.pl_update = 1
-	return None
-
-def heart_toggle(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return gui.show_hearts
-
-	gui.show_hearts ^= True
-	# gui.show_ratings = False
-
-	gui.update += 1
-	gui.pl_update = 1
-	return None
-
-def album_rating_toggle(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return gui.show_album_ratings
-
-	gui.show_album_ratings ^= True
-
-	gui.update += 1
-	gui.pl_update = 1
-	return None
-
-def rating_toggle(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return gui.show_ratings
-
-	gui.show_ratings ^= True
-
-	if gui.show_ratings:
-		# gui.show_hearts = False
-		gui.star_mode = "none"
-		prefs.rating_playtime_stars = True
-		if not prefs.write_ratings:
-			show_message(_("Note that ratings are stored in the local database and not written to tags."))
-
-	gui.update += 1
-	gui.pl_update = 1
-	return None
-
-def toggle_titlebar_line(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return self.prefs.update_title
-
-	line = window_title
-	sdl3.SDL_SetWindowTitle(t_window, line)
-	self.prefs.update_title ^= True
-	if self.prefs.update_title:
-		update_title_do()
-	return None
-
-def toggle_meta_persists_stop(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.meta_persists_stop
-	prefs.meta_persists_stop ^= True
-	return None
-
-def toggle_side_panel_layout(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.side_panel_layout == 1
-
-	if prefs.side_panel_layout == 1:
-		prefs.side_panel_layout = 0
-	else:
-		prefs.side_panel_layout = 1
-	return None
-
-def toggle_meta_shows_selected(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.meta_shows_selected_always
-	prefs.meta_shows_selected_always ^= True
-	return None
-
-def scale1(mode: int = 0) -> bool | None:
-	if mode == 1:
-		if prefs.ui_scale == 1:
-			return True
-		return False
-
-	prefs.ui_scale = 1
-	pref_box.large_preset()
-
-	if prefs.ui_scale != gui.scale:
-		show_message(_("Change will be applied on restart."))
-	return None
-
-def scale125(mode: int = 0) -> bool | None:
-	if mode == 1:
-		if prefs.ui_scale == 1.25:
-			return True
-		return False
-	return None
-
-	prefs.ui_scale = 1.25
-	pref_box.large_preset()
-
-	if prefs.ui_scale != gui.scale:
-		show_message(_("Change will be applied on restart."))
-	return None
-
-def toggle_use_tray(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.use_tray
-	prefs.use_tray ^= True
-	if not prefs.use_tray:
-		prefs.min_to_tray = False
-		gnome.hide_indicator()
-	else:
-		gnome.show_indicator()
-	return None
-
-def toggle_text_tray(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.tray_show_title
-	prefs.tray_show_title ^= True
-	pctl.notify_update()
-	return None
-
-def toggle_min_tray(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.min_to_tray
-	prefs.min_to_tray ^= True
-	return None
-
-def scale2(mode: int = 0) -> bool | None:
-	if mode == 1:
-		if prefs.ui_scale == 2:
-			return True
-		return False
-
-	prefs.ui_scale = 2
-	pref_box.large_preset()
-
-	if prefs.ui_scale != gui.scale:
-		show_message(_("Change will be applied on restart."))
-	return None
-
-def toggle_borderless(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return draw_border
-
-	gui.update_layout = True
-	tauon.draw_border ^= True
-
-	if tauon.draw_border:
-		sdl3.SDL_SetWindowBordered(t_window, False)
-	else:
-		sdl3.SDL_SetWindowBordered(t_window, True)
-	return None
-
-def toggle_break(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.break_enable ^ True
-	prefs.break_enable ^= True
-	gui.pl_update = 1
-	return None
-
-def toggle_scroll(mode: int = 0) -> bool | None:
-	if mode == 1:
-		if prefs.scroll_enable:
-			return False
-		return True
-
-	prefs.scroll_enable ^= True
-	gui.pl_update = 1
-	gui.update_layout = True
-	return None
-
-def toggle_hide_bar(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return gui.set_bar ^ True
-	gui.update_layout = True
-	gui.set_bar ^= True
-	show_message(_("Tip: You can also toggle this from a right-click context menu"))
-	return None
-
-def toggle_append_total_time(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.append_total_time
-	prefs.append_total_time ^= True
-	gui.pl_update = 1
-	gui.update += 1
-	return None
-
-def toggle_append_date(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.append_date
-	prefs.append_date ^= True
-	gui.pl_update = 1
-	gui.update += 1
-	return None
-
-def toggle_true_shuffle(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.true_shuffle
-	prefs.true_shuffle ^= True
-	return None
-
-def toggle_auto_artist_dl(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.auto_dl_artist_data
-	prefs.auto_dl_artist_data ^= True
-	for artist, value in list(artist_list_box.thumb_cache.items()):
-		if value is None:
-			del artist_list_box.thumb_cache[artist]
-	return None
-
-def toggle_scrobble_mark(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.scrobble_mark
-	prefs.scrobble_mark ^= True
-	return None
-
-def toggle_lfm_auto(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.auto_lfm
-	prefs.auto_lfm ^= True
-	if prefs.auto_lfm and not last_fm_enable:
-		show_message(_("Optional module python-pylast not installed"), mode="warning")
-		prefs.auto_lfm = False
-	# if prefs.auto_lfm:
-	#     lastfm.hold = False
-	# else:
-	#     lastfm.hold = True
-	return None
-
-def toggle_lb(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return lb.enable
-	if not lb.enable and not prefs.lb_token:
-		show_message(_("Can't enable this if there's no token."), mode="warning")
-		return None
-	lb.enable ^= True
-	return None
-
-def toggle_maloja(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.maloja_enable
-	if not prefs.maloja_url or not prefs.maloja_key:
-		show_message(_("One or more fields is missing."), mode="warning")
-		return None
-	prefs.maloja_enable ^= True
-	return None
-
-def toggle_ex_del(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.auto_del_zip
-	prefs.auto_del_zip ^= True
-	# if prefs.auto_del_zip is True:
-	#     show_message("Caution! This function deletes things!", mode='info', "This could result in data loss if the process were to malfunction.")
-	return None
-
-def toggle_dl_mon(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.monitor_downloads
-	prefs.monitor_downloads ^= True
-	return None
-
-def toggle_music_ex(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.extract_to_music
-	prefs.extract_to_music ^= True
-	return None
-
-def toggle_extract(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.auto_extract
-	prefs.auto_extract ^= True
-	if prefs.auto_extract is False:
-		prefs.auto_del_zip = False
-	return None
-
-def toggle_top_tabs(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.tabs_on_top
-	prefs.tabs_on_top ^= True
-	return None
-
-#def toggle_guitar_chords(mode: int = 0) -> bool | None:
-#	if mode == 1:
-#		return prefs.guitar_chords
-#	prefs.guitar_chords ^= True
-#	return None
-
-# def toggle_auto_lyrics(mode: int = 0) -> bool | None:
-#     if mode == 1:
-#         return prefs.auto_lyrics
-#     prefs.auto_lyrics ^= True
-
-def switch_single(mode: int = 0) -> bool | None:
-	if mode == 1:
-		if prefs.transcode_mode == "single":
-			return True
-		return False
-	prefs.transcode_mode = "single"
-	return None
-
-def switch_mp3(mode: int = 0) -> bool | None:
-	if mode == 1:
-		if prefs.transcode_codec == "mp3":
-			return True
-		return False
-	prefs.transcode_codec = "mp3"
-	return None
-
-def switch_ogg(mode: int = 0) -> bool | None:
-	if mode == 1:
-		if prefs.transcode_codec == "ogg":
-			return True
-		return False
-	prefs.transcode_codec = "ogg"
-	return None
-
-def switch_opus(mode: int = 0) -> bool | None:
-	if mode == 1:
-		if prefs.transcode_codec == "opus":
-			return True
-		return False
-	prefs.transcode_codec = "opus"
-	return None
-
-def switch_opus_ogg(mode: int = 0) -> bool | None:
-	if mode == 1:
-		if prefs.transcode_opus_as:
-			return True
-		return False
-	prefs.transcode_opus_as ^= True
-	return None
-
-def toggle_transcode_output(mode: int = 0) -> bool | None:
-	if mode == 1:
-		if prefs.transcode_inplace:
-			return False
-		return True
-	prefs.transcode_inplace ^= True
-	if prefs.transcode_inplace:
-		transcode_icon.colour = [250, 20, 20, 255]
-		show_message(
-			_("DANGER! This will delete the original files. Keeping a backup is recommended in case of malfunction."),
-			_("For safety, this setting will default to off. Embedded thumbnails are not kept so you may want to extract them first."),
-			mode="warning")
-	else:
-		transcode_icon.colour = [239, 74, 157, 255]
-	return None
-
-def toggle_transcode_inplace(mode: int = 0) -> bool | None:
-	if mode == 1:
-		if prefs.transcode_inplace:
-			return True
-		return False
-
-	if gui.sync_progress:
-		prefs.transcode_inplace = False
-		return None
-
-	prefs.transcode_inplace ^= True
-	if prefs.transcode_inplace:
-		transcode_icon.colour = [250, 20, 20, 255]
-		show_message(
-			_("DANGER! This will delete the original files. Keeping a backup is recommended in case of malfunction."),
-			_("For safety, this setting will reset on restart. Embedded thumbnails are not kept so you may want to extract them first."),
-			mode="warning")
-	else:
-		transcode_icon.colour = [239, 74, 157, 255]
-	return None
-
-def switch_flac(mode: int = 0) -> bool | None:
-	if mode == 1:
-		if prefs.transcode_codec == "flac":
-			return True
-		return False
-	prefs.transcode_codec = "flac"
-	return None
-
-def toggle_sbt(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.prefer_bottom_title
-	prefs.prefer_bottom_title ^= True
-	return None
-
-def toggle_bba(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return gui.bb_show_art
-	gui.bb_show_art ^= True
-	gui.update_layout = True
-	return None
-
-def toggle_use_title(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.use_title
-	prefs.use_title ^= True
-	return None
-
-def switch_rg_off(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return True if prefs.replay_gain == 0 else False
-	prefs.replay_gain = 0
-	return None
-
-def switch_rg_track(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return True if prefs.replay_gain == 1 else False
-	prefs.replay_gain = 0 if prefs.replay_gain == 1 else 1
-	# prefs.replay_gain = 1
-	return None
-
-def switch_rg_album(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return True if prefs.replay_gain == 2 else False
-	prefs.replay_gain = 0 if prefs.replay_gain == 2 else 2
-	return None
-
-def switch_rg_auto(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return True if prefs.replay_gain == 3 else False
-	prefs.replay_gain = 0 if prefs.replay_gain == 3 else 3
-	return None
-
-def toggle_jump_crossfade(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return True if prefs.use_jump_crossfade else False
-	prefs.use_jump_crossfade ^= True
-	return None
-
-def toggle_pause_fade(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return True if prefs.use_pause_fade else False
-	prefs.use_pause_fade ^= True
-	return None
-
-def toggle_transition_crossfade(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return True if prefs.use_transition_crossfade else False
-	prefs.use_transition_crossfade ^= True
-	return None
-
-def toggle_transition_gapless(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return False if prefs.use_transition_crossfade else True
-	prefs.use_transition_crossfade ^= True
-	return None
-
-def toggle_eq(mode: int = 0) -> bool | None:
-	if mode == 1:
-		return prefs.use_eq
-	prefs.use_eq ^= True
-	pctl.playerCommand = "seteq"
-	pctl.playerCommandReady = True
-	return None
 
 def reload_backend() -> None:
 	gui.backend_reloading = True
@@ -39278,6 +39279,7 @@ def main(holder: Holder) -> None:
 		phone=phone,
 		xdpi=xdpi,
 		desktop=desktop,
+		last_fm_enable=last_fm_enable,
 		launch_prefix=launch_prefix,
 		load_orders=load_orders,
 		snap_mode=snap_mode,
@@ -40597,7 +40599,7 @@ def main(holder: Holder) -> None:
 		pass_ref_deco=True, icon=delete_icon))
 
 	picture_menu.add(MenuItem(_("Quick-Fetch Cover Art"), download_art1_fire, dl_art_deco, pass_ref=True, pass_ref_deco=True, disable_test=download_art1_fire_disable_test))
-	# picture_menu.add(_('Search Google for Images'), ser_gimage, search_image_deco, pass_ref=True, pass_ref_deco=True, show_test=toggle_gimage)
+	# picture_menu.add(_('Search Google for Images'), ser_gimage, search_image_deco, pass_ref=True, pass_ref_deco=True, show_test=tauon.toggle_gimage)
 
 	# picture_menu.add(_('Toggle art box'), toggle_side_art, toggle_side_art_deco)
 
@@ -40840,13 +40842,6 @@ def main(holder: Holder) -> None:
 
 	track_menu.add(MenuItem("Spotify Like Track", toggle_spotify_like_ref, toggle_spotify_like_row_deco, show_test=spot_like_show_test, icon=heart_spot_icon))
 
-	# def toggle_queue(mode: int = 0) -> bool:
-	#	 if mode == 1:
-	#		 return prefs.show_queue
-	#	 prefs.show_queue ^= True
-	#	 prefs.show_queue ^= True
-
-
 	track_menu.add(MenuItem(_("Add to Queue"), add_to_queue, pass_ref=True, hint="MB3"))
 
 	track_menu.add(MenuItem(_("↳ After Current Track"), add_to_queue_next, pass_ref=True, show_test=test_shift))
@@ -40939,9 +40934,9 @@ def main(holder: Holder) -> None:
 	folder_menu.add(MenuItem(_("Edit fields…"), activate_trans_editor))
 	folder_menu.add(MenuItem(_("Vacuum Playtimes"), vacuum_playtimes, pass_ref=True, show_test=test_shift))
 	folder_menu.add(MenuItem(_("Transcode Folder"), convert_folder, transcode_deco, pass_ref=True, icon=transcode_icon,
-		show_test=toggle_transcode))
+		show_test=tauon.toggle_transcode))
 	gallery_menu.add(MenuItem(_("Transcode Folder"), convert_folder, transcode_deco, pass_ref=True, icon=transcode_icon,
-		show_test=toggle_transcode))
+		show_test=tauon.toggle_transcode))
 	folder_menu.br()
 
 	tauon.spot_ctl.cache_saved_albums = spot_cache_saved_albums
@@ -40985,21 +40980,21 @@ def main(holder: Holder) -> None:
 	gallery_menu.add(MenuItem(_("Remove"), del_selected))
 
 
-	track_menu.add(MenuItem(_("Search Artist on Wikipedia"), ser_wiki, pass_ref=True, show_test=toggle_wiki))
-	track_menu.add(MenuItem(_("Search Track on Genius"), ser_gen, pass_ref=True, show_test=toggle_gen))
+	track_menu.add(MenuItem(_("Search Artist on Wikipedia"), ser_wiki, pass_ref=True, show_test=tauon.toggle_wiki))
+	track_menu.add(MenuItem(_("Search Track on Genius"), ser_gen, pass_ref=True, show_test=tauon.toggle_gen))
 
 	son_icon = MenuIcon(asset_loader(bag, loaded_asset_dc, "sonemic-g.png"))
 	son_icon.base_asset = asset_loader(bag, loaded_asset_dc, "sonemic-gs.png")
 
 	son_icon.xoff = 1
-	track_menu.add(MenuItem(_("Search Artist on Sonemic"), ser_rym, pass_ref=True, icon=son_icon, show_test=toggle_rym))
+	track_menu.add(MenuItem(_("Search Artist on Sonemic"), ser_rym, pass_ref=True, icon=son_icon, show_test=tauon.toggle_rym))
 
 	band_icon = MenuIcon(asset_loader(bag, loaded_asset_dc, "band.png", True))
 	band_icon.xoff = 0
 	band_icon.yoff = 1
 	band_icon.colour = [96, 147, 158, 255]
 
-	track_menu.add(MenuItem(_("Search Artist on Bandcamp"), ser_band, pass_ref=True, icon=band_icon, show_test=toggle_band))
+	track_menu.add(MenuItem(_("Search Artist on Bandcamp"), ser_band, pass_ref=True, icon=band_icon, show_test=tauon.toggle_band))
 
 	# Copy metadata to clipboard
 	# track_menu.add(_('Copy "Artist - Album"'), clip_aar_al, pass_ref=True)
@@ -41015,7 +41010,7 @@ def main(holder: Holder) -> None:
 
 	track_menu.br()
 	track_menu.add(MenuItem(_("Transcode Folder"), convert_folder, transcode_deco, pass_ref=True, icon=transcode_icon,
-		show_test=toggle_transcode))
+		show_test=tauon.toggle_transcode))
 
 
 	# Create top menu
