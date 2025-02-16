@@ -271,10 +271,6 @@ class DConsole:
 class GuiVar:
 	"""Use to hold any variables for use in relation to UI"""
 
-	def update_layout(self) -> None:
-		global update_layout
-		update_layout = True
-
 	def show_message(self, line1: str, line2: str = "", line3: str = "", mode: str = "info") -> None:
 		show_message(line1, line2, line3, mode=mode)
 
@@ -359,6 +355,7 @@ class GuiVar:
 
 		self.window_id = 0
 		self.update = 2  # UPDATE
+		self.update_layout: bool = True
 		self.turbo = True
 		self.turbo_next = 0
 		self.pl_update = 1
@@ -10812,8 +10809,6 @@ class Over:
 		self.key_box_focused = False
 
 	def theme(self, x0, y0, w0, h0):
-		global update_layout
-
 		y = y0 + 13 * gui.scale
 		x = x0 + 25 * gui.scale
 
@@ -11287,7 +11282,6 @@ class Over:
 		if prefs.zoom_art != old:
 			tauon.album_art_gen.clear_cache()
 
-		global update_layout
 		y += 35 * gui.scale
 		ddt.text((x, y), _("Gallery"), colours.box_text_label, 12)
 
@@ -12665,8 +12659,6 @@ class Over:
 			prefs.theme = len(get_themes())
 
 	def config_b(self, x0, y0, w0, h0):
-		global update_layout
-
 		ddt.text_background_colour = colours.box_background
 		x = x0 + round(25 * gui.scale)
 		y = y0 + round(20 * gui.scale)
@@ -12769,7 +12761,7 @@ class Over:
 		if prefs.scale_want != gui.scale:
 			gui.update += 1
 			if not inp.mouse_down:
-				gui.update_layout()
+				gui.update_layout = True
 
 		y += round(25 * gui.scale)
 		if not msys and not macos:
@@ -12788,7 +12780,7 @@ class Over:
 			return prefs.x_scale
 		prefs.x_scale ^= True
 		auto_scale(bag)
-		gui.update_layout()
+		gui.update_layout = True
 
 	def about(self, x0, y0, w0, h0):
 
@@ -13485,12 +13477,12 @@ class Over:
 		prefs.playlist_row_height = round(22 * prefs.ui_scale)
 		prefs.playlist_font_size = 15
 		prefs.tracklist_y_text_offset = 0
-		gui.update_layout()
+		gui.update_layout = True
 
 	def large_preset(self) -> None:
 		prefs.playlist_row_height = round(27 * prefs.ui_scale)
 		prefs.playlist_font_size = 15
-		gui.update_layout()
+		gui.update_layout = True
 
 	def slide_control(self, x: int, y: int, label: str, units: str, value: int, lower_limit: int, upper_limit: int, step: int = 1, callback=None, width: int = 58) -> int:
 		width = round(width * gui.scale)
@@ -13508,7 +13500,7 @@ class Over:
 			if self.click:
 				if value > lower_limit:
 					value -= step
-					gui.update_layout()
+					gui.update_layout = True
 					if callback is not None:
 						callback(value)
 
@@ -13537,7 +13529,7 @@ class Over:
 			if self.click:
 				if value < upper_limit:
 					value += step
-					gui.update_layout()
+					gui.update_layout = True
 					if callback is not None:
 						callback(value)
 			if inp.mouse_down:
@@ -13832,8 +13824,6 @@ class TopPanel:
 		window_size = self.window_size
 
 		# C-TD
-		global update_layout
-
 		hh = gui.panelY2
 		yy = gui.panelY - hh
 		self.height = hh
@@ -13920,16 +13910,16 @@ class TopPanel:
 				else:
 					gui.lsp ^= True
 
-				update_layout = True
+				gui.update_layout = True
 				gui.update += 1
 			if inp.mouse_down and inp.quick_drag:
 				gui.lsp = True
-				update_layout = True
+				gui.update_layout = True
 				gui.update += 1
 
 			if inp.middle_click:
 				toggle_left_last()
-				update_layout = True
+				gui.update_layout = True
 				gui.update += 1
 
 			if inp.right_click:
@@ -20457,7 +20447,7 @@ class TreeView:
 
 		self.scroll_positions[pl_id] = scroll_position
 
-		gui.update_layout()
+		gui.update_layout = True
 		gui.update += 1
 
 	def get_pl_id(self):
@@ -20834,7 +20824,7 @@ class TreeView:
 
 		self.gen_row(tree, "", opens)
 
-		gui.update_layout()
+		gui.update_layout = True
 		gui.update += 1
 
 	def gen_tree(self, pl_id):
@@ -21871,7 +21861,7 @@ class ArtistInfoBox:
 
 		if w < 300 * gui.scale:
 			gui.artist_info_panel = False
-			gui.update_layout()
+			gui.update_layout = True
 			return
 
 		track = pctl.playing_object()
@@ -22638,7 +22628,7 @@ class Showcase:
 		#                    background_highlight_colour=bfg):
 		#         gui.switch_showcase_off = True
 		#         gui.update += 1
-		#         gui.update_layout()
+		#         gui.update_layout = True
 
 		# ddt.force_gray = True
 
@@ -23090,7 +23080,7 @@ class ViewBox:
 		if self.prefs.album_mode and not self.gui.combo_mode:
 			self.gui.hide_tracklist_in_gallery ^= True
 			self.gui.rspw = self.gui.pref_gallery_w
-			self.gui.update_layout()
+			self.gui.update_layout = True
 			# self.x_menu.active = False
 			self.x_menu.close_next_frame = True
 			# Menu.active = False
@@ -23147,7 +23137,7 @@ class ViewBox:
 			return self.gui.artist_info_panel
 
 		self.gui.artist_info_panel ^= True
-		self.gui.update_layout()
+		self.gui.update_layout = True
 
 	def render(self) -> None:
 		gui     = self.gui
@@ -26946,28 +26936,28 @@ def enable_artist_list():
 		gui.last_left_panel_mode = prefs.left_panel_mode
 	prefs.left_panel_mode = "artist list"
 	gui.lsp = True
-	gui.update_layout()
+	gui.update_layout = True
 
 def enable_playlist_list():
 	if prefs.left_panel_mode != "playlist":
 		gui.last_left_panel_mode = prefs.left_panel_mode
 	prefs.left_panel_mode = "playlist"
 	gui.lsp = True
-	gui.update_layout()
+	gui.update_layout = True
 
 def enable_queue_panel():
 	if prefs.left_panel_mode != "queue":
 		gui.last_left_panel_mode = prefs.left_panel_mode
 	prefs.left_panel_mode = "queue"
 	gui.lsp = True
-	gui.update_layout()
+	gui.update_layout = True
 
 def enable_folder_list():
 	if prefs.left_panel_mode != "folder view":
 		gui.last_left_panel_mode = prefs.left_panel_mode
 	prefs.left_panel_mode = "folder view"
 	gui.lsp = True
-	gui.update_layout()
+	gui.update_layout = True
 
 def lsp_menu_test_queue():
 	if not gui.lsp:
@@ -27099,7 +27089,7 @@ def bio_set_small():
 
 def artist_info_panel_close():
 	gui.artist_info_panel ^= True
-	gui.update_layout()
+	gui.update_layout = True
 
 def toggle_bio_size_deco():
 	line = _("Make Large Size")
@@ -27116,7 +27106,7 @@ def toggle_bio_size():
 		prefs.bio_large = True
 		update_layout_do(tauon=tauon)
 		# bio_set_large()
-	# gui.update_layout()
+	# gui.update_layout = True
 
 def flush_artist_bio(artist):
 	if os.path.isfile(os.path.join(a_cache_dir, artist + "-lfm.txt")):
@@ -30868,7 +30858,7 @@ def reload_config_file():
 	pctl.playerCommand = "reload"
 	pctl.playerCommandReady = True
 	show_message(_("Configuration reloaded"), mode="done")
-	gui.update_layout()
+	gui.update_layout = True
 
 def open_config_file():
 	save_prefs(bag=bag, cf=cf)
@@ -32482,7 +32472,7 @@ def field_clear(text_field) -> None:
 
 def vis_off() -> None:
 	gui.vis_want = 0
-	gui.update_layout()
+	gui.update_layout = True
 	# gui.turbo = False
 
 def level_on() -> None:
@@ -32492,7 +32482,7 @@ def level_on() -> None:
 			gui.level_meter_colour_mode = 0
 
 	gui.vis_want = 1
-	gui.update_layout()
+	gui.update_layout = True
 	# if prefs.backend == 2:
 	#     show_message("Visualisers not implemented in GStreamer mode")
 	# gui.turbo = True
@@ -32501,7 +32491,7 @@ def spec_on() -> None:
 	gui.vis_want = 2
 	# if prefs.backend == 2:
 	#     show_message("Not implemented")
-	gui.update_layout()
+	gui.update_layout = True
 
 def spec2_def() -> None:
 	if gui.vis_want == 3:
@@ -32514,103 +32504,103 @@ def spec2_def() -> None:
 		show_message(_("Not implemented"))
 	# gui.turbo = True
 	prefs.spec2_colour_setting = "custom"
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_remove(h: int) -> None:
 	if len(gui.pl_st) > 1:
 		del gui.pl_st[h]
-		gui.update_layout()
+		gui.update_layout = True
 	else:
 		show_message(_("Cannot remove the only column."))
 
 def sa_artist() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["Artist", 220, False])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_album_artist() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["Album Artist", 220, False])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_composer() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["Composer", 220, False])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_title() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["Title", 220, False])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_album() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["Album", 220, False])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_comment() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["Comment", 300, False])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_track() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["#", 25, True])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_count() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["P", 25, True])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_scrobbles() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["S", 25, True])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_time() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["Time", 55, True])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_date() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["Date", 55, True])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_genre() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["Genre", 150, False])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_file() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["Filepath", 350, False])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_filename() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["Filename", 300, False])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_codec() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["Codec", 65, True])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_bitrate() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["Bitrate", 65, True])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_lyrics() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["Lyrics", 50, True])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_cue() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["CUE", 50, True])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_star() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["Starline", 80, True])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_disc() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["Disc", 50, True])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_rating() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["Rating", 80, True])
-	gui.update_layout()
+	gui.update_layout = True
 
 def sa_love() -> None:
 	gui.pl_st.insert(set_menu.reference + 1, ["❤", 25, True])
 	# gui.pl_st.append(["❤", 25, True])
-	gui.update_layout()
+	gui.update_layout = True
 
 def key_love(index: int) -> bool:
 	return get_love_index(index)
@@ -32745,12 +32735,12 @@ def sort_dec(h):
 
 def hide_set_bar():
 	gui.set_bar = False
-	gui.update_layout()
+	gui.update_layout = True
 	gui.pl_update = 1
 
 def show_set_bar():
 	gui.set_bar = True
-	gui.update_layout()
+	gui.update_layout = True
 	gui.pl_update = 1
 
 def bass_features_deco():
@@ -32817,13 +32807,11 @@ def toggle_card_style(mode: int = 0) -> bool:
 	gui.update += 1
 
 def toggle_side_panel(tauon: Tauon, mode: int = 0) -> bool:
-	global update_layout
-
 	if mode == 1:
 		return prefs.prefer_side
 
 	prefs.prefer_side ^= True
-	update_layout = True
+	gui.update_layout = True
 
 	if prefs.album_mode or prefs.prefer_side is True:
 		gui.rsp = True
@@ -32846,7 +32834,7 @@ def enter_combo(tauon: Tauon) -> None:
 		if tauon.gui.rsp:
 			tauon.gui.rsp = False
 		tauon.gui.combo_mode = True
-		tauon.gui.update_layout()
+		tauon.gui.update_layout = True
 
 def exit_combo(restore: bool = False) -> None:
 	if gui.combo_mode:
@@ -32856,7 +32844,7 @@ def exit_combo(restore: bool = False) -> None:
 		gui.radio_view = False
 		if prefs.prefer_side:
 			gui.rsp = True
-		gui.update_layout()
+		gui.update_layout = True
 		gui.combo_mode = False
 		gui.was_radio = False
 
@@ -32871,7 +32859,7 @@ def enter_showcase_view(track_id=None) -> None:
 	else:
 		gui.force_showcase_index = track_id
 	inp.mouse_click = False
-	gui.update_layout()
+	gui.update_layout = True
 
 def enter_radio_view(tauon: Tauon) -> None:
 	if not tauon.gui.combo_mode:
@@ -32879,18 +32867,16 @@ def enter_radio_view(tauon: Tauon) -> None:
 	tauon.gui.showcase_mode = False
 	tauon.gui.radio_view = True
 	tauon.gui.inp.mouse_click = False
-	tauon.gui.update_layout()
+	tauon.gui.update_layout = True
 
 def standard_size(tauon: Tauon) -> None:
-	global update_layout
-
 	prefs.album_mode = False
 	tauon.gui.rsp = True
 	tauon.bag.window_size = window_default_size
 	SDL_SetWindowSize(t_window, logical_size[0], logical_size[1])
 
 	gui.rspw = 80 + int(tauon.bag.window_size[0] * 0.18)
-	update_layout = True
+	gui.update_layout = True
 	bag.album_mode_art_size = 130
 	# clear_img_cache()
 
@@ -32977,7 +32963,6 @@ def goto_album(playlist_no: int, down: bool = False, force: bool = False) -> lis
 	gui.update += 1 # TODO(Martin): WTF Unreachable??
 
 def toggle_album_mode(tauon: Tauon, force_on: bool = False) -> None:
-	global update_layout
 	gui = tauon.gui
 	pctl = tauon.pctl
 	gui.gall_tab_enter = False
@@ -33004,7 +32989,7 @@ def toggle_album_mode(tauon: Tauon, force_on: bool = False) -> None:
 	if prefs.album_mode and gui.set_mode and len(gui.pl_st) > 6 and space < 600 * gui.scale:
 		gui.set_mode = False
 		gui.pl_update = True
-		gui.update_layout()
+		gui.update_layout = True
 
 	reload_albums(quiet=True)
 
@@ -33829,21 +33814,21 @@ def toggle_auto_bg_strong(mode: int = 0) -> bool | None:
 		prefs.art_bg_stronger = 1
 	else:
 		prefs.art_bg_stronger = 2
-	gui.update_layout()
+	gui.update_layout = True
 	return None
 
 def toggle_auto_bg_strong1(mode: int = 0) -> bool | None:
 	if mode == 1:
 		return prefs.art_bg_stronger == 1
 	prefs.art_bg_stronger = 1
-	gui.update_layout()
+	gui.update_layout = True
 	return None
 
 def toggle_auto_bg_strong2(mode: int = 0) -> bool | None:
 	if mode == 1:
 		return prefs.art_bg_stronger == 2
 	prefs.art_bg_stronger = 2
-	gui.update_layout()
+	gui.update_layout = True
 	if prefs.art_bg:
 		gui.update = 60
 	return None
@@ -33852,7 +33837,7 @@ def toggle_auto_bg_strong3(mode: int = 0) -> bool | None:
 	if mode == 1:
 		return prefs.art_bg_stronger == 3
 	prefs.art_bg_stronger = 3
-	gui.update_layout()
+	gui.update_layout = True
 	if prefs.art_bg:
 		gui.update = 60
 	return None
@@ -33869,7 +33854,7 @@ def toggle_auto_bg_showcase(mode: int = 0) -> bool | None:
 	if mode == 1:
 		return prefs.bg_showcase_only
 	prefs.bg_showcase_only ^= True
-	gui.update_layout()
+	gui.update_layout = True
 	return None
 
 def toggle_notifications(mode: int = 0) -> bool | None:
@@ -33903,7 +33888,7 @@ def toggle_showcase_vis(mode: int = 0) -> bool | None:
 		return prefs.showcase_vis
 
 	prefs.showcase_vis ^= True
-	gui.update_layout()
+	gui.update_layout = True
 	return None
 
 def toggle_level_meter(mode: int = 0) -> bool | None:
@@ -33915,7 +33900,7 @@ def toggle_level_meter(mode: int = 0) -> bool | None:
 	else:
 		gui.vis_want = 0
 
-	gui.update_layout()
+	gui.update_layout = True
 	return None
 
 # def toggle_force_subpixel(mode: int = 0) -> bool | None:
@@ -34242,7 +34227,7 @@ def view_tracks(tauon: Tauon) -> None:
 # 		toggle_combo_view(off=True)
 # 	if not gui.rsp:
 # 		toggle_side_panel()
-# 	update_layout = True
+# 	gui.update_layout = True
 # 	gui.rspw = window_size[0]
 
 def view_standard_meta(tauon: Tauon) -> None:
@@ -34257,8 +34242,7 @@ def view_standard_meta(tauon: Tauon) -> None:
 	if not gui.rsp:
 		toggle_side_panel()
 
-	global update_layout
-	update_layout = True
+	gui.update_layout = True
 	# gui.rspw = 80 + int(window_size[0] * 0.18)
 
 def view_standard(tauon: Tauon) -> None:
@@ -34284,7 +34268,7 @@ def standard_view_deco():
 # 	if not prefs.album_mode:
 # 		toggle_album_mode(tauon=tauon)
 # 	gui.show_playlist = False
-# 	update_layout = True
+# 	gui.update_layout = True
 # 	gui.rspw = window_size[0]
 # 	gui.album_playlist_width = gui.playlist_width
 # 	#gui.playlist_width = -19
@@ -34296,7 +34280,7 @@ def toggle_library_mode() -> None:
 	else:
 		gui.set_mode = True
 		# gui.set_bar = True
-	gui.update_layout()
+	gui.update_layout = True
 
 def library_deco():
 	tc = colours.menu_text
@@ -36137,7 +36121,6 @@ def gen_power2():
 
 def reload_albums(tauon: Tauon, quiet: bool = False, return_playlist: int = -1, custom_list=None) -> list[int] | None:
 	global album_dex
-	global update_layout
 
 	if tauon.cm_clean_db:
 		# Doing reload while things are being removed may cause crash
@@ -36193,7 +36176,7 @@ def reload_albums(tauon: Tauon, quiet: bool = False, return_playlist: int = -1, 
 	tauon.album_info_cache.clear()
 	gui.update += 2
 	gui.pl_update = 1
-	update_layout = True
+	gui.update_layout = True
 
 	if not quiet:
 		goto_album(pctl.playlist_playing_position)
@@ -36374,12 +36357,10 @@ def scale2(mode: int = 0) -> bool | None:
 	return None
 
 def toggle_borderless(mode: int = 0) -> bool | None:
-	global update_layout
-
 	if mode == 1:
 		return draw_border
 
-	update_layout = True
+	gui.update_layout = True
 	tauon.draw_border ^= True
 
 	if tauon.draw_border:
@@ -36398,7 +36379,6 @@ def toggle_break(mode: int = 0) -> bool | None:
 
 def toggle_scroll(mode: int = 0) -> bool | None:
 	global scroll_enable
-	global update_layout
 
 	if mode == 1:
 		if scroll_enable:
@@ -36407,13 +36387,13 @@ def toggle_scroll(mode: int = 0) -> bool | None:
 
 	scroll_enable ^= True
 	gui.pl_update = 1
-	update_layout = True
+	gui.update_layout = True
 	return None
 
 def toggle_hide_bar(mode: int = 0) -> bool | None:
 	if mode == 1:
 		return gui.set_bar ^ True
-	gui.update_layout()
+	gui.update_layout = True
 	gui.set_bar ^= True
 	show_message(_("Tip: You can also toggle this from a right-click context menu"))
 	return None
@@ -36626,7 +36606,7 @@ def toggle_bba(mode: int = 0) -> bool | None:
 	if mode == 1:
 		return gui.bb_show_art
 	gui.bb_show_art ^= True
-	gui.update_layout()
+	gui.update_layout = True
 	return None
 
 def toggle_use_title(mode: int = 0) -> bool | None:
@@ -36926,7 +36906,7 @@ def restore_full_mode():
 	window_size[0] = i_x.contents.value
 	window_size[1] = i_y.contents.value
 
-	gui.update_layout()
+	gui.update_layout = True
 	if prefs.art_bg:
 		tauon.thread_manager.ready("style")
 
@@ -41447,8 +41427,6 @@ def main(holder: Holder) -> None:
 
 	d_border = 1
 
-	update_layout = True
-
 	mouse_moved = False
 
 	power = 0
@@ -42068,7 +42046,7 @@ def main(holder: Holder) -> None:
 						window_size[1] = i_y.contents.value
 
 						auto_scale(bag)
-						update_layout = True
+						gui.update_layout = True
 
 
 				elif event.type == sdl3.SDL_EVENT_WINDOW_MOUSE_ENTER:
@@ -42113,7 +42091,7 @@ def main(holder: Holder) -> None:
 				elif event.type == sdl3.SDL_EVENT_WINDOW_MAXIMIZED:
 					if gui.mode != 3:  # workaround. sdl bug? gives event on window size set
 						gui.maximized = True
-					update_layout = True
+					gui.update_layout = True
 					gui.pl_update = 1
 					gui.update += 1
 
@@ -42952,9 +42930,9 @@ def main(holder: Holder) -> None:
 			# gui.pl_update = 1
 			# pctl.loading_in_progress = False
 
-		if update_layout:
+		if gui.update_layout:
 			update_layout_do(tauon=tauon)
-			update_layout = False
+			gui.update_layout = False
 
 		# if tauon.worker_save_state and\
 		# 		not gui.pl_pulse and\
