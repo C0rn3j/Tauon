@@ -39080,21 +39080,15 @@ def main(holder: Holder) -> None:
 	pl_rect = (2, 12, 10, 10)
 
 	theme = 7
-	prefs.scroll_enable = True
 	scroll_timer = Timer()
 	scroll_timer.set()
 	scroll_opacity = 0
-	prefs.break_enable = True
 
 	source = None
-
-	prefs.update_title = False
 
 	selected_in_playlist = -1
 
 	gen_codes: dict[int, str] = {}
-	# Control Variables--------------------------------------------------------------------------
-
 
 	# Player Variables----------------------------------------------------------------------------
 	Archive_Formats = {"zip"}
