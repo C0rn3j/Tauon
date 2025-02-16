@@ -1541,6 +1541,125 @@ class PlayerCtl:
 
 		self.buffering_percent = 0
 
+	def switch_playlist(self, number: int, cycle: bool = False, quiet: bool = False) -> None:
+		# Close any active menus
+		# for instance in Menu.instances:
+		#     instance.active = False
+		close_all_menus()
+		if self.gui.radio_view:
+			if cycle:
+				self.radio_playlist_viewing += number
+			else:
+				self.radio_playlist_viewing = number
+			if self.radio_playlist_viewing > len(self.radio_playlists) - 1:
+				self.radio_playlist_viewing = 0
+			return
+
+		self.gui.previous_playlist_id = self.multi_playlist[self.active_playlist_viewing].uuid_int
+
+		self.gui.pl_update = 1
+		self.gui.search_index = 0
+		self.gui.column_d_click_on = -1
+		self.gui.search_error = False
+		if quick_search_mode:
+			self.gui.force_search = True
+
+		# if pl_follow:
+		#     self.multi_playlist[self.playlist_active][1] = copy.deepcopy(self.playlist_playing)
+
+		if self.gui.showcase_mode and self.gui.combo_mode and not quiet:
+			view_standard()
+
+		self.multi_playlist[self.active_playlist_viewing].playlist_ids = self.default_playlist
+		self.multi_playlist[self.active_playlist_viewing].position = self.playlist_view_position
+		self.multi_playlist[self.active_playlist_viewing].selected = self.selected_in_playlist
+
+		if gall_pl_switch_timer.get() > 240:
+			self.gui.gallery_positions.clear()
+		gall_pl_switch_timer.set()
+
+		self.gui.gallery_positions[self.gui.previous_playlist_id] = self.gui.album_scroll_px
+
+		if cycle:
+			self.active_playlist_viewing += number
+		else:
+			self.active_playlist_viewing = number
+
+		while self.active_playlist_viewing > len(self.multi_playlist) - 1:
+			self.active_playlist_viewing -= len(self.multi_playlist)
+		while self.active_playlist_viewing < 0:
+			self.active_playlist_viewing += len(self.multi_playlist)
+
+		self.default_playlist = self.multi_playlist[self.active_playlist_viewing].playlist_ids
+		self.playlist_view_position = self.multi_playlist[self.active_playlist_viewing].position
+		self.selected_in_playlist = self.multi_playlist[self.active_playlist_viewing].selected
+		logging.debug("Position changed by playlist change")
+		self.gui.shift_selection = [self.selected_in_playlist]
+
+		id = self.multi_playlist[self.active_playlist_viewing].uuid_int
+
+		code = self.gen_codes.get(id)
+		if code is not None and check_auto_update_okay(code, self.active_playlist_viewing):
+			self.gui.regen_single_id = id
+			self.tauon.thread_manager.ready("worker")
+
+		if self.prefs.album_mode:
+			reload_albums(True)
+			if id in self.gui.gallery_positions:
+				self.gui.album_scroll_px = self.gui.gallery_positions[id]
+			else:
+				goto_album(self.playlist_view_position)
+
+		if self.prefs.auto_goto_playing:
+			self.show_current(this_only=True, playing=False, highlight=True, no_switch=True)
+
+		if self.prefs.shuffle_lock:
+			self.tauon.view_box.lyrics(hit=True)
+			if self.active_playlist_viewing:
+				self.active_playlist_playing = self.active_playlist_viewing
+				random_track()
+
+	def cycle_playlist_pinned(self, step: int) -> None:
+		if self.gui.radio_view:
+			self.radio_playlist_viewing += step * -1
+			if self.radio_playlist_viewing > len(self.radio_playlists) - 1:
+				self.radio_playlist_viewing = 0
+			if self.radio_playlist_viewing < 0:
+				self.radio_playlist_viewing = len(self.radio_playlists) - 1
+			return
+
+		if step > 0:
+			p = self.active_playlist_viewing
+			le = len(self.multi_playlist)
+			on = p
+			on -= 1
+			while True:
+				if on < 0:
+					on = le - 1
+				if on == p:
+					break
+				if self.multi_playlist[on].hidden is False or not self.prefs.tabs_on_top or (
+						self.gui.lsp and self.prefs.left_panel_mode == "playlist"):
+					self.switch_playlist(on)
+					break
+				on -= 1
+
+		elif step < 0:
+			p = self.active_playlist_viewing
+			le = len(self.multi_playlist)
+			on = p
+			on += 1
+			while True:
+				if on == le:
+					on = 0
+				if on == p:
+					break
+				if self.multi_playlist[on].hidden is False or not self.prefs.tabs_on_top or (
+						self.gui.lsp and prefs.left_panel_mode == "playlist"):
+					self.switch_playlist(on)
+					break
+				on += 1
+
 	def move_radio_playlist(self, source: int, dest: int) -> None:
 		if dest > source:
 			dest += 1
@@ -2005,7 +2124,7 @@ class PlayerCtl:
 							tr = self.get_track(p)
 							if tr.misc.get("spotify-track-url") == sptr:
 								index = tr.index
-								switch_playlist(i)
+								pctl.switch_playlist(i)
 								break
 						else:
 							continue
@@ -2024,7 +2143,7 @@ class PlayerCtl:
 		if not no_switch:
 			if self.active_playlist_viewing != self.active_playlist_playing and (
 					track_index not in self.multi_playlist[self.active_playlist_viewing].playlist_ids):
-				switch_playlist(self.active_playlist_playing)
+				pctl.switch_playlist(self.active_playlist_playing)
 
 		if self.gui.playlist_view_length < 1:
 			return 0
@@ -2090,7 +2209,7 @@ class PlayerCtl:
 			if not this_only:
 				for i, playlist in enumerate(self.multi_playlist):
 					if track_index in playlist.playlist_ids:
-						switch_playlist(i, quiet=True)
+						pctl.switch_playlist(i, quiet=True)
 						self.show_current(select, playing, quiet, this_only=True, index=track_index)
 						break
 
@@ -2710,7 +2829,7 @@ class PlayerCtl:
 				elif self.prefs.playback_follow_cursor and self.playing_ready() \
 						and self.multi_playlist[self.active_playlist_viewing].playlist[
 					self.selected_in_playlist] != self.playing_object().index \
-						and -1 < self.selected_in_playlist < len(pctl.default_playlist):
+						and -1 < self.selected_in_playlist < len(self.default_playlist):
 
 					logging.info("Repeat follow cursor")
 
@@ -2719,7 +2838,7 @@ class PlayerCtl:
 					self.active_playlist_playing = self.active_playlist_viewing
 					self.playlist_playing_position = self.selected_in_playlist
 
-					self.track_queue.append(pctl.default_playlist[self.selected_in_playlist])
+					self.track_queue.append(self.default_playlist[self.selected_in_playlist])
 					self.queue_step = len(self.track_queue) - 1
 					self.play_target(jump=False)
 					self.render_playlist()
@@ -3011,15 +3130,15 @@ class PlayerCtl:
 		elif self.prefs.playback_follow_cursor and self.playing_ready() \
 				and self.multi_playlist[self.active_playlist_viewing].playlist_ids[
 			self.selected_in_playlist] != self.playing_object().index \
-				and -1 < self.selected_in_playlist < len(pctl.default_playlist):
+				and -1 < self.selected_in_playlist < len(self.default_playlist):
 
 			if dry:
-				return pctl.default_playlist[self.selected_in_playlist]
+				return self.default_playlist[self.selected_in_playlist]
 
 			self.active_playlist_playing = self.active_playlist_viewing
 			self.playlist_playing_position = self.selected_in_playlist
 
-			self.track_queue.append(pctl.default_playlist[self.selected_in_playlist])
+			self.track_queue.append(self.default_playlist[self.selected_in_playlist])
 			self.queue_step = len(self.track_queue) - 1
 			if play:
 				self.play_target(jump=not end)
@@ -5482,7 +5601,7 @@ class Tauon:
 
 		self.pctl.multi_playlist.append(pl_gen(title=title))  # [title, 0, [], 0, 0, 0])
 		if switch:
-			switch_playlist(len(self.pctl.multi_playlist) - 1)
+			pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 		return len(self.pctl.multi_playlist) - 1
 
 	def coll(self, r: list[int]) -> bool:
@@ -5838,7 +5957,7 @@ class PlexService:
 
 		self.pctl.multi_playlist.append(pl_gen(title=_("PLEX Collection"), playlist_ids=playlist))
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "plex path"
-		switch_playlist(len(self.pctl.multi_playlist) - 1)
+		pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 
 class SubsonicService:
 
@@ -6086,7 +6205,7 @@ class SubsonicService:
 
 		pctl.multi_playlist.append(pl_gen(title=_("Airsonic Collection"), playlist_ids=playlist))
 		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "air"
-		switch_playlist(len(pctl.multi_playlist) - 1)
+		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 
 	# def get_music2(self, return_list=False):
 	#
@@ -6202,7 +6321,7 @@ class SubsonicService:
 	#
 	#	 pctl.multi_playlist.append(pl_gen(title="Airsonic Collection", playlist_ids=playlist))
 	#	 pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "air"
-	#	 switch_playlist(len(pctl.multi_playlist) - 1)
+	#	 pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 
 class KoelService:
 
@@ -6406,7 +6525,7 @@ class KoelService:
 		pctl.multi_playlist.append(pl_gen(title=_("Koel Collection"), playlist_ids=playlist))
 		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "koel path tn"
 		standard_sort(len(pctl.multi_playlist) - 1)
-		switch_playlist(len(pctl.multi_playlist) - 1)
+		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 
 class TauService:
 	def __init__(self) -> None:
@@ -6509,7 +6628,7 @@ class TauService:
 		pctl.multi_playlist.append(pl_gen(title=name, playlist_ids=playlist))
 		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "tau path tn"
 		standard_sort(len(pctl.multi_playlist) - 1)
-		switch_playlist(len(pctl.multi_playlist) - 1)
+		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 		self.processing = False
 
 class STray:
@@ -9894,7 +10013,7 @@ class SearchOverlay:
 
 		if gui.combo_mode:
 			exit_combo()
-		switch_playlist(len(self.pctl.multi_playlist) - 1)
+		pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 		self.pctl.gen_codes[pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "a\"" + name + "\""
 
 		inp.key_return_press = False
@@ -9918,7 +10037,7 @@ class SearchOverlay:
 		if self.gui.combo_mode:
 			exit_combo()
 
-		switch_playlist(len(pctl.multi_playlist) - 1)
+		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 
 		self.inp.key_return_press = False
 
@@ -9942,7 +10061,7 @@ class SearchOverlay:
 		if gui.combo_mode:
 			exit_combo()
 
-		switch_playlist(len(pctl.multi_playlist) - 1)
+		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 
 		inp.key_return_press = False
 
@@ -9971,7 +10090,7 @@ class SearchOverlay:
 		if gui.combo_mode:
 			exit_combo()
 
-		switch_playlist(len(pctl.multi_playlist) - 1)
+		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 
 		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "p\"" + name + "\""
 
@@ -10015,7 +10134,7 @@ class SearchOverlay:
 		if gui.combo_mode:
 			exit_combo()
 
-		switch_playlist(len(pctl.multi_playlist) - 1)
+		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 
 		if include_multi:
 			pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "gm\"" + name + "\""
@@ -10486,7 +10605,7 @@ class SearchOverlay:
 						case 8:
 							pl = pctl.id_to_pl(item[3])
 							if pl:
-								switch_playlist(pl)
+								pctl.switch_playlist(pl)
 
 				elif go:
 					match n:
@@ -10512,7 +10631,7 @@ class SearchOverlay:
 						case 8:
 							pl = pctl.id_to_pl(item[3])
 							if pl:
-								switch_playlist(pl)
+								pctl.switch_playlist(pl)
 						case 11:
 							tauon.spot_ctl.album_playlist(item[2])
 							reload_albums()
@@ -13804,12 +13923,12 @@ class TopPanel:
 	def left_overflow_switch_playlist(self, pl):
 		self.prime_side = 0
 		self.prime_tab = pl
-		switch_playlist(pl)
+		pctl.switch_playlist(pl)
 
 	def right_overflow_switch_playlist(self, pl):
 		self.prime_side = 1
 		self.prime_tab = pl
-		switch_playlist(pl)
+		pctl.switch_playlist(pl)
 
 	def render(self):
 		tauon       = self.tauon
@@ -14207,7 +14326,7 @@ class TopPanel:
 					if gui.radio_view:
 						pctl.radio_playlist_viewing = i
 					else:
-						switch_playlist(i)
+						pctl.switch_playlist(i)
 					set_drag_source()
 
 				# Drag to move playlist
@@ -14462,7 +14581,7 @@ class TopPanel:
 		# (This is a bit complicated because we need to skip over hidden playlists)
 		if inp.mouse_wheel != 0 and 1 < inp.mouse_position[1] < gui.panelY + 1 and len(pctl.multi_playlist) > 1 and inp.mouse_position[0] > 5:
 
-			cycle_playlist_pinned(inp.mouse_wheel)
+			pctl.cycle_playlist_pinned(inp.mouse_wheel)
 
 			gui.pl_update = 1
 			if not prefs.tabs_on_top:
@@ -14551,7 +14670,7 @@ class TopPanel:
 
 						if len(tauon.dl_mon.ready) > 0:
 							tauon.dl_mon.ready.clear()
-							switch_playlist(pln)
+							pctl.switch_playlist(pln)
 
 							pctl.playlist_view_position = len(pctl.default_playlist)
 							logging.debug("Position changed by track import")
@@ -19300,7 +19419,7 @@ class PlaylistBox:
 
 				if not draw_pin_indicator:
 					if inp.mouse_click:
-						switch_playlist(i)
+						pctl.switch_playlist(i)
 						self.drag_on = i
 						self.drag = True
 						self.drag_source = 1
@@ -21306,7 +21425,7 @@ class QueueBox:
 					if self.d_click_ref == fq[i].uuid_int:
 						pl = pctl.id_to_pl(fq[i].uuid_int)
 						if pl is not None:
-							switch_playlist(pl)
+							pctl.switch_playlist(pl)
 
 						pctl.show_current(playing=False, highlight=True, index=fq[i].track_id)
 						self.d_click_ref = None
@@ -23556,7 +23675,7 @@ class Undo:
 
 		if job[0] == "playlist":
 			pctl.multi_playlist.append(job[1])
-			switch_playlist(len(pctl.multi_playlist) - 1)
+			pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 		elif job[0] == "tracks":
 
 			uid = job[1]
@@ -23565,7 +23684,7 @@ class Undo:
 			for i, playlist in enumerate(pctl.multi_playlist):
 				if playlist.uuid_int == uid:
 					pl = playlist.playlist_ids
-					switch_playlist(i)
+					pctl.switch_playlist(i)
 					break
 			else:
 				logging.info("No matching playlist ID to restore tracks to")
@@ -23854,7 +23973,7 @@ def open_uri(uri:str) -> None:
 		logging.warning("'Default' playlist not found, generating a new one!")
 		pctl.multi_playlist.append(pl_gen())
 		load_order.playlist = pctl.multi_playlist[len(pctl.multi_playlist) - 1].uuid_int
-		switch_playlist(len(pctl.multi_playlist) - 1)
+		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 
 	load_order.target = str(urllib.parse.unquote(uri)).replace("file:///", "/").replace("\r", "")
 
@@ -32396,7 +32515,7 @@ def get_album_spot_active(tr: TrackClass | None = None) -> None:
 			title=f"{pctl.get_track(l[0]).artist} - {pctl.get_track(l[0]).album}",
 			playlist_ids=l,
 			hide_title=False))
-	switch_playlist(len(pctl.multi_playlist) - 1)
+	pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 
 def get_spot_album_track(index: int):
 	get_album_spot_active(pctl.get_track(index))
@@ -32898,7 +33017,7 @@ def path_stem_to_playlist(path: str, title: str) -> None:
 
 	pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[pctl.active_playlist_viewing].title + "\" f\"" + path + "\""
 
-	switch_playlist(len(pctl.multi_playlist) - 1)
+	pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 
 def goto_album(playlist_no: int, down: bool = False, force: bool = False) -> list | int | None:
 	logging.debug("Postion set by album locate")
@@ -33040,126 +33159,6 @@ def check_auto_update_okay(code, pl=None):
 		"tmix\"" not in code and
 		"r"      not in cmds)
 
-def switch_playlist(number: int, cycle: bool = False, quiet: bool = False) -> None:
-	# Close any active menus
-	# for instance in Menu.instances:
-	#     instance.active = False
-	close_all_menus()
-	if gui.radio_view:
-		if cycle:
-			pctl.radio_playlist_viewing += number
-		else:
-			pctl.radio_playlist_viewing = number
-		if pctl.radio_playlist_viewing > len(pctl.radio_playlists) - 1:
-			pctl.radio_playlist_viewing = 0
-		return
-
-	gui.previous_playlist_id = pctl.multi_playlist[pctl.active_playlist_viewing].uuid_int
-
-	gui.pl_update = 1
-	gui.search_index = 0
-	gui.column_d_click_on = -1
-	gui.search_error = False
-	if quick_search_mode:
-		gui.force_search = True
-
-	# if pl_follow:
-	#     pctl.multi_playlist[pctl.playlist_active][1] = copy.deepcopy(pctl.playlist_playing)
-
-	if gui.showcase_mode and gui.combo_mode and not quiet:
-		view_standard()
-
-	pctl.multi_playlist[pctl.active_playlist_viewing].playlist_ids = pctl.default_playlist
-	pctl.multi_playlist[pctl.active_playlist_viewing].position = pctl.playlist_view_position
-	pctl.multi_playlist[pctl.active_playlist_viewing].selected = pctl.selected_in_playlist
-
-	if gall_pl_switch_timer.get() > 240:
-		gui.gallery_positions.clear()
-	gall_pl_switch_timer.set()
-
-	gui.gallery_positions[gui.previous_playlist_id] = gui.album_scroll_px
-
-	if cycle:
-		pctl.active_playlist_viewing += number
-	else:
-		pctl.active_playlist_viewing = number
-
-	while pctl.active_playlist_viewing > len(pctl.multi_playlist) - 1:
-		pctl.active_playlist_viewing -= len(pctl.multi_playlist)
-	while pctl.active_playlist_viewing < 0:
-		pctl.active_playlist_viewing += len(pctl.multi_playlist)
-
-	pctl.default_playlist = pctl.multi_playlist[pctl.active_playlist_viewing].playlist_ids
-	pctl.playlist_view_position = pctl.multi_playlist[pctl.active_playlist_viewing].position
-	pctl.selected_in_playlist = pctl.multi_playlist[pctl.active_playlist_viewing].selected
-	logging.debug("Position changed by playlist change")
-	gui.shift_selection = [pctl.selected_in_playlist]
-
-	id = pctl.multi_playlist[pctl.active_playlist_viewing].uuid_int
-
-	code = pctl.gen_codes.get(id)
-	if code is not None and check_auto_update_okay(code, pctl.active_playlist_viewing):
-		gui.regen_single_id = id
-		tauon.thread_manager.ready("worker")
-
-	if prefs.album_mode:
-		reload_albums(True)
-		if id in gui.gallery_positions:
-			gui.album_scroll_px = gui.gallery_positions[id]
-		else:
-			goto_album(pctl.playlist_view_position)
-
-	if prefs.auto_goto_playing:
-		pctl.show_current(this_only=True, playing=False, highlight=True, no_switch=True)
-
-	if prefs.shuffle_lock:
-		tauon.view_box.lyrics(hit=True)
-		if pctl.active_playlist_viewing:
-			pctl.active_playlist_playing = pctl.active_playlist_viewing
-			random_track()
-
-def cycle_playlist_pinned(step):
-	if gui.radio_view:
-
-		pctl.radio_playlist_viewing += step * -1
-		if pctl.radio_playlist_viewing > len(pctl.radio_playlists) - 1:
-			pctl.radio_playlist_viewing = 0
-		if pctl.radio_playlist_viewing < 0:
-			pctl.radio_playlist_viewing = len(pctl.radio_playlists) - 1
-		return
-
-	if step > 0:
-		p = pctl.active_playlist_viewing
-		le = len(pctl.multi_playlist)
-		on = p
-		on -= 1
-		while True:
-			if on < 0:
-				on = le - 1
-			if on == p:
-				break
-			if pctl.multi_playlist[on].hidden is False or not prefs.tabs_on_top or (
-					gui.lsp and prefs.left_panel_mode == "playlist"):
-				switch_playlist(on)
-				break
-			on -= 1
-
-	elif step < 0:
-		p = pctl.active_playlist_viewing
-		le = len(pctl.multi_playlist)
-		on = p
-		on += 1
-		while True:
-			if on == le:
-				on = 0
-			if on == p:
-				break
-			if pctl.multi_playlist[on].hidden is False or not prefs.tabs_on_top or (
-					gui.lsp and prefs.left_panel_mode == "playlist"):
-				switch_playlist(on)
-				break
-			on += 1
-
 def activate_info_box(tauon: Tauon) -> None:
 	tauon.fader.rise()
 	tauon.pref_box.enabled = True
@@ -33226,7 +33225,7 @@ def import_music():
 	load_order.target = str(music_directory)
 	load_order.playlist = pl.uuid_int
 	load_orders.append(load_order)
-	switch_playlist(len(pctl.multi_playlist) - 1)
+	pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 	gui.add_music_folder_ready = False
 
 def stt2(sec):
@@ -37280,7 +37279,7 @@ def create_artist_pl(artist: str, replace: bool = False):
 
 		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[source_pl].title + "\" a\"" + artist + "\""
 
-		switch_playlist(len(pctl.multi_playlist) - 1)
+		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 
 def aa_sort_alpha():
 	prefs.artist_list_sort_mode = "alpha"
@@ -41105,7 +41104,7 @@ def main(holder: Holder) -> None:
 
 	# x_menu.add(_("Internet Radio…"), activate_radio_box)
 
-	tauon.switch_playlist = switch_playlist
+	tauon.switch_playlist = pctl.switch_playlist
 
 	x_menu.add(MenuItem(_("Paste Spotify Playlist"), import_spotify_playlist, import_spotify_playlist_deco, icon=spot_icon,
 		show_test=spotify_show_test))
@@ -41547,7 +41546,7 @@ def main(holder: Holder) -> None:
 	if gui.restore_radio_view:
 		enter_radio_view(tauon=tauon)
 
-	# switch_playlist(len(pctl.multi_playlist) - 1)
+	# pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 
 	sdl3.SDL_SetRenderTarget(renderer, overlay_texture_texture)
 
@@ -41736,12 +41735,12 @@ def main(holder: Holder) -> None:
 					if gui.album_tab_mode:
 						inp.key_left_press = True
 					elif is_level_zero() or quick_search_mode:
-						cycle_playlist_pinned(1)
+						pctl.cycle_playlist_pinned(1)
 				if event.gbutton.button == sdl3.SDL_GAMEPAD_BUTTON_DPAD_RIGHT:
 					if gui.album_tab_mode:
 						inp.key_up_press = True
 					elif is_level_zero() or quick_search_mode:
-						cycle_playlist_pinned(-1)
+						pctl.cycle_playlist_pinned(-1)
 
 			if event.type == sdl3.SDL_EVENT_RENDER_TARGETS_RESET and not msys:
 				reset_render = True
@@ -42312,19 +42311,19 @@ def main(holder: Holder) -> None:
 				while n < 10:
 					if keymaps.test(f"jump-playlist-{n}"):
 						if len(pctl.multi_playlist) > n - 1:
-							switch_playlist(n - 1)
+							pctl.switch_playlist(n - 1)
 					n += 1
 
 				if keymaps.test("cycle-playlist-left"):
 					if gui.album_tab_mode and inp.key_left_press:
 						pass
 					elif is_level_zero() or quick_search_mode:
-						cycle_playlist_pinned(1)
+						pctl.cycle_playlist_pinned(1)
 				if keymaps.test("cycle-playlist-right"):
 					if gui.album_tab_mode and inp.key_up_press:
 						pass
 					elif is_level_zero() or quick_search_mode:
-						cycle_playlist_pinned(-1)
+						pctl.cycle_playlist_pinned(-1)
 
 				if keymaps.test("toggle-console"):
 					console.toggle()
@@ -44055,7 +44054,7 @@ def main(holder: Holder) -> None:
 										target_pl = p
 										break
 
-								switch_playlist(target_pl)
+								pctl.switch_playlist(target_pl)
 
 								pctl.active_playlist_playing = pctl.active_playlist_viewing
 
@@ -45618,7 +45617,7 @@ def main(holder: Holder) -> None:
 											playlist.append(item)
 									if len(playlist) > 0:
 										pctl.multi_playlist.append(pl_gen(title=tt_title, playlist_ids=copy.deepcopy(playlist)))
-										switch_playlist(len(pctl.multi_playlist) - 1)
+										pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 
 							else:
 								search_terms = search_text.text.lower().split()
@@ -45640,7 +45639,7 @@ def main(holder: Holder) -> None:
 										playlist_ids=copy.deepcopy(playlist)))
 									pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[
 										pctl.active_playlist_viewing].title + "\" f\"" + search_text.text + "\""
-									switch_playlist(len(pctl.multi_playlist) - 1)
+									pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 							search_text.text = ""
 							quick_search_mode = False
 
