@@ -5049,9 +5049,9 @@ class Tauon:
 
 		self.spot_ctl: SpotCtl = SpotCtl(self)
 		self.tidal:      Tidal = Tidal(self)
-		self.plex              = PlexService()
+		self.plex              = PlexService(self)
 		self.jellyfin          = Jellyfin(self)
-		self.subsonic          = SubsonicService(bag)
+		self.subsonic          = SubsonicService(self)
 		self.koel              = KoelService()
 		self.tau               = TauService()
 		self.lastfm            = LastFMapi(tauon=self)
@@ -5260,20 +5260,22 @@ class Tauon:
 		sdl3.SDL_RaiseWindow(t_window)
 
 	def get_playing_playlist_id(self) -> int:
-		return pl_to_id(pctl.active_playlist_playing)
+		return self.pctl.pl_to_id(pctl.active_playlist_playing)
 
 	def wake(self) -> None:
 		sdl3.SDL_PushEvent(ctypes.byref(self.dummy_event))
 
 class PlexService:
 
-	def __init__(self):
+	def __init__(self, tauon: Tauon) -> None:
+		self.prefs = tauon.prefs
+		self.pctl = tauon.pctl
+		self.gui = tauon.gui
 		self.connected = False
 		self.resource = None
 		self.scanning = False
 
-	def connect(self):
-
+	def connect(self) -> None:
 		if not prefs.plex_username or not prefs.plex_password or not prefs.plex_servername:
 			show_message(_("Missing username, password and/or server name"), mode="warning")
 			self.scanning = False
@@ -5290,8 +5292,8 @@ class PlexService:
 			return
 
 		try:
-			account = MyPlexAccount(prefs.plex_username, prefs.plex_password)
-			self.resource = account.resource(prefs.plex_servername).connect()  # returns a PlexServer instance
+			account = MyPlexAccount(self.prefs.plex_username, self.prefs.plex_password)
+			self.resource = account.resource(self.prefs.plex_servername).connect()  # returns a PlexServer instance
 		except Exception:
 			logging.exception("Error connecting to PLEX server, check login credentials and server accessibility.")
 			show_message(
@@ -5324,9 +5326,8 @@ class PlexService:
 			return self.resource.url(location, True)
 		return None
 
-	def get_albums(self, return_list=False):
-
-		gui.update += 1
+	def get_albums(self, return_list: bool = False) -> list[int] | None:
+		self.gui.update += 1
 		self.scanning = True
 
 		if not self.connected:
@@ -5336,7 +5337,7 @@ class PlexService:
 			self.scanning = False
 			return []
 
-		playlist = []
+		playlist: list[int] = []
 
 		existing = {}
 		for track_id, track in pctl.master_library.items():
@@ -5354,7 +5355,6 @@ class PlexService:
 			parent = (album_artist + " - " + album_title).strip("- ")
 
 			for track in album.tracks():
-
 				if not track.duration:
 					logging.warning("Skipping track with invalid duration - " + track.title + " - " + track.grandparentTitle)
 					continue
@@ -5409,31 +5409,33 @@ class PlexService:
 		if return_list:
 			return playlist
 
-		pctl.multi_playlist.append(pl_gen(title=_("PLEX Collection"), playlist_ids=playlist))
-		pctl.gen_codes[pl_to_id(len(pctl.multi_playlist) - 1)] = "plex path"
-		switch_playlist(len(pctl.multi_playlist) - 1)
+		self.pctl.multi_playlist.append(pl_gen(title=_("PLEX Collection"), playlist_ids=playlist))
+		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "plex path"
+		switch_playlist(len(self.pctl.multi_playlist) - 1)
 
 class SubsonicService:
 
-	def __init__(self, bag: Bag):
+	def __init__(self, tauon: Tauon) -> None:
+		self.prefs = tauon.prefs
+		self.t_title = tauon.t_title
 		self.scanning = False
-		self.playlists = bag.prefs.subsonic_playlists
+		self.playlists = tauon.prefs.subsonic_playlists
 
 	def r(self, point, p=None, binary: bool = False, get_url: bool = False):
 		salt = secrets.token_hex(8)
-		server = prefs.subsonic_server.rstrip("/") + "/"
+		server = self.prefs.subsonic_server.rstrip("/") + "/"
 
 		params = {
-			"u": prefs.subsonic_user,
+			"u": self.prefs.subsonic_user,
 			"v": "1.13.0",
-			"c": t_title,
+			"c": self.t_title,
 			"f": "json",
 		}
 
-		if prefs.subsonic_password_plain:
-			params["p"] = prefs.subsonic_password
+		if self.prefs.subsonic_password_plain:
+			params["p"] = self.prefs.subsonic_password
 		else:
-			params["t"] = hashlib.md5((prefs.subsonic_password + salt).encode()).hexdigest()
+			params["t"] = hashlib.md5((self.prefs.subsonic_password + salt).encode()).hexdigest()
 			params["s"] = salt
 
 		if p:
