@@ -5189,6 +5189,100 @@ class Tauon:
 
 		self.tls_context = bag.tls_context
 
+	def drop_file(self, target: str) -> None:
+		"""Deprecated, move to individual UI components"""
+
+		if self.system != "windows":
+			gmp = get_global_mouse()
+			gwp = get_window_position()
+			i_x = gmp[0] - gwp[0]
+			i_x = max(i_x, 0)
+			i_x = min(i_x, window_size[0])
+			i_y = gmp[1] - gwp[1]
+			i_y = max(i_y, 0)
+			i_y = min(i_y, window_size[1])
+		else:
+			i_y = pointer(c_int(0))
+			i_x = pointer(c_int(0))
+
+			sdl3.SDL_GetMouseState(i_x, i_y)
+			i_y = i_y.contents.value / logical_size[0] * window_size[0]
+			i_x = i_x.contents.value / logical_size[0] * window_size[0]
+
+		#logging.info((i_x, i_y))
+		self.gui.drop_playlist_target = 0
+		#logging.info(event.drop)
+
+		if i_y < self.gui.panelY and not self.gui.new_playlist_cooldown and self.gui.mode == 1:
+			x = self.top_panel.tabs_left_x
+			for tab in self.top_panel.shown_tabs:
+				wid = self.top_panel.tab_text_spaces[tab] + self.top_panel.tab_extra_width
+
+				if x < i_x < x + wid:
+					self.gui.drop_playlist_target = tab
+					tab_pulse.pulse()
+					self.gui.update += 1
+					self.gui.pl_pulse = True
+					logging.info("Direct drop")
+					break
+
+				x += wid
+			else:
+				logging.info("MISS")
+				if self.gui.new_playlist_cooldown:
+					self.gui.drop_playlist_target = self.pctl.active_playlist_viewing
+				else:
+					if not target.lower().endswith(".xspf"):
+						self.gui.drop_playlist_target = self.new_playlist()
+					self.gui.new_playlist_cooldown = True
+		elif self.gui.lsp and self.gui.panelY < i_y < window_size[1] - self.gui.panelBY and i_x < self.gui.lspw and self.gui.mode == 1:
+			y = self.gui.panelY
+			y += 5 * self.gui.scale
+			y += self.playlist_box.tab_h + self.playlist_box.gap
+
+			for i, pl in enumerate(self.pctl.multi_playlist):
+				if i_y < y:
+					self.gui.drop_playlist_target = i
+					tab_pulse.pulse()
+					self.gui.update += 1
+					self.gui.pl_pulse = True
+					logging.info("Direct drop")
+					break
+				y += self.playlist_box.tab_h + self.playlist_box.gap
+			else:
+				if self.gui.new_playlist_cooldown:
+					self.gui.drop_playlist_target = self.pctl.active_playlist_viewing
+				else:
+					if not target.lower().endswith(".xspf"):
+						self.gui.drop_playlist_target = self.new_playlist()
+					self.gui.new_playlist_cooldown = True
+		else:
+			self.gui.drop_playlist_target = self.pctl.active_playlist_viewing
+
+		if not os.path.exists(target) and flatpak_mode:
+			show_message(
+				_("Could not access! Possible insufficient Flatpak permissions."),
+				_(" For details, see {link}").format(link="https://github.com/Taiko2k/TauonMusicBox/wiki/Flatpak-Extra-Steps"),
+				mode="bubble")
+
+		load_order = LoadClass()
+		load_order.target = target.replace("\\", "/")
+
+		if os.path.isdir(load_order.target):
+			quick_import_done.append(load_order.target)
+
+			# if not pctl.multi_playlist[self.gui.drop_playlist_target].last_folder:
+			self.pctl.multi_playlist[self.gui.drop_playlist_target].last_folder.append(load_order.target)
+			reduce_paths(pctl.multi_playlist[self.gui.drop_playlist_target].last_folder)
+
+		load_order.playlist = self.pctl.multi_playlist[self.gui.drop_playlist_target].uuid_int
+		load_orders.append(copy.deepcopy(load_order))
+
+		#logging.info('dropped: ' + str(dropped_file))
+		self.gui.update += 1
+		self.inp.mouse_down = False
+		self.inp.drag_mode = False
+
 	def s_copy(self) -> None:
 		# Copy tracks to internal clipboard
 		# self.gui.lightning_copy = False
@@ -14303,12 +14397,12 @@ class TopPanel:
 			ddt.text((x + self.tab_text_start_space, y + self.tab_text_y_offset), text, fg, self.tab_text_font, bg=bg)
 
 			# Drop pulse
-			if gui.ext_drop_mode and coll(rect):
+			if gui.ext_drop_mode and tauon.coll(rect):
 				ddt.rect_si(rect, [50, 230, 250, 255], round(3 * gui.scale))
 
 			if gui.pl_pulse and gui.drop_playlist_target == i:
-				if tab_pulse.render(x, y + self.height - bar_highlight_size, tab_width, bar_highlight_size, r=200,
-									g=130) is False:
+				if tab_pulse.render(
+				x, y + self.height - bar_highlight_size, tab_width, bar_highlight_size, r=200,g=130) is False:
 					gui.pl_pulse = False
 
 			# Drag to move playlist
@@ -16603,7 +16697,7 @@ class StandardPlaylist:
 		rect = (left, gui.panelY, width, window_size[1] - (gui.panelBY + gui.panelY))
 		ddt.rect(rect, colours.playlist_panel_background)
 
-		if gui.ext_drop_mode and coll(rect):
+		if gui.ext_drop_mode and tauon.coll(rect):
 			ddt.rect(rect, [255,0,0,255])
 
 		# This draws an optional background image
@@ -24691,13 +24785,13 @@ def scale_assets(bag: Bag, scale_want: int, force: bool = False) -> None:
 		gui.pref_gallery_w = grspw * diff_ratio
 		bag.album_mode_art_size = int(bag.album_mode_art_size * diff_ratio)
 
-def get_global_mouse():
-	i_y = pointer(c_int(0))
-	i_x = pointer(c_int(0))
+def get_global_mouse() -> tuple[int, int]:
+	i_y = pointer(c_float(0))
+	i_x = pointer(c_float(0))
 	sdl3.SDL_GetGlobalMouseState(i_x, i_y)
 	return i_x.contents.value, i_y.contents.value
 
-def get_window_position():
+def get_window_position() -> tuple[int, int]:
 	i_y = pointer(c_int(0))
 	i_x = pointer(c_int(0))
 	sdl3.SDL_GetWindowPosition(t_window, i_x, i_y)
@@ -38423,102 +38517,6 @@ def is_level_zero(include_menus: bool = True) -> bool:
 		and not gui.box_over \
 		and not trans_edit_box.active
 
-def drop_file(target: str) -> None:
-	"""Deprecated, move to individual UI components"""
-
-	if system != "windows":
-		gmp = get_global_mouse()
-		gwp = get_window_position()
-		i_x = gmp[0] - gwp[0]
-		i_x = max(i_x, 0)
-		i_x = min(i_x, window_size[0])
-		i_y = gmp[1] - gwp[1]
-		i_y = max(i_y, 0)
-		i_y = min(i_y, window_size[1])
-	else:
-		i_y = pointer(c_int(0))
-		i_x = pointer(c_int(0))
-
-		sdl3.SDL_GetMouseState(i_x, i_y)
-		i_y = i_y.contents.value / logical_size[0] * window_size[0]
-		i_x = i_x.contents.value / logical_size[0] * window_size[0]
-
-	#logging.info((i_x, i_y))
-	gui.drop_playlist_target = 0
-	#logging.info(event.drop)
-
-	if i_y < gui.panelY and not gui.new_playlist_cooldown and gui.mode == 1:
-		x = tauon.top_panel.tabs_left_x
-		for tab in tauon.top_panel.shown_tabs:
-			wid = tauon.top_panel.tab_text_spaces[tab] + tauon.top_panel.tab_extra_width
-
-			if x < i_x < x + wid:
-				gui.drop_playlist_target = tab
-				tab_pulse.pulse()
-				gui.update += 1
-				gui.pl_pulse = True
-				logging.info("Direct drop")
-				break
-
-			x += wid
-		else:
-			logging.info("MISS")
-			if gui.new_playlist_cooldown:
-				gui.drop_playlist_target = pctl.active_playlist_viewing
-			else:
-				if not target.lower().endswith(".xspf"):
-					gui.drop_playlist_target = tauon.new_playlist()
-				gui.new_playlist_cooldown = True
-	elif gui.lsp and gui.panelY < i_y < window_size[1] - gui.panelBY and i_x < gui.lspw and gui.mode == 1:
-		y = gui.panelY
-		y += 5 * gui.scale
-		y += tauon.playlist_box.tab_h + tauon.playlist_box.gap
-
-		for i, pl in enumerate(pctl.multi_playlist):
-			if i_y < y:
-				gui.drop_playlist_target = i
-				tab_pulse.pulse()
-				gui.update += 1
-				gui.pl_pulse = True
-				logging.info("Direct drop")
-				break
-			y += tauon.playlist_box.tab_h + tauon.playlist_box.gap
-		else:
-			if gui.new_playlist_cooldown:
-				gui.drop_playlist_target = pctl.active_playlist_viewing
-			else:
-				if not target.lower().endswith(".xspf"):
-					gui.drop_playlist_target = tauon.new_playlist()
-				gui.new_playlist_cooldown = True
-
-
-	else:
-		gui.drop_playlist_target = pctl.active_playlist_viewing
-
-	if not os.path.exists(target) and flatpak_mode:
-		show_message(
-			_("Could not access! Possible insufficient Flatpak permissions."),
-			_(" For details, see {link}").format(link="https://github.com/Taiko2k/TauonMusicBox/wiki/Flatpak-Extra-Steps"),
-			mode="bubble")
-
-	load_order = LoadClass()
-	load_order.target = target.replace("\\", "/")
-
-	if os.path.isdir(load_order.target):
-		quick_import_done.append(load_order.target)
-
-		# if not pctl.multi_playlist[gui.drop_playlist_target].last_folder:
-		pctl.multi_playlist[gui.drop_playlist_target].last_folder.append(load_order.target)
-		reduce_paths(pctl.multi_playlist[gui.drop_playlist_target].last_folder)
-
-	load_order.playlist = pctl.multi_playlist[gui.drop_playlist_target].uuid_int
-	load_orders.append(copy.deepcopy(load_order))
-
-	#logging.info('dropped: ' + str(dropped_file))
-	gui.update += 1
-	inp.mouse_down = False
-	inp.drag_mode = False
-
 def main(holder: Holder) -> None:
 	t_window               = holder.t_window
 	renderer               = holder.renderer
@@ -41814,13 +41812,13 @@ def main(holder: Holder) -> None:
 					link = link.replace("\r", "")
 					for line in link.split("\n"):
 						target = str(urllib.parse.unquote(line)).replace("file:///", "/")
-						drop_file(target)
+						tauon.drop_file(target)
 
 			if event.type == sdl3.SDL_EVENT_DROP_BEGIN:
 				gui.ext_drop_mode = True
 			elif event.type == sdl3.SDL_EVENT_DROP_POSITION:
-				mouse_position[0] = int(event.drop.x / logical_size[0] * window_size[0])
-				mouse_position[1] = int(event.drop.y / logical_size[0] * window_size[0])
+				inp.mouse_position[0] = int(event.drop.x / logical_size[0] * window_size[0])
+				inp.mouse_position[1] = int(event.drop.y / logical_size[0] * window_size[0])
 				mouse_moved = True
 				gui.mouse_unknown = False
 				gui.ext_drop_mode = True
@@ -41834,7 +41832,7 @@ def main(holder: Holder) -> None:
 				target = str(urllib.parse.unquote(
 					dropped_file_sdl.decode("utf-8", errors="surrogateescape"))).replace("file:///", "/").replace("\r", "")
 				#logging.info(target)
-				drop_file(target)
+				tauon.drop_file(target)
 
 			elif event.type == 8192:
 				gui.pl_update = 1
@@ -44305,7 +44303,7 @@ def main(holder: Holder) -> None:
 
 					rect = (gui.playlist_left, gui.panelY, gui.plw, window_size[1] - (gui.panelBY + gui.panelY))
 
-					if gui.ext_drop_mode and coll(rect):
+					if gui.ext_drop_mode and tauon.coll(rect):
 						ddt.rect_si(rect, [50, 230, 250, 255], round(5 * gui.scale))
 					tauon.fields.add(rect)
 
