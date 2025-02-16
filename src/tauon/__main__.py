@@ -206,6 +206,7 @@ if os.environ.get("GAMESCOPE_WAYLAND_DISPLAY") is not None:
 	fs_mode = True
 	logging.info("Running in GAMESCOPE MODE")
 
+
 sdl3.SDL_SetHint(sdl3.SDL_HINT_VIDEO_ALLOW_SCREENSAVER, b"1")
 sdl3.SDL_SetHint(sdl3.SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, b"1")
 sdl3.SDL_SetHint(sdl3.SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, b"0")
@@ -296,7 +297,7 @@ if draw_border and not fs_mode:
 	flags |= sdl3.SDL_WINDOW_BORDERLESS
 
 if fs_mode:
-	flags |= sdl3.SDL_WINDOW_FULLSCREEN_DESKTOP
+	flags |= sdl3.SDL_WINDOW_FULLSCREEN
 
 if old_window_position is None:
 	o_x = sdl3.SDL_WINDOWPOS_UNDEFINED

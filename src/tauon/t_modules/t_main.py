@@ -161,6 +161,7 @@ from tauon.t_modules.t_extra import (
 	uri_parse,
 	year_search,
 )
+from tauon.t_modules.guitar_chords import GuitarChords
 from tauon.t_modules.t_jellyfin import Jellyfin
 from tauon.t_modules.t_launch import Launch
 from tauon.t_modules.t_lyrics import genius, lyric_sources, uses_scraping
@@ -11398,7 +11399,7 @@ class Over:
 			y += 30 * gui.scale
 
 
-		#self.toggle_square(x, y, toggle_guitar_chords, _("Enable chord lyrics"))
+		self.toggle_square(x, y, toggle_guitar_chords, _("Enable chord lyrics"))
 
 		y += 40 * gui.scale
 		ddt.text((x, y), _("Sources:"), colours.box_text_label, 11)
