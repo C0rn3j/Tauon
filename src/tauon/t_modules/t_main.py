@@ -5171,7 +5171,7 @@ class Tauon:
 		self.worker2_lock                 = threading.Lock()
 		#TODO(Martin) : Fix this by moving the class to root of the module
 		self.cachement:  player4.Cachement | None = None
-		self.dummy_event:     sdl3.sdl3.SDL_Event = sdl3.SDL_Event()
+		self.dummy_event:          sdl3.SDL_Event = sdl3.SDL_Event()
 		self.translate                            = _
 		self.strings                              = Strings()
 		self.gui:                          GuiVar = gui
