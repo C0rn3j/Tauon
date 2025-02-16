@@ -10614,33 +10614,38 @@ class SubLyricsBox:
 
 class ExportPlaylistBox:
 
-	def __init__(self, bag: Bag):
-
+	def __init__(self, tauon: Tauon):
+		self.pctl     = tauon.pctl
+		self.prefs    = tauon.prefs
+		self.colours  = tauon.bag.colours
+		self.gui      = tauon.gui
+		self.pref_box = tauon.pref_box
 		self.active = False
 		self.id = None
 		self.directory_text_box = TextBox2()
 		self.default = {
-			"path": str(bag.dirs.music_directory) if bag.dirs.music_directory else str(bag.dirs.user_directory / "playlists"),
+			"path": str(tauon.bag.dirs.music_directory) if tauon.bag.dirs.music_directory else str(tauon.bag.dirs.user_directory / "playlists"),
 			"type": "xspf",
 			"relative": False,
 			"auto": False,
 		}
 
-	def activate(self, playlist):
-
+	def activate(self, playlist: int) -> None:
 		self.active = True
-		gui.box_over = True
-		self.id = pctl.pl_to_id(playlist)
+		self.gui.box_over = True
+		self.id = self.pctl.pl_to_id(playlist)
 
 		# Prune old enteries
 		ids = []
-		for playlist in pctl.multi_playlist:
+		for playlist in self.pctl.multi_playlist:
 			ids.append(playlist.uuid_int)
-		for key in list(prefs.playlist_exports.keys()):
+		for key in list(self.prefs.playlist_exports.keys()):
 			if key not in ids:
-				del prefs.playlist_exports[key]
+				del self.prefs.playlist_exports[key]
 
 	def render(self) -> None:
+		gui = self.gui
+		colours = self.colours
 		if not self.active:
 			return
 
@@ -10681,17 +10686,17 @@ class ExportPlaylistBox:
 		current["path"] = self.directory_text_box.text
 
 		y += round(30 * gui.scale)
-		if pref_box.toggle_square(x, y, current["type"] == "xspf", "XSPF", gui.level_2_click):
+		if self.pref_box.toggle_square(x, y, current["type"] == "xspf", "XSPF", gui.level_2_click):
 			current["type"] = "xspf"
-		if pref_box.toggle_square(x + round(80 * gui.scale), y, current["type"] == "m3u", "M3U", gui.level_2_click):
+		if self.pref_box.toggle_square(x + round(80 * gui.scale), y, current["type"] == "m3u", "M3U", gui.level_2_click):
 			current["type"] = "m3u"
-		# pref_box.toggle_square(x + round(160 * gui.scale), y, False, "PLS", gui.level_2_click)
+		# self.pref_box.toggle_square(x + round(160 * gui.scale), y, False, "PLS", gui.level_2_click)
 		y += round(35 * gui.scale)
-		current["relative"] = pref_box.toggle_square(
+		current["relative"] = self.pref_box.toggle_square(
 			x, y, current["relative"], _("Use relative paths"),
 			gui.level_2_click)
 		y += round(60 * gui.scale)
-		current["auto"] = pref_box.toggle_square(x, y, current["auto"], _("Auto-export"), gui.level_2_click)
+		current["auto"] = self.pref_box.toggle_square(x, y, current["auto"], _("Auto-export"), gui.level_2_click)
 
 		y += round(0 * gui.scale)
 		ww = ddt.get_text_w(_("Export"), 211)
@@ -11536,8 +11541,8 @@ class NagBox:
 		#     xx += 3
 
 		ddt.rect_a((x - 2 * gui.scale, y - 2 * gui.scale), (w + 4 * gui.scale, h + 4 * gui.scale),
-			colours.box_text_border)
-		ddt.rect_a((x, y), (w, h), colours.message_box_bg)
+			self.colours.box_text_border)
+		ddt.rect_a((x, y), (w, h), self.colours.message_box_bg)
 
 		# if gui.level_2_click and not tauon.coll((x, y, w, h)):
 		#     if core_timer.get() < 2:
@@ -11547,32 +11552,32 @@ class NagBox:
 		#
 		#     gui.update += 1
 
-		ddt.text_background_colour = colours.message_box_bg
+		ddt.text_background_colour = self.colours.message_box_bg
 
 		x += round(10 * gui.scale)
 		y += round(13 * gui.scale)
-		ddt.text((x, y), _("Welcome to v7.2.0!"), colours.message_box_text, 212)
+		ddt.text((x, y), _("Welcome to v7.2.0!"), self.colours.message_box_text, 212)
 		y += round(20 * gui.scale)
 
 		link_pa = draw_linked_text(
 			(x, y),
 			_("You can check out the release notes on the https://") + "github.com/Taiko2k/TauonMusicBox/releases",
-			colours.message_box_text, 12, replace=_("Github release page."))
+			self.colours.message_box_text, 12, replace=_("Github release page."))
 		link_activate(x, y, link_pa, click=gui.level_2_click)
 
 		heart_notify_icon.render(x + round(425 * gui.scale), y + round(80 * gui.scale), [255, 90, 90, 255])
 
 		y += round(30 * gui.scale)
-		ddt.text((x, y), _("New supporter bonuses!"), colours.message_box_text, 212)
+		ddt.text((x, y), _("New supporter bonuses!"), self.colours.message_box_text, 212)
 
 		y += round(20 * gui.scale)
 
 		ddt.text((x, y), _("A new supporter bonus theme is now available! Check it out at the above link!"),
-			colours.message_box_text, 12)
+			self.colours.message_box_text, 12)
 		# link_activate(x, y, link_pa, click=gui.level_2_click)
 
 		y += round(20 * gui.scale)
-		ddt.text((x, y), _("Your support means a lot! Love you!"), colours.message_box_text, 12)
+		ddt.text((x, y), _("Your support means a lot! Love you!"), self.colours.message_box_text, 12)
 
 		y += round(30 * gui.scale)
 
@@ -11588,7 +11593,7 @@ class NagBox:
 
 class PowerTag:
 
-	def __init__(self):
+	def __init__(self) -> None:
 		self.name = "BLANK"
 		self.path = ""
 		self.position = 0
@@ -11600,16 +11605,17 @@ class PowerTag:
 
 class Over:
 	def __init__(self, tauon: Tauon) -> None:
-		bag              = tauon.bag
-		self.tauon       = tauon
-		self.colours     = tauon.bag.colours
-		self.dirs        = tauon.bag.dirs
-		self.prefs       = tauon.bag.prefs
-		self.gui         = tauon.gui
-		self.inp         = tauon.gui.inp
-		self.ddt         = tauon.bag.ddt
-		self.window_size = tauon.bag.window_size
-		self.init2done   = False
+		bag                  = tauon.bag
+		self.tauon           = tauon
+		self.platform_system = tauon.bag.platform_system
+		self.colours         = tauon.bag.colours
+		self.dirs            = tauon.bag.dirs
+		self.prefs           = tauon.bag.prefs
+		self.gui             = tauon.gui
+		self.inp             = tauon.gui.inp
+		self.ddt             = tauon.bag.ddt
+		self.window_size     = tauon.bag.window_size
+		self.init2done       = False
 
 		self.about_image  = asset_loader(bag, bag.loaded_asset_dc, "v4-a.png")
 		self.about_image2 = asset_loader(bag, bag.loaded_asset_dc, "v4-b.png")
@@ -11619,7 +11625,7 @@ class Over:
 		self.about_image6 = asset_loader(bag, bag.loaded_asset_dc, "v4-f.png")
 		self.title_image  = asset_loader(bag, bag.loaded_asset_dc, "title.png", True)
 
-		# self.tab_width = round(115 * gui.scale)
+		# self.tab_width = round(115 * self.gui.scale)
 		self.w = 100
 		self.h = 100
 
@@ -11691,12 +11697,12 @@ class Over:
 		self.key_box = TextBox2()
 		self.key_box_focused = False
 
-	def theme(self, x0, y0, w0, h0):
+	def theme(self, x0: int, y0: int, w0: int, h0: int):
 		y = y0 + 13 * gui.scale
 		x = x0 + 25 * gui.scale
 
-		ddt.text_background_colour = colours.box_background
-		ddt.text((x, y), _("Theme"), colours.box_text_label, 12)
+		self.ddt.text_background_colour = self.colours.box_background
+		self.ddt.text((x, y), _("Theme"), self.colours.box_text_label, 12)
 
 		y += 25 * gui.scale
 
@@ -11753,10 +11759,10 @@ class Over:
 				rect = [
 					xx - outer_border, yy - outer_border, border * 2 + square * 2 + outer_border * 2,
 					border * 2 + square * 2 + outer_border * 2]
-				ddt.rect(rect, colours.box_text_label)
+				self.ddt.rect(rect, self.colours.box_text_label)
 
 			rect = [xx, yy, border * 2 + square * 2, border * 2 + square * 2]
-			ddt.rect(rect, [5, 5, 5, 255])
+			self.ddt.rect(rect, [5, 5, 5, 255])
 
 			rect = grow_rect(rect, 3)
 			tauon.fields.add(rect)
@@ -11795,24 +11801,24 @@ class Over:
 
 			if c2 == c3 and colour_value(c1) < 200:
 				rect = [(xx + border + square) - (square // 2), (yy + border + square) - (square // 2), square, square]
-				ddt.rect(rect, c2)
+				self.ddt.rect(rect, c2)
 			else:
 
 				# tl
 				rect = [xx + border, yy + border, square, square]
-				ddt.rect(rect, c1)
+				self.ddt.rect(rect, c1)
 
 				# tr
 				rect = [xx + border + square, yy + border, square, square]
-				ddt.rect(rect, c2)
+				self.ddt.rect(rect, c2)
 
 				# bl
 				rect = [xx + border, yy + border + square, square, square]
-				ddt.rect(rect, c3)
+				self.ddt.rect(rect, c3)
 
 				# br
 				rect = [xx + border + square, yy + border + square, square, square]
-				ddt.rect(rect, c4)
+				self.ddt.rect(rect, c4)
 
 			yy += round(27 * gui.scale)
 			if yy > y + 40 * gui.scale:
@@ -11822,7 +11828,7 @@ class Over:
 		name = gui.theme_name
 		if hover_name:
 			name = hover_name
-		ddt.text((x, y - 23 * gui.scale), name, colours.box_text_label, 214)
+		self.ddt.text((x, y - 23 * gui.scale), name, self.colours.box_text_label, 214)
 		if gui.theme_name == "Neon Love" and not hover_name:
 			x += 95 * gui.scale
 			y -= 23 * gui.scale
@@ -11843,7 +11849,7 @@ class Over:
 		y = y0 + round(15 * self.gui.scale)
 		x = x0 + round(50 * self.gui.scale)
 
-		ddt.text((x, y), _("ReplayGain"), self.colours.box_text_label, 14)
+		self.ddt.text((x, y), _("ReplayGain"), self.colours.box_text_label, 14)
 		y += round(25 * self.gui.scale)
 
 		self.toggle_square(x, y, switch_rg_off, _("Off"))
@@ -11854,10 +11860,10 @@ class Over:
 		self.toggle_square(x, y, switch_rg_track, _("Tracks equal loudness"))
 
 		y += round(25 * self.gui.scale)
-		ddt.text((x, y), _("Will only have effect if ReplayGain metadata is present."), self.colours.box_text_label, 12)
+		self.ddt.text((x, y), _("Will only have effect if ReplayGain metadata is present."), self.colours.box_text_label, 12)
 		y += round(26 * self.gui.scale)
 
-		ddt.text((x, y), _("Pre-amp"), self.colours.box_text_label, 14)
+		self.ddt.text((x, y), _("Pre-amp"), self.colours.box_text_label, 14)
 		y += round(26 * self.gui.scale)
 
 		sw = round(170 * self.gui.scale)
@@ -11890,27 +11896,27 @@ class Over:
 
 		# grip[0] += (bp / 30 * sw)
 
-		ddt.rect(slider, colours.box_text_border)
-		ddt.rect(m1, colours.box_text_border)
-		ddt.rect(m2, colours.box_text_border)
-		ddt.rect(m3, colours.box_text_border)
-		ddt.rect(grip, colours.box_text_label)
+		self.ddt.rect(slider, self.colours.box_text_border)
+		self.ddt.rect(m1, self.colours.box_text_border)
+		self.ddt.rect(m2, self.colours.box_text_border)
+		self.ddt.rect(m3, self.colours.box_text_border)
+		self.ddt.rect(grip, self.colours.box_text_label)
 
 		text = f"{prefs.replay_preamp} dB"
 		if prefs.replay_preamp > 0:
 			text = "+" + text
 
-		colour = colours.box_sub_text
+		colour = self.colours.box_sub_text
 		if prefs.replay_preamp == 0:
-			colour = colours.box_text_label
-		ddt.text((x + sw + round(14 * gui.scale), y - round(8 * gui.scale)), text, colour, 11)
+			colour = self.colours.box_text_label
+		self.ddt.text((x + sw + round(14 * gui.scale), y - round(8 * gui.scale)), text, colour, 11)
 		#logging.info(prefs.replay_preamp)
 
 		y += round(18 * gui.scale)
-		ddt.text(
+		self.ddt.text(
 			(x, y, 4, 310 * gui.scale, 300 * gui.scale),
 			_("Lower pre-amp values improve normalisation but will require a higher system volume."),
-			colours.box_text_label, 12)
+			self.colours.box_text_label, 12)
 
 	def eq(self, x0: int, y0: int, w0: int, h0: int) -> None:
 		y = y0 + 55 * self.gui.scale
@@ -11927,8 +11933,8 @@ class Over:
 
 		self.toggle_square(x - 90 * self.gui.scale, y - 35 * self.gui.scale, toggle_eq, _("Enable"))
 
-		self.ddt.text((x - 17 * self.gui.scale, y + 2 * self.gui.scale), "+", colours.grey(130), 16)
-		self.ddt.text((x - 17 * self.gui.scale, y + base_dis - 15 * self.gui.scale), "-", colours.grey(130), 16)
+		self.ddt.text((x - 17 * self.gui.scale, y + 2 * self.gui.scale), "+", self.colours.grey(130), 16)
+		self.ddt.text((x - 17 * self.gui.scale, y + base_dis - 15 * self.gui.scale), "-", self.colours.grey(130), 16)
 
 		for i, q in enumerate(prefs.eq):
 
@@ -11986,19 +11992,19 @@ class Over:
 		# if system == "Linux":
 		if not phazor_exists(self.tauon.pctl):
 			x += round(20 * self.gui.scale)
-			ddt.text((x, y - 25 * self.gui.scale), _("PHAzOR DLL not found!"), colour, 213)
+			self.ddt.text((x, y - 25 * self.gui.scale), _("PHAzOR DLL not found!"), colour, 213)
 
-		elif prefs.backend == 4:
+		elif self.prefs.backend == 4:
 			y = y0 + round(20 * self.gui.scale)
 			x = x0 + 20 * self.gui.scale
 
 			x += round(2 * self.gui.scale)
 
-			self.toggle_square(x, y, toggle_pause_fade, _("Use fade on pause/stop"))
+			self.toggle_square(x, y, self.tauon.toggle_pause_fade, _("Use fade on pause/stop"))
 			y += round(23 * self.gui.scale)
-			self.toggle_square(x, y, toggle_jump_crossfade, _("Use fade on track jump"))
+			self.toggle_square(x, y, self.tauon.toggle_jump_crossfade, _("Use fade on track jump"))
 			y += round(23 * self.gui.scale)
-			prefs.back_restarts = self.toggle_square(x, y, prefs.back_restarts, _("Back restarts to beginning"))
+			self.prefs.back_restarts = self.toggle_square(x, y, self.prefs.back_restarts, _("Back restarts to beginning"))
 
 			y += round(40 * self.gui.scale)
 			if self.button(x, y, _("ReplayGain")):
@@ -12006,48 +12012,51 @@ class Over:
 				self.rg_view = True
 
 			y += round(45 * self.gui.scale)
-			prefs.precache = self.toggle_square(x, y, prefs.precache, _("Cache local files (for smb/nfs)"))
+			self.prefs.precache = self.toggle_square(x, y, self.prefs.precache, _("Cache local files (for smb/nfs)"))
 			y += round(23 * self.gui.scale)
-			old = prefs.tmp_cache
-			prefs.tmp_cache = self.toggle_square(x, y, prefs.tmp_cache ^ True, _("Use persistent network cache")) ^ True
-			if old != prefs.tmp_cache and tauon.cachement:
+			old = self.prefs.tmp_cache
+			self.prefs.tmp_cache = self.toggle_square(x, y, self.prefs.tmp_cache ^ True, _("Use persistent network cache")) ^ True
+			if old != self.prefs.tmp_cache and tauon.cachement:
 				tauon.cachement.__init__()
 
 			y += round(22 * self.gui.scale)
-			ddt.text((x + round(22 * self.gui.scale), y), _("Cache size"), colours.box_text, 312)
+			self.ddt.text((x + round(22 * self.gui.scale), y), _("Cache size"), self.colours.box_text, 312)
 			y += round(18 * self.gui.scale)
-			prefs.cache_limit = int(
+			self.prefs.cache_limit = int(
 				self.slide_control(
-					x + round(22 * self.gui.scale), y, None, _(" GB"), prefs.cache_limit / 1000, 0.5,
+					x + round(22 * self.gui.scale), y, None, _(" GB"), self.prefs.cache_limit / 1000, 0.5,
 					1000, 0.5) * 1000)
 
 			y += round(30 * self.gui.scale)
-			# prefs.device_buffer = self.slide_control(x + round(270 * self.gui.scale), y, _("Output buffer"), 'ms',
-			#                                          prefs.device_buffer, 10,
-			#                                          500, 10, self.reload_device)
+			# self.prefs.device_buffer = self.slide_control(
+			# 	x + round(270 * self.gui.scale), y, _("Output buffer"), 'ms',
+			# 	self.prefs.device_buffer, 10,
+			# 	500, 10, self.reload_device)
 
-			# if prefs.device_buffer > 100:
-			#     prefs.pa_fast_seek = True
+			# if self.prefs.device_buffer > 100:
+			# 	self.prefs.pa_fast_seek = True
 			# else:
-			#     prefs.pa_fast_seek = False
+			# 	self.prefs.pa_fast_seek = False
 
 			y = y0 + 37 * self.gui.scale
 			x = x0 + 270 * self.gui.scale
-			ddt.text_background_colour = colours.box_background
-			ddt.text((x, y - 22 * self.gui.scale), _("Set audio output device"), colours.box_text_label, 212)
+			self.ddt.text_background_colour = self.colours.box_background
+			self.ddt.text((x, y - 22 * self.gui.scale), _("Set audio output device"), self.colours.box_text_label, 212)
 
-			if platform_system == "Linux":
-				old = prefs.pipewire
-				prefs.pipewire = self.toggle_square(x + round(self.gui.scale * 110), self.box_y + self.h - 50 * self.gui.scale,
-															prefs.pipewire, _("PipeWire (unstable)"))
-				prefs.pipewire = self.toggle_square(x, self.box_y + self.h - 50 * self.gui.scale,
-															prefs.pipewire ^ True, _("PulseAudio")) ^ True
-				if old != prefs.pipewire:
+			if self.platform_system == "Linux":
+				old = self.prefs.pipewire
+				self.prefs.pipewire = self.toggle_square(
+					x + round(self.gui.scale * 110), self.box_y + self.h - 50 * self.gui.scale,
+					self.prefs.pipewire, _("PipeWire (unstable)"))
+				self.prefs.pipewire = self.toggle_square(
+					x, self.box_y + self.h - 50 * self.gui.scale,
+					self.prefs.pipewire ^ True, _("PulseAudio")) ^ True
+				if old != self.prefs.pipewire:
 					show_message(_("Please restart Tauon for this change to take effect"))
 
-			old = prefs.avoid_resampling
-			prefs.avoid_resampling = self.toggle_square(x, self.box_y + self.h - 27 * self.gui.scale, prefs.avoid_resampling, _("Avoid resampling"))
-			if prefs.avoid_resampling != old:
+			old = self.prefs.avoid_resampling
+			self.prefs.avoid_resampling = self.toggle_square(x, self.box_y + self.h - 27 * self.gui.scale, self.prefs.avoid_resampling, _("Avoid resampling"))
+			if self.prefs.avoid_resampling != old:
 				pctl.playerCommand = "reload"
 				pctl.playerCommandReady = True
 				if not old:
@@ -12055,21 +12064,20 @@ class Over:
 						_("Tip: To get samplerate to DAC you may need to check some settings, see:"),
 						"https://github.com/Taiko2k/Tauon/wiki/Audio-Specs", mode="link")
 
-			self.device_scroll_bar_position -= pref_box.scroll
+			self.device_scroll_bar_position -= self.scroll
 			self.device_scroll_bar_position = max(self.device_scroll_bar_position, 0)
-			if self.device_scroll_bar_position > len(prefs.phazor_devices) - 11 > 11:
-				self.device_scroll_bar_position = len(prefs.phazor_devices) - 11
+			if self.device_scroll_bar_position > len(self.prefs.phazor_devices) - 11 > 11:
+				self.device_scroll_bar_position = len(self.prefs.phazor_devices) - 11
 
-			if len(prefs.phazor_devices) > 13:
+			if len(self.prefs.phazor_devices) > 13:
 				self.device_scroll_bar_position = device_scroll.draw(
 					x + 250 * self.gui.scale, y, 11, 180,
 					self.device_scroll_bar_position,
-					len(prefs.phazor_devices) - 11, click=self.click)
+					len(self.prefs.phazor_devices) - 11, click=self.click)
 
 			i = 0
 			reload = False
-			for name in prefs.phazor_devices:
-
+			for name in self.prefs.phazor_devices:
 				if i < self.device_scroll_bar_position:
 					continue
 				if y > self.box_y + self.h - 40 * self.gui.scale:
@@ -12078,20 +12086,20 @@ class Over:
 				rect = (x, y + 4 * self.gui.scale, 245 * self.gui.scale, 13)
 
 				if self.click and self.tauon.coll(rect):
-					prefs.phazor_device_selected = name
+					self.prefs.phazor_device_selected = name
 					reload = True
 
 				line = trunc_line(name, 10, 245 * self.gui.scale)
 
 				self.tauon.fields.add(rect)
 
-				if prefs.phazor_device_selected == name:
-					ddt.text((x, y), line, self.colours.box_sub_text, 10)
-					ddt.text((x - 12 * self.gui.scale, y + 1 * self.gui.scale), ">", self.colours.box_sub_text, 213)
+				if self.prefs.phazor_device_selected == name:
+					self.ddt.text((x, y), line, self.colours.box_sub_text, 10)
+					self.ddt.text((x - 12 * self.gui.scale, y + 1 * self.gui.scale), ">", self.colours.box_sub_text, 213)
 				elif self.tauon.coll(rect):
-					ddt.text((x, y), line, self.colours.box_sub_text, 10)
+					self.ddt.text((x, y), line, self.colours.box_sub_text, 10)
 				else:
-					ddt.text((x, y), line, self.colours.box_text_label, 10)
+					self.ddt.text((x, y), line, self.colours.box_text_label, 10)
 				y += 14 * self.gui.scale
 				i += 1
 
@@ -12111,24 +12119,24 @@ class Over:
 		y = y0 - 10 * gui.scale
 		y += 30 * gui.scale
 
-		ddt.text_background_colour = colours.box_background
+		self.ddt.text_background_colour = self.colours.box_background
 
 		# self.toggle_square(x, y, toggle_auto_lyrics, _("Auto search lyrics"))
-		if prefs.auto_lyrics:
-			if prefs.auto_lyrics_checked:
+		if self.prefs.auto_lyrics:
+			if self.prefs.auto_lyrics_checked:
 				if self.button(x, y, _("Reset failed list")):
-					prefs.auto_lyrics_checked.clear()
+					self.prefs.auto_lyrics_checked.clear()
 			y += 30 * gui.scale
 
 
 		self.toggle_square(x, y, toggle_guitar_chords, _("Enable chord lyrics"))
 
 		y += 40 * gui.scale
-		ddt.text((x, y), _("Sources:"), colours.box_text_label, 11)
+		self.ddt.text((x, y), _("Sources:"), self.colours.box_text_label, 11)
 		y += 23 * gui.scale
 
 		for name in lyric_sources.keys():
-			enabled = name in prefs.lyrics_enables
+			enabled = name in self.prefs.lyrics_enables
 			title = _(name)
 			if name in uses_scraping:
 				title += "*"
@@ -12136,34 +12144,34 @@ class Over:
 			y += round(23 * gui.scale)
 			if new != enabled:
 				if enabled:
-					prefs.lyrics_enables.clear()
+					self.prefs.lyrics_enables.clear()
 				else:
-					prefs.lyrics_enables.append(name)
+					self.prefs.lyrics_enables.append(name)
 
 		y += round(6 * gui.scale)
-		ddt.text((x + 12 * gui.scale, y), _("*Uses scraping. Enable at your own discretion."), colours.box_text_label, 11)
+		self.ddt.text((x + 12 * gui.scale, y), _("*Uses scraping. Enable at your own discretion."), self.colours.box_text_label, 11)
 		y += 20 * gui.scale
-		ddt.text((x + 12 * gui.scale, y), _("Tip: The order enabled will be the order searched."), colours.box_text_label, 11)
+		self.ddt.text((x + 12 * gui.scale, y), _("Tip: The order enabled will be the order searched."), self.colours.box_text_label, 11)
 		y += 20 * gui.scale
 
-	def view2(self, x0, y0, w0, h0):
+	def view2(self, x0: int, y0: int, w0: int, h0: int):
 		x = x0 + 25 * gui.scale
 		y = y0 + 20 * gui.scale
 
-		ddt.text_background_colour = colours.box_background
+		self.ddt.text_background_colour = self.colours.box_background
 
-		ddt.text((x, y), _("Metadata side panel"), colours.box_text_label, 12)
+		self.ddt.text((x, y), _("Metadata side panel"), self.colours.box_text_label, 12)
 
 		y += 25 * gui.scale
 		self.toggle_square(x, y, toggle_side_panel_layout, _("Use centered style"))
 		y += 25 * gui.scale
-		old = prefs.zoom_art
-		prefs.zoom_art = self.toggle_square(x, y, prefs.zoom_art, _("Zoom album art to fit"))
-		if prefs.zoom_art != old:
+		old = self.prefs.zoom_art
+		self.prefs.zoom_art = self.toggle_square(x, y, self.prefs.zoom_art, _("Zoom album art to fit"))
+		if self.prefs.zoom_art != old:
 			tauon.album_art_gen.clear_cache()
 
 		y += 35 * gui.scale
-		ddt.text((x, y), _("Gallery"), colours.box_text_label, 12)
+		self.ddt.text((x, y), _("Gallery"), self.colours.box_text_label, 12)
 
 		y += 25 * gui.scale
 		# self.toggle_square(x, y, toggle_dim_albums, "Dim gallery when playing")
@@ -12175,26 +12183,26 @@ class Over:
 		y += 25 * gui.scale
 		# self.toggle_square(x, y, toggle_gallery_row_space, _("Increase row spacing"))
 		# y += 25 * gui.scale
-		prefs.center_gallery_text = self.toggle_square(
-			x + round(10 * gui.scale), y, prefs.center_gallery_text, _("Center alignment"))
+		self.prefs.center_gallery_text = self.toggle_square(
+			x + round(10 * gui.scale), y, self.prefs.center_gallery_text, _("Center alignment"))
 
 		y += 30 * gui.scale
 
 		# y += 25 * gui.scale
 
 		x -= 80 * gui.scale
-		x += ddt.get_text_w(_("Thumbnail size"), 312)
+		x += self.ddt.get_text_w(_("Thumbnail size"), 312)
 		# x += 20 * gui.scale
 
 		if bag.album_mode_art_size < 160:
 			self.toggle_square(x + 235 * gui.scale, y + 2 * gui.scale, toggle_gallery_thin, _("Prefer thinner padding"))
 
-		# ddt.text((x, y), _("Gallery art size"), colours.grey(220), 11)
+		# self.ddt.text((x, y), _("Gallery art size"), self.colours.grey(220), 11)
 
 		bag.album_mode_art_size = self.slide_control(
 			x + 25 * gui.scale, y, _("Thumbnail size"), "px", bag.album_mode_art_size, 70, 400, 10, img_slide_update_gall)
 
-	def funcs(self, x0, y0, w0, h0):
+	def funcs(self, x0: int, y0: int, w0: int, h0: int):
 		tauon   = self.tauon
 		prefs   = self.prefs
 		gui     = self.gui
@@ -12557,7 +12565,7 @@ class Over:
 
 		return active
 
-	def last_fm_box(self, x0, y0, w0, h0):
+	def last_fm_box(self, x0: int, y0: int, w0: int, h0: int):
 		x = x0 + round(20 * gui.scale)
 		y = y0 + round(15 * gui.scale)
 
@@ -13396,7 +13404,7 @@ class Over:
 		else:
 			show_message(_("A process is already running. Wait for it to finish."))
 
-	def codec_config(self, x0, y0, w0, h0):
+	def codec_config(self, x0: int, y0: int, w0: int, h0: int):
 
 		x = x0 + round(25 * gui.scale)
 		y = y0
@@ -13532,24 +13540,24 @@ class Over:
 		y += 25 * gui.scale
 		self.toggle_square(x, y, toggle_transcode_inplace, _("Save and overwrite files inplace"))
 
-	def previous_theme(self):
-		prefs.theme -= 1
-		gui.reload_theme = True
-		if prefs.theme < 0:
-			prefs.theme = len(get_themes())
+	def previous_theme(self) -> None:
+		self.prefs.theme -= 1
+		self.gui.reload_theme = True
+		if self.prefs.theme < 0:
+			self.prefs.theme = len(get_themes())
 
-	def config_b(self, x0, y0, w0, h0):
-		ddt.text_background_colour = colours.box_background
-		x = x0 + round(25 * gui.scale)
-		y = y0 + round(20 * gui.scale)
+	def config_b(self, x0: int, y0: int, w0: int, h0: int) -> None:
+		self.ddt.text_background_colour = self.colours.box_background
+		x = x0 + round(25 * self.gui.scale)
+		y = y0 + round(20 * self.gui.scale)
 
-		# ddt.text((x, y), _("Window"),colours.box_text_label, 12)
+		# self.ddt.text((x, y), _("Window"),self.colours.box_text_label, 12)
 
 		if system == "Linux":
-			self.toggle_square(x, y, toggle_notifications, _("Emit track change notifications"))
+			self.toggle_square(x, y, self.tauon.toggle_notifications, _("Emit track change notifications"))
 
 		y += 25 * gui.scale
-		self.toggle_square(x, y, toggle_borderless, _("Draw own window decorations"))
+		self.toggle_square(x, y, self.tauon.toggle_borderless, _("Draw own window decorations"))
 
 		# y += 25 * gui.scale
 		# prefs.save_window_position = self.toggle_square(x, y, prefs.save_window_position,
@@ -13557,11 +13565,11 @@ class Over:
 
 		y += 25 * gui.scale
 		if not tauon.draw_border:
-			self.toggle_square(x, y, toggle_titlebar_line, _("Show playing in titlebar"))
+			self.toggle_square(x, y, self.tauon.toggle_titlebar_line, _("Show playing in titlebar"))
 
 		#y += 25 * gui.scale
 		# if system != 'windows' and (flatpak_mode or snap_mode):
-		#     self.toggle_square(x, y, toggle_force_subpixel, _("Enable RGB text antialiasing"))
+		#     self.toggle_square(x, y, self.tauon.toggle_force_subpixel, _("Enable RGB text antialiasing"))
 
 		y += 25 * gui.scale
 		old = prefs.mini_mode_on_top
@@ -13570,11 +13578,11 @@ class Over:
 			show_message(_("Always-on-top feature not yet implemented for Wayland mode"), _("You can enable the x11 setting below as a workaround"))
 
 		y += 25 * gui.scale
-		self.toggle_square(x, y, toggle_level_meter, _("Top-panel visualiser"))
+		self.toggle_square(x, y, self.tauon.toggle_level_meter, _("Top-panel visualiser"))
 
 		y += 25 * gui.scale
 		if prefs.backend == 4:
-			self.toggle_square(x, y, toggle_showcase_vis, _("Showcase visualisation"))
+			self.toggle_square(x, y, self.tauon.toggle_showcase_vis, _("Showcase visualisation"))
 
 		y += round(30 * gui.scale)
 		# if not msys:
@@ -13655,15 +13663,14 @@ class Over:
 			elif old is True and x11 is False:
 				os.remove(x11_path)
 
-	def toggle_x_scale(self, mode=0):
+	def toggle_x_scale(self, mode: int = 0) -> None:
 		if mode == 1:
-			return prefs.x_scale
-		prefs.x_scale ^= True
+			return self.prefs.x_scale
+		self.prefs.x_scale ^= True
 		auto_scale(bag)
-		gui.update_layout = True
+		self.gui.update_layout = True
 
-	def about(self, x0, y0, w0, h0):
-
+	def about(self, x0: int, y0: int, w0: int, h0: int) -> None:
 		x = x0 + int(w0 * 0.3) - 10 * gui.scale
 		y = y0 + 85 * gui.scale
 
@@ -13962,7 +13969,7 @@ class Over:
 			self.ani_cred = 1
 			self.ani_fade_on_timer.set()
 
-	def topchart(self, x0, y0, w0, h0):
+	def topchart(self, x0: int, y0: int, w0: int, h0: int):
 		x = x0 + round(25 * gui.scale)
 		y = y0 + 20 * gui.scale
 
@@ -14092,8 +14099,8 @@ class Over:
 		if self.button(x, y, _("Return"), width=75 * gui.scale):
 			self.chart_view = 0
 
-	def stats(self, x0, y0, w0, h0):
-		x = x0 + 10 * gui.scale
+	def stats(self, x0: int, y0: int, w0: int, h0: int):
+		x = x0 + 10 * self.gui.scale
 		y = y0
 
 		if self.chart_view == 1:
@@ -14240,7 +14247,7 @@ class Over:
 			except Exception:
 				logging.exception("Error draw ext bar")
 
-	def config_v(self, x0, y0, w0, h0):
+	def config_v(self, x0: int, y0: int, w0: int, h0: int):
 		ddt.text_background_colour = colours.box_background
 
 		x = x0 + self.item_x_offset
@@ -14331,24 +14338,24 @@ class Over:
 		self.button(x, y, _("Thick default"), self.large_preset, 124 * gui.scale)
 
 
-	def set_playlist_cycle(self, mode=0):
+	def set_playlist_cycle(self, mode: int = 0):
 		if mode == 1:
 			return True if prefs.end_setting == "cycle" else False
 		prefs.end_setting = "cycle"
 		# pl_follow = False
 
-	def set_playlist_advance(self, mode=0):
+	def set_playlist_advance(self, mode: int = 0):
 		if mode == 1:
 			return True if prefs.end_setting == "advance" else False
 		prefs.end_setting = "advance"
 		# pl_follow = False
 
-	def set_playlist_stop(self, mode=0):
+	def set_playlist_stop(self, mode: int = 0):
 		if mode == 1:
 			return True if prefs.end_setting == "stop" else False
 		prefs.end_setting = "stop"
 
-	def set_playlist_repeat(self, mode=0):
+	def set_playlist_repeat(self, mode: int = 0):
 		if mode == 1:
 			return True if prefs.end_setting == "repeat" else False
 		prefs.end_setting = "repeat"
@@ -14360,27 +14367,26 @@ class Over:
 		gui.update_layout = True
 
 	def large_preset(self) -> None:
-		prefs.playlist_row_height = round(27 * prefs.ui_scale)
-		prefs.playlist_font_size = 15
-		gui.update_layout = True
+		self.prefs.playlist_row_height = round(27 * self.prefs.ui_scale)
+		self.prefs.playlist_font_size = 15
+		self.gui.update_layout = True
 
 	def slide_control(self, x: int, y: int, label: str, units: str, value: int, lower_limit: int, upper_limit: int, step: int = 1, callback=None, width: int = 58) -> int:
-		width = round(width * gui.scale)
+		width = round(width * self.gui.scale)
 
 		if label is not None:
-			ddt.text((x + 55 * gui.scale, y, 1), label, colours.box_text, 312)
-			x += 65 * gui.scale
-		y += 1 * gui.scale
-		rect = (x, y, 33 * gui.scale, 15 * gui.scale)
-		tauon.fields.add(rect)
-		ddt.rect(rect, colours.box_button_background)
+			ddt.text((x + 55 * self.gui.scale, y, 1), label, self.colours.box_text, 312)
+			x += 65 * self.gui.scale
+		y += 1 * self.gui.scale
+		rect = (x, y, 33 * self.gui.scale, 15 * self.gui.scale)
+		self.tauon.fields.add(rect)
+		self.ddt.rect(rect, self.colours.box_button_background)
 		abg = [255, 255, 255, 40]
-		if tauon.coll(rect):
-
+		if self.tauon.coll(rect):
 			if self.click:
 				if value > lower_limit:
 					value -= step
-					gui.update_layout = True
+					self.gui.update_layout = True
 					if callback is not None:
 						callback(value)
 
@@ -14389,47 +14395,47 @@ class Over:
 			else:
 				abg = [220, 150, 20, 255]
 
-		if colour_value(colours.box_background) > 300:
-			abg = colours.box_sub_text
+		if colour_value(self.colours.box_background) > 300:
+			abg = self.colours.box_sub_text
 
-		gui.dec_arrow.render(x + 1 * gui.scale, y, abg)
+		self.gui.dec_arrow.render(x + 1 * self.gui.scale, y, abg)
 
-		x += 33 * gui.scale
+		x += 33 * self.gui.scale
 
-		ddt.rect((x, y, width, 15 * gui.scale), alpha_mod(colours.box_button_background, 120))
-		ddt.text((x + width / 2, y, 2), str(value) + units, colours.box_sub_text, 312)
+		self.ddt.rect((x, y, width, 15 * self.gui.scale), alpha_mod(self.colours.box_button_background, 120))
+		self.ddt.text((x + width / 2, y, 2), str(value) + units, self.colours.box_sub_text, 312)
 
 		x += width
 
-		rect = (x, y, 33 * gui.scale, 15 * gui.scale)
-		tauon.fields.add(rect)
-		ddt.rect(rect, colours.box_button_background)
+		rect = (x, y, 33 * self.gui.scale, 15 * self.gui.scale)
+		self.tauon.fields.add(rect)
+		self.ddt.rect(rect, self.colours.box_button_background)
 		abg = [255, 255, 255, 40]
-		if tauon.coll(rect):
+		if self.tauon.coll(rect):
 			if self.click:
 				if value < upper_limit:
 					value += step
-					gui.update_layout = True
+					self.gui.update_layout = True
 					if callback is not None:
 						callback(value)
-			if inp.mouse_down:
+			if self.inp.mouse_down:
 				abg = [230, 120, 20, 255]
 			else:
 				abg = [220, 150, 20, 255]
 
-		if colour_value(colours.box_background) > 300:
-			abg = colours.box_sub_text
+		if colour_value(self.colours.box_background) > 300:
+			abg = self.colours.box_sub_text
 
-		gui.inc_arrow.render(x + 1 * gui.scale, y, abg)
+		self.gui.inc_arrow.render(x + 1 * self.gui.scale, y, abg)
 
 		return value
 
-	# def style_up(self):
-	#     prefs.line_style += 1
-	#     if prefs.line_style > 5:
-	#         prefs.line_style = 1
+	# def style_up(self) -> None:
+	# 	self.prefs.line_style += 1
+	# 	if self.prefs.line_style > 5:
+	# 		self.prefs.line_style = 1
 
-	def inside(self):
+	def inside(self) -> bool:
 		return self.tauon.coll((self.box_x, self.box_y, self.w, self.h))
 
 	def init2(self) -> None:
@@ -24605,6 +24611,7 @@ class Bag:
 	desktop:                str | None
 	system:                 str
 	launch_prefix:          str
+	platform_system:        str
 	album_mode_art_size:    int
 	xdpi:                   int
 	master_count:           int
@@ -27308,18 +27315,17 @@ def clear_track_image_cache(track: TrackClass):
 
 def trunc_line(line: str, font: str, px: int, dots: bool = True) -> str:
 	"""This old function is slow and should be avoided"""
-	if ddt.get_text_w(line, font) < px + 10:
+	if self.ddt.get_text_w(line, font) < px + 10:
 		return line
 
 	if dots:
-		while ddt.get_text_w(line.rstrip(" ") + gui.trunk_end, font) > px:
+		while self.ddt.get_text_w(line.rstrip(" ") + gui.trunk_end, font) > px:
 			if len(line) == 0:
-				return gui.trunk_end
+				return self.gui.trunk_end
 			line = line[:-1]
-		return line.rstrip(" ") + gui.trunk_end
+		return line.rstrip(" ") + self.gui.trunk_end
 
-	while ddt.get_text_w(line, font) > px:
-
+	while self.ddt.get_text_w(line, font) > px:
 		line = line[:-1]
 		if len(line) < 2:
 			break
@@ -27327,17 +27333,17 @@ def trunc_line(line: str, font: str, px: int, dots: bool = True) -> str:
 	return line
 
 def right_trunc(line: str, font: str, px: int, dots: bool = True) -> str:
-	if ddt.get_text_w(line, font) < px + 10:
+	if self.ddt.get_text_w(line, font) < px + 10:
 		return line
 
 	if dots:
-		while ddt.get_text_w(line.rstrip(" ") + gui.trunk_end, font) > px:
+		while self.ddt.get_text_w(line.rstrip(" ") + self.gui.trunk_end, font) > px:
 			if len(line) == 0:
-				return gui.trunk_end
+				return self.gui.trunk_end
 			line = line[1:]
-		return gui.trunk_end + line.rstrip(" ")
+		return self.gui.trunk_end + line.rstrip(" ")
 
-	while ddt.get_text_w(line, font) > px:
+	while self.ddt.get_text_w(line, font) > px:
 		# trunk = True
 		line = line[1:]
 		if len(line) < 2:
@@ -39279,6 +39285,7 @@ def main(holder: Holder) -> None:
 		phone=phone,
 		xdpi=xdpi,
 		desktop=desktop,
+		platform_system=platform_system,
 		last_fm_enable=last_fm_enable,
 		launch_prefix=launch_prefix,
 		load_orders=load_orders,
@@ -40489,7 +40496,7 @@ def main(holder: Holder) -> None:
 	rename_track_box = RenameTrackBox()
 	trans_edit_box = TransEditBox()
 	sub_lyrics_box = SubLyricsBox(tauon=tauon)
-	export_playlist_box = ExportPlaylistBox(bag)
+	export_playlist_box = ExportPlaylistBox(tauon=tauon)
 	rename_playlist_box = RenamePlaylistBox()
 
 	tauon.toggle_repeat = toggle_repeat
