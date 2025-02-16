@@ -1647,7 +1647,6 @@ class PlayerCtl:
 
 		# Re-set the open viewed playlist number by uid
 		for i, pl in enumerate(self.multi_playlist):
-
 			if pl.uuid_int == old_view_id:
 				self.active_playlist_viewing = i
 				break
@@ -5061,6 +5060,8 @@ class Tauon:
 	"""Root class for everything Tauon"""
 	def __init__(self, holder: Holder, bag: Bag, gui: GuiVar):
 		self.bag                          = bag
+		self.system                       = bag.system
+		self.colours                      = bag.colours
 		self.inp                          = gui.inp
 		self.t_window                     = holder.t_window
 		self.t_title                      = holder.t_title
@@ -5213,17 +5214,167 @@ class Tauon:
 
 		self.tls_context = bag.tls_context
 
+	def s_copy(self) -> None:
+		# Copy tracks to internal clipboard
+		# self.gui.lightning_copy = False
+		# if self.inp.key_shift_down:
+		self.gui.lightning_copy = True
+
+		clip = copy_from_clipboard()
+		if "file://" in clip:
+			copy_to_clipboard("")
+
+		self.pctl.cargo = []
+		if self.pctl.default_playlist:
+			for item in gui.shift_selection:
+				self.pctl.cargo.append(self.pctl.default_playlist[item])
+
+		if not self.pctl.cargo and -1 < self.pctl.selected_in_playlist < len(self.pctl.default_playlist):
+			self.pctl.cargo.append(self.pctl.default_playlist[self.pctl.selected_in_playlist])
+
+		self.copied_track = None
+
+		if len(self.pctl.cargo) == 1:
+			self.copied_track = self.pctl.cargo[0]
+
+	def s_cut(self) -> None:
+		self.s_copy()
+		del_selected()
+
+	def s_append(self, index: int) -> None:
+		paste(playlist_no=index)
+
+	def paste(self, playlist_no: int | None = None, track_id: int | None = None) -> None:
+		clip = copy_from_clipboard()
+		logging.info(clip)
+		if "tidal.com/album/" in clip:
+			logging.info(clip)
+			num = clip.split("/")[-1].split("?")[0]
+			if num and num.isnumeric():
+				logging.info(num)
+				self.tidal.append_album(num)
+			clip = False
+
+		elif "tidal.com/playlist/" in clip:
+			logging.info(clip)
+			num = clip.split("/")[-1].split("?")[0]
+			self.tidal.playlist(num)
+			clip = False
+
+		elif "tidal.com/mix/" in clip:
+			logging.info(clip)
+			num = clip.split("/")[-1].split("?")[0]
+			self.tidal.mix(num)
+			clip = False
+
+		elif "tidal.com/browse/track/" in clip:
+			logging.info(clip)
+			num = clip.split("/")[-1].split("?")[0]
+			self.tidal.track(num)
+			clip = False
+
+		elif "tidal.com/browse/artist/" in clip:
+			logging.info(clip)
+			num = clip.split("/")[-1].split("?")[0]
+			self.tidal.artist(num)
+			clip = False
+
+		elif "spotify" in clip:
+			pctl.cargo.clear()
+			for link in clip.split("\n"):
+				logging.info(link)
+				link = link.strip()
+				if clip.startswith(("https://open.spotify.com/track/", "spotify:track:")):
+					self.spot_ctl.append_track(link)
+				elif clip.startswith(("https://open.spotify.com/album/", "spotify:album:")):
+					l = self.spot_ctl.append_album(link, return_list=True)
+					if l:
+						self.pctl.cargo.extend(l)
+				elif clip.startswith("https://open.spotify.com/playlist/"):
+					self.spot_ctl.playlist(link)
+			if prefs.album_mode:
+				reload_albums()
+			self.gui.pl_update += 1
+			clip = False
+
+		found = False
+		if clip:
+			clip = clip.split("\n")
+			for i, line in enumerate(clip):
+				if line.startswith(("file://", "/")):
+					target = str(urllib.parse.unquote(line)).replace("file://", "").replace("\r", "")
+					load_order = LoadClass()
+					load_order.target = target
+					load_order.playlist = pctl.multi_playlist[pctl.active_playlist_viewing].uuid_int
+
+					if playlist_no is not None:
+						load_order.playlist = pctl.pl_to_id(playlist_no)
+					if track_id is not None:
+						load_order.playlist_position = r_menu_position
+
+					load_orders.append(copy.deepcopy(load_order))
+					found = True
+
+		if not found:
+			if playlist_no is None:
+				if track_id is None:
+					transfer(self, 0, (2, 3))
+				else:
+					transfer(self, track_id, (2, 2))
+			else:
+				append_playlist(self, playlist_no)
+
+		self.gui.pl_update += 1
+
+	def paste_playlist_coast_fire(self) -> None:
+		url = None
+		if self.spot_ctl.coasting and self.pctl.playing_state == 3:
+			url = self.spot_ctl.get_album_url_from_local(self.pctl.playing_object())
+		elif self.pctl.playing_ready() and "spotify-album-url" in self.pctl.playing_object().misc:
+			url = self.pctl.playing_object().misc["spotify-album-url"]
+		if url:
+			self.pctl.default_playlist.extend(self.spot_ctl.append_album(url, return_list=True))
+		self.gui.pl_update += 1
+
+	def paste_playlist_track_coast_fire(self) -> None:
+		url = None
+		# if self.spot_ctl.coasting and self.pctl.playing_state == 3:
+		#	 url = self.spot_ctl.get_album_url_from_local(self.pctl.playing_object())
+		if self.pctl.playing_ready() and "spotify-track-url" in self.pctl.playing_object().misc:
+			url = self.pctl.playing_object().misc["spotify-track-url"]
+		if url:
+			self.spot_ctl.append_track(url)
+		self.gui.pl_update += 1
+
+	def paste_playlist_coast_album(self) -> None:
+		shoot_dl = threading.Thread(target=self.paste_playlist_coast_fire)
+		shoot_dl.daemon = True
+		shoot_dl.start()
+
+	def paste_playlist_coast_track(self) -> None:
+		shoot_dl = threading.Thread(target=self.paste_playlist_track_coast_fire)
+		shoot_dl.daemon = True
+		shoot_dl.start()
+
+	def paste_playlist_coast_album_deco(self) -> list[list[int] | None]:
+		if self.spot_ctl.coasting or self.spot_ctl.playing:
+			line_colour = self.colours.menu_text
+		else:
+			line_colour = self.colours.menu_text_disabled
+
+		return [line_colour, self.colours.menu_background, None]
+
 	def do_exit_button(self) -> None:
-		if inp.mouse_up or inp.ab_click:
-			if gui.tray_active and prefs.min_to_tray:
-				if inp.key_shift_down:
-					tauon.exit("User clicked X button with shift key")
+		if self.inp.mouse_up or self.inp.ab_click:
+			if self.gui.tray_active and self.prefs.min_to_tray:
+				if self.inp.key_shift_down:
+					self.exit("User clicked X button with shift key")
 					return
-				tauon.min_to_tray()
-			elif gui.sync_progress and not gui.stop_sync:
+				self.min_to_tray()
+			elif self.gui.sync_progress and not self.gui.stop_sync:
 				show_message(_("Stop the sync before exiting!"))
 			else:
-				tauon.exit("User clicked X button")
+				self.exit("User clicked X button")
 
 	def do_maximize_button(self) -> None:
 		if self.gui.fullscreen:
@@ -6527,7 +6678,6 @@ class TextBox2:
 			self.paste_text = clip
 
 	def copy(self) -> None:
-
 		text = self.get_selection()
 		if not text:
 			text = self.text
@@ -6956,7 +7106,6 @@ class TextBox:
 				self.text) - self.cursor_position:]
 
 	def copy(self) -> None:
-
 		text = self.get_selection()
 		if not text:
 			text = self.text
@@ -28584,9 +28733,6 @@ def rescan_all_folders(pctl: PlayerCtl) -> None:
 	for i, p in enumerate(pctl.multi_playlist):
 		re_import2(i)
 
-def s_append(index: int) -> None:
-	paste(playlist_no=index)
-
 def append_playlist(tauon: Tauon, index: int) -> None:
 	tauon.pctl.multi_playlist[index].playlist_ids += tauon.pctl.cargo
 
@@ -31021,29 +31167,6 @@ def activate_track_box(index: int):
 def menu_paste(position):
 	paste(None, position)
 
-def s_copy():
-	# Copy tracks to internal clipboard
-	# gui.lightning_copy = False
-	# if inp.key_shift_down:
-	gui.lightning_copy = True
-
-	clip = copy_from_clipboard()
-	if "file://" in clip:
-		copy_to_clipboard("")
-
-	pctl.cargo = []
-	if pctl.default_playlist:
-		for item in gui.shift_selection:
-			pctl.cargo.append(pctl.default_playlist[item])
-
-	if not pctl.cargo and -1 < pctl.selected_in_playlist < len(pctl.default_playlist):
-		pctl.cargo.append(pctl.default_playlist[pctl.selected_in_playlist])
-
-	tauon.copied_track = None
-
-	if len(pctl.cargo) == 1:
-		tauon.copied_track = pctl.cargo[0]
-
 def directory_size(path: str) -> int:
 	total = 0
 	for dirpath, dirname, filenames in os.walk(path):
@@ -31190,132 +31313,6 @@ def lightning_paste():
 
 	pctl.cargo.clear()
 	gui.lightning_copy = False
-
-def paste(tauon: Tauon, playlist_no: int | None = None, track_id: int | None = None) -> None:
-	gui  = tauon.gui
-	pctl = tauon.pctl
-	clip = copy_from_clipboard()
-	logging.info(clip)
-	if "tidal.com/album/" in clip:
-		logging.info(clip)
-		num = clip.split("/")[-1].split("?")[0]
-		if num and num.isnumeric():
-			logging.info(num)
-			tauon.tidal.append_album(num)
-		clip = False
-
-	elif "tidal.com/playlist/" in clip:
-		logging.info(clip)
-		num = clip.split("/")[-1].split("?")[0]
-		tauon.tidal.playlist(num)
-		clip = False
-
-	elif "tidal.com/mix/" in clip:
-		logging.info(clip)
-		num = clip.split("/")[-1].split("?")[0]
-		tauon.tidal.mix(num)
-		clip = False
-
-	elif "tidal.com/browse/track/" in clip:
-		logging.info(clip)
-		num = clip.split("/")[-1].split("?")[0]
-		tauon.tidal.track(num)
-		clip = False
-
-	elif "tidal.com/browse/artist/" in clip:
-		logging.info(clip)
-		num = clip.split("/")[-1].split("?")[0]
-		tauon.tidal.artist(num)
-		clip = False
-
-	elif "spotify" in clip:
-		pctl.cargo.clear()
-		for link in clip.split("\n"):
-			logging.info(link)
-			link = link.strip()
-			if clip.startswith(("https://open.spotify.com/track/", "spotify:track:")):
-				tauon.spot_ctl.append_track(link)
-			elif clip.startswith(("https://open.spotify.com/album/", "spotify:album:")):
-				l = tauon.spot_ctl.append_album(link, return_list=True)
-				if l:
-					pctl.cargo.extend(l)
-			elif clip.startswith("https://open.spotify.com/playlist/"):
-				tauon.spot_ctl.playlist(link)
-		if prefs.album_mode:
-			reload_albums()
-		gui.pl_update += 1
-		clip = False
-
-	found = False
-	if clip:
-		clip = clip.split("\n")
-		for i, line in enumerate(clip):
-			if line.startswith(("file://", "/")):
-				target = str(urllib.parse.unquote(line)).replace("file://", "").replace("\r", "")
-				load_order = LoadClass()
-				load_order.target = target
-				load_order.playlist = pctl.multi_playlist[pctl.active_playlist_viewing].uuid_int
-
-				if playlist_no is not None:
-					load_order.playlist = pctl.pl_to_id(playlist_no)
-				if track_id is not None:
-					load_order.playlist_position = r_menu_position
-
-				load_orders.append(copy.deepcopy(load_order))
-				found = True
-
-	if not found:
-		if playlist_no is None:
-			if track_id is None:
-				transfer(tauon, 0, (2, 3))
-			else:
-				transfer(tauon, track_id, (2, 2))
-		else:
-			append_playlist(playlist_no)
-
-	gui.pl_update += 1
-
-def s_cut():
-	s_copy()
-	del_selected()
-
-def paste_playlist_coast_fire():
-	url = None
-	if tauon.spot_ctl.coasting and pctl.playing_state == 3:
-		url = tauon.spot_ctl.get_album_url_from_local(pctl.playing_object())
-	elif pctl.playing_ready() and "spotify-album-url" in pctl.playing_object().misc:
-		url = pctl.playing_object().misc["spotify-album-url"]
-	if url:
-		pctl.default_playlist.extend(tauon.spot_ctl.append_album(url, return_list=True))
-	gui.pl_update += 1
-
-def paste_playlist_track_coast_fire():
-	url = None
-	# if tauon.spot_ctl.coasting and pctl.playing_state == 3:
-	#	 url = tauon.spot_ctl.get_album_url_from_local(pctl.playing_object())
-	if pctl.playing_ready() and "spotify-track-url" in pctl.playing_object().misc:
-		url = pctl.playing_object().misc["spotify-track-url"]
-	if url:
-		tauon.spot_ctl.append_track(url)
-	gui.pl_update += 1
-
-def paste_playlist_coast_album():
-	shoot_dl = threading.Thread(target=paste_playlist_coast_fire)
-	shoot_dl.daemon = True
-	shoot_dl.start()
-
-def paste_playlist_coast_track():
-	shoot_dl = threading.Thread(target=paste_playlist_track_coast_fire)
-	shoot_dl.daemon = True
-	shoot_dl.start()
-
-def paste_playlist_coast_album_deco():
-	if tauon.spot_ctl.coasting or tauon.spot_ctl.playing:
-		line_colour = colours.menu_text
-	else:
-		line_colour = colours.menu_text_disabled
-
-	return [line_colour, colours.menu_background, None]
 
 def refind_playing():
 	# Refind playing index
@@ -37770,6 +37767,8 @@ def hit_callback(win, point, data, tauon: Tauon):
 	prefs        = tauon.prefs
 	inp          = tauon.gui.inp
 	macos        = tauon.macos
+	system       = tauon.system
+	msys         = tauon.msys
 
 	x = point.contents.x / logical_size[0] * window_size[0]
 	y = point.contents.y / logical_size[0] * window_size[0]
@@ -41005,7 +41004,7 @@ def main(holder: Holder) -> None:
 
 	tab_menu.add(MenuItem(_("Rescan Folder"), re_import2, rescan_deco, pass_ref=True, pass_ref_deco=True))
 
-	tab_menu.add(MenuItem(_("Paste"), s_append, paste_deco, pass_ref=True))
+	tab_menu.add(MenuItem(_("Paste"), tauon.s_append, paste_deco, pass_ref=True))
 	tab_menu.add(MenuItem(_("Append Playing"), append_current_playing, append_deco, pass_ref=True))
 	tab_menu.br()
 
@@ -41096,11 +41095,11 @@ def main(holder: Holder) -> None:
 	tab_menu.add_to_sub(0, MenuItem(_("Has Lyrics"), gen_lyrics, pass_ref=True))
 	extra_tab_menu.add_to_sub(0, MenuItem(_("Has Lyrics"), gen_lyrics, pass_ref=True))
 
-	playlist_menu.add(MenuItem("Paste", paste, paste_deco))
+	playlist_menu.add(MenuItem("Paste", tauon.paste, paste_deco))
 
-	playlist_menu.add(MenuItem(_("Add Playing Spotify Album"), paste_playlist_coast_album, paste_playlist_coast_album_deco,
+	playlist_menu.add(MenuItem(_("Add Playing Spotify Album"), tauon.paste_playlist_coast_album, tauon.paste_playlist_coast_album_deco,
 		show_test=spotify_show_test))
-	playlist_menu.add(MenuItem(_("Add Playing Spotify Track"), paste_playlist_coast_track, paste_playlist_coast_album_deco,
+	playlist_menu.add(MenuItem(_("Add Playing Spotify Track"), tauon.paste_playlist_coast_track, tauon.paste_playlist_coast_album_deco,
 		show_test=spotify_show_test))
 
 	# Create track context menu
@@ -41148,7 +41147,7 @@ def main(holder: Holder) -> None:
 	track_menu.br()
 	# track_menu.add('Cut', s_cut, pass_ref=False)
 	# track_menu.add('Remove', del_selected)
-	track_menu.add(MenuItem(_("Copy"), s_copy, pass_ref=False))
+	track_menu.add(MenuItem(_("Copy"), tauon.s_copy, pass_ref=False))
 
 	# track_menu.add(_('Paste + Transfer Folder'), lightning_paste, pass_ref=False, show_test=lightning_move_test)
 
@@ -41261,13 +41260,13 @@ def main(holder: Holder) -> None:
 	# It's complicated
 	# folder_menu.add(_('Copy Folder From Library'), lightning_copy)
 
-	selection_menu.add(MenuItem(_("Copy"), s_copy))
-	selection_menu.add(MenuItem(_("Cut"), s_cut))
+	selection_menu.add(MenuItem(_("Copy"), tauon.s_copy))
+	selection_menu.add(MenuItem(_("Cut"), tauon.s_cut))
 	selection_menu.add(MenuItem(_("Remove"), del_selected))
 	selection_menu.add(MenuItem(_("Delete Files"), force_del_selected, show_test=test_shift, icon=delete_icon))
 
-	folder_menu.add(MenuItem(_("Copy"), s_copy))
-	gallery_menu.add(MenuItem(_("Copy"), s_copy))
+	folder_menu.add(MenuItem(_("Copy"), tauon.s_copy))
+	gallery_menu.add(MenuItem(_("Copy"), tauon.s_copy))
 	# folder_menu.add(_('Cut'), s_cut)
 	# folder_menu.add(_('Paste + Transfer Folder'), lightning_paste, pass_ref=False, show_test=lightning_move_test)
 	# gallery_menu.add(_('Paste + Transfer Folder'), lightning_paste, pass_ref=False, show_test=lightning_move_test)
@@ -42708,20 +42707,18 @@ def main(holder: Holder) -> None:
 					if keymaps.test("add-to-queue") and pctl.selected_ready():
 						add_selected_to_queue()
 						input_text = ""
-
 				else:
-
 					if key_c_press and inp.key_ctrl_down:
 						gui.pl_update = 1
-						s_copy()
+						tauon.s_copy()
 
 					if key_x_press and inp.key_ctrl_down:
 						gui.pl_update = 1
-						s_cut()
+						tauon.s_cut()
 
 					if key_v_press and inp.key_ctrl_down:
 						gui.pl_update = 1
-						paste()
+						tauon.paste()
 
 					if keymaps.test("playpause"):
 						pctl.play_pause()
