@@ -41816,26 +41816,25 @@ def main(holder: Holder) -> None:
 						target = str(urllib.parse.unquote(line)).replace("file:///", "/")
 						drop_file(target)
 
-		if event.type == sdl3.SDL_EVENT_DROP_BEGIN:
-			gui.ext_drop_mode = True
-		elif event.type == sdl3.SDL_EVENT_DROP_POSITION:
-			mouse_position[0] = int(event.drop.x / logical_size[0] * window_size[0])
-			mouse_position[1] = int(event.drop.y / logical_size[0] * window_size[0])
-			mouse_moved = True
-			gui.mouse_unknown = False
-			gui.ext_drop_mode = True
-		elif event.type == sdl3.SDL_EVENT_DROP_COMPLETE:
-			gui.ext_drop_mode = False
-		elif event.type == sdl3.SDL_EVENT_DROP_FILE:
-			gui.ext_drop_mode = False
-			power += 5
-			dropped_file_sdl = event.drop.data
-			logging.info(f"Dropped data: {dropped_file_sdl}")
-			target = str(urllib.parse.unquote(
-				dropped_file_sdl.decode("utf-8", errors="surrogateescape"))).replace("file:///", "/").replace("\r", "")
-			#logging.info(target)
-			drop_file(target)
-
+			if event.type == sdl3.SDL_EVENT_DROP_BEGIN:
+				gui.ext_drop_mode = True
+			elif event.type == sdl3.SDL_EVENT_DROP_POSITION:
+				mouse_position[0] = int(event.drop.x / logical_size[0] * window_size[0])
+				mouse_position[1] = int(event.drop.y / logical_size[0] * window_size[0])
+				mouse_moved = True
+				gui.mouse_unknown = False
+				gui.ext_drop_mode = True
+			elif event.type == sdl3.SDL_EVENT_DROP_COMPLETE:
+				gui.ext_drop_mode = False
+			elif event.type == sdl3.SDL_EVENT_DROP_FILE:
+				gui.ext_drop_mode = False
+				power += 5
+				dropped_file_sdl = event.drop.data
+				logging.info(f"Dropped data: {dropped_file_sdl}")
+				target = str(urllib.parse.unquote(
+					dropped_file_sdl.decode("utf-8", errors="surrogateescape"))).replace("file:///", "/").replace("\r", "")
+				#logging.info(target)
+				drop_file(target)
 
 			elif event.type == 8192:
 				gui.pl_update = 1
@@ -44304,11 +44303,11 @@ def main(holder: Holder) -> None:
 					else:
 						playlist_render.cache_render()
 
-				rect = (gui.playlist_left, gui.panelY, gui.plw, window_size[1] - (gui.panelBY + gui.panelY))
+					rect = (gui.playlist_left, gui.panelY, gui.plw, window_size[1] - (gui.panelBY + gui.panelY))
 
-				if gui.ext_drop_mode and coll(rect):
-					ddt.rect_si(rect, [50, 230, 250, 255], round(5 * gui.scale))
-				fields.add(rect)
+					if gui.ext_drop_mode and coll(rect):
+						ddt.rect_si(rect, [50, 230, 250, 255], round(5 * gui.scale))
+					tauon.fields.add(rect)
 
 					if gui.combo_mode and inp.key_esc_press and is_level_zero():
 						exit_combo()
