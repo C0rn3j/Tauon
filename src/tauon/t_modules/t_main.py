@@ -708,10 +708,10 @@ class GuiVar:
 		self.center_blur_pixel = (0, 0, 0)
 
 class StarStore:
-	def __init__(self, tauon: Tauon) -> None:
+	def __init__(self, tauon: Tauon, pctl: PlayerCtl) -> None:
 		self.tauon = tauon
 		self.after_scan = tauon.after_scan
-		self.pctl = self.tauon.pctl
+		self.pctl = pctl
 		self.db = {}
 
 	def key(self, track_id: int) -> tuple[str, str, str]:
@@ -1413,7 +1413,7 @@ class PlayerCtl:
 		self.msys                      = self.tauon.msys
 		self.running:             bool = True
 		self.prefs:              Prefs = self.bag.prefs
-		self.star_store                = self.tauon.star_store
+		self.star_store                = StarStore(tauon=self.tauon, pctl=self)
 		self.lfm_scrobbler             = LastScrob(tauon=self.tauon, pctl=self)
 		self.install_directory:   Path = self.bag.dirs.install_directory
 		self.loading_in_progress: bool = False
@@ -2747,7 +2747,7 @@ class PlayerCtl:
 		# next_round = int(self.playing_time)
 		# if self.playing_time_int != next_round:
 		#	 #if not prefs.power_save:
-		#	 #gui.update += 1
+		#	 #self.gui.update += 1
 		#	 self.playing_time_int = next_round
 
 		gap_extra = 2  # 2
@@ -2825,7 +2825,7 @@ class PlayerCtl:
 					i = max(i, 0)
 
 					self.selected_in_playlist = i
-					gui.shift_selection = [i]
+					self.gui.shift_selection = [i]
 
 					self.jump(pp[i], i, jump=False)
 
@@ -5172,6 +5172,7 @@ class Tauon:
 		self.after_scan: list[TrackClass] = []
 		self.quick_import_done: list[str] = []
 		self.move_in_progress:       bool = False
+		self.msys                         = bag.msys
 		self.worker2_lock                 = threading.Lock()
 		#TODO(Martin) : Fix this by moving the class to root of the module
 		self.cachement:  player4.Cachement | None = None
@@ -5192,16 +5193,17 @@ class Tauon:
 		self.repeat_menu           = Menu(self, 120)
 		self.tab_menu              = Menu(self, 160, show_icons=True)
 		self.playlist_menu         = Menu(self, 130)
+		self.showcase_menu         = Menu(self, 135)
 		self.spotify_playlist_menu = Menu(self, 175)
 		self.fields                               = Fields(tauon=self)
 		self.artist_list_box                      = ArtistList(tauon=self)
 		self.radiobox                             = RadioBox(tauon=self)
 		self.dummy_track                          = self.radiobox.dummy_track
-		self.pctl:                      PlayerCtl = PlayerCtl(tauon=self)
+		self.pctl                                 = PlayerCtl(tauon=self)
+		self.star_store                           = self.pctl.star_store
 		self.search_over                          = SearchOverlay(tauon=self)
 		self.deco                                 = Deco(tauon=self)
-		self.lfm_scrobbler:             LastScrob = self.pctl.lfm_scrobbler
-		self.star_store:                StarStore = StarStore(tauon=self)
+		self.lfm_scrobbler                        = self.pctl.lfm_scrobbler
 		self.bottom_bar1                          = BottomBarType1(tauon=self)
 		self.top_panel                            = TopPanel(tauon=self)
 		self.playlist_box                         = PlaylistBox(tauon=self)
@@ -5214,6 +5216,7 @@ class Tauon:
 		self.tool_tip2                            = ToolTip(tauon=self)
 		self.tool_tip2.trigger                    = 1.8
 		self.undo                                 = Undo(tauon=self)
+		self.timed_lyrics_ren                     = TimedLyricsRen(tauon=self)
 		self.cache_directory:                Path = bag.dirs.cache_directory
 		self.user_directory:          Path | None = bag.dirs.user_directory
 		self.music_directory:         Path | None = bag.dirs.music_directory
@@ -5240,7 +5243,6 @@ class Tauon:
 		self.album_mode:                     bool = False
 		self.snap_mode:                      bool = bag.snap_mode
 		self.console                              = bag.console
-		self.msys                                 = bag.msys
 		self.TrackClass                           = TrackClass
 		self.pl_gen                               = pl_gen
 		self.gall_ren                             = GallClass(tauon=self, size=bag.album_mode_art_size)
@@ -7787,9 +7789,14 @@ class TimedLyricsToStatic:
 
 class TimedLyricsRen:
 
-	def __init__(self):
-
-		self.index = -1
+	def __init__(self, tauon: Tauon) -> None:
+		self.tauon     = tauon
+		self.showcase_menu = tauon.showcase_menu
+		self.top_panel = tauon.top_panel
+		self.pctl      = tauon.pctl
+		self.colours   = tauon.bag.colours
+		self.inp       = tauon.gui.inp
+		self.index     = -1
 
 		self.scanned = {}
 		self.ready = False
@@ -7798,7 +7805,6 @@ class TimedLyricsRen:
 		self.scroll_position = 0
 
 	def generate(self, track: TrackClass) -> bool | None:
-
 		if self.index == track.index:
 			return self.ready
 
@@ -7819,12 +7825,10 @@ class TimedLyricsRen:
 				continue
 
 			try:
-
 				text = line.split("]")[-1].rstrip("\n")
 				t = line
 
 				while t[0] == "[" and t[9] == "]" and ":" in t and "." in t:
-
 					a = t.lstrip("[")
 					t = t.split("]")[1] + "]"
 
@@ -7853,13 +7857,12 @@ class TimedLyricsRen:
 		return True
 
 	def render(self, index: int, x: int, y: int, side_panel: bool = False, w: int = 0, h: int = 0) -> bool | None:
-
 		if index != self.index:
 			self.ready = False
-			self.generate(pctl.master_library[index])
+			self.generate(self.pctl.master_library[index])
 
-		if inp.right_click and x and y and tauon.coll((x, y, w, h)):
-			showcase_menu.activate(pctl.master_library[index])
+		if self.inp.right_click and x and y and self.tauon.coll((x, y, w, h)):
+			self.showcase_menu.activate(self.pctl.master_library[index])
 
 		if not self.ready:
 			return False
@@ -20050,6 +20053,7 @@ class PlaylistBox:
 	def __init__(self, tauon: Tauon):
 		bag = tauon.bag
 		self.gui = tauon.gui
+		self.ddt = tauon.bag.ddt
 		self.scroll_on = bag.prefs.old_playlist_box_position
 		self.drag = False
 		self.drag_source = 0
@@ -20072,7 +20076,10 @@ class PlaylistBox:
 		self.text_offset = 2 * self.gui.scale
 		self.recalc()
 
-	def draw(self, x, y, w, h):
+	def draw(self, x: int, y: int, w: int, h: int) -> None:
+		ddt = self.ddt
+		pctl = self.pctl
+
 		# ddt.rect_r((x, y, w, h), colours.side_panel_background, True)
 		ddt.rect((x, y, w, h), colours.playlist_box_background)
 		ddt.text_background_colour = colours.playlist_box_background
@@ -22361,9 +22368,10 @@ class QueueBox:
 class MetaBox:
 
 	def __init__(self, tauon: Tauon):
-		self.tauon = tauon
-		self.ddt = tauon.bag.ddt
-		self.colours = tauon.bag.colours
+		self.tauon         = tauon
+		self.showcase_menu = tauon.showcase_menu
+		self.ddt           = tauon.bag.ddt
+		self.colours       = tauon.bag.colours
 
 	def l_panel(self, x, y, w, h, track, top_border: bool = True):
 		colours = self.colours
@@ -22416,7 +22424,7 @@ class MetaBox:
 				if inp.mouse_click:
 					pctl.show_current()
 				if inp.right_click:
-					showcase_menu.activate(track)
+					self.showcase_menu.activate(track)
 
 		ddt.rect(border_rect, border_colour)
 		ddt.rect(art_rect, colours.gallery_background)
@@ -22454,7 +22462,7 @@ class MetaBox:
 		if tauon.coll((x + 10, y, w - 10, h)):
 			if inp.right_click:  # and 3 > pctl.playing_state > 0:
 				gui.force_showcase_index = -1
-				showcase_menu.activate(track)
+				self.showcase_menu.activate(track)
 
 		# Test for scroll wheel input
 		if inp.mouse_wheel != 0 and tauon.coll((x + 10, y, w - 10, h)):
@@ -22513,7 +22521,7 @@ class MetaBox:
 		if tauon.coll((x + 10, y, w - 10, h)):
 			if inp.right_click:  # and 3 > pctl.playing_state > 0:
 				gui.force_showcase_index = -1
-				showcase_menu.activate(track)
+				self.showcase_menu.activate(track)
 
 		if pctl.playing_state == 0:
 			if not prefs.meta_persists_stop and not prefs.meta_shows_selected and not prefs.meta_shows_selected_always:
@@ -23442,7 +23450,10 @@ class RadioView:
 			gui.update += 1
 
 class Showcase:
-	def __init__(self):
+	def __init__(self, tauon: Tauon):
+		self.showcase_menu = tauon.showcase_menu
+		self.gui           = tauon.gui
+		self.colours       = tauon.bag.colours
 		self.lastfm_artist = None
 		self.artist_mode = False
 
@@ -23599,7 +23610,7 @@ class Showcase:
 				if inp.right_click:
 					# track = pctl.playing_object()
 					if track != None:
-						showcase_menu.activate(track)
+						self.showcase_menu.activate(track)
 
 			gcx = x + box + int(window_size[0] * 0.15) + 10 * gui.scale
 			gcx -= 100 * gui.scale
@@ -26699,7 +26710,6 @@ def get_network_thumbnail_url(track_object: TrackClass):
 		url = tau.resolve_picture(track_object.art_url_key)
 		assert url
 		return url
-
 	return None
 
 def jellyfin_get_playlists_thread() -> None:
@@ -28568,13 +28578,8 @@ def paste_lyrics(track_object: TrackClass):
 	else:
 		logging.warning("NO TEXT TO PASTE")
 
-#def chord_lyrics_paste_show_test(_) -> bool:
-#	return gui.combo_mode and prefs.guitar_chords
-#showcase_menu.add(MenuItem(_("Search GuitarParty"), search_guitarparty, pass_ref=True, show_test=chord_lyrics_paste_show_test))
-
-#guitar_chords = GuitarChords(user_directory=user_directory, ddt=ddt, inp=inp, gui=gui, pctl=pctl)
-#showcase_menu.add(MenuItem(_("Paste Chord Lyrics"), guitar_chords.paste_chord_lyrics, pass_ref=True, show_test=chord_lyrics_paste_show_test))
-#showcase_menu.add(MenuItem(_("Clear Chord Lyrics"), guitar_chords.clear_chord_lyrics, pass_ref=True, show_test=chord_lyrics_paste_show_test))
+def chord_lyrics_paste_show_test(_) -> bool:
+	return gui.combo_mode and prefs.guitar_chords
 
 def copy_lyrics_deco(track_object: TrackClass):
 	if track_object.lyrics:
@@ -40372,7 +40377,6 @@ def main(holder: Holder) -> None:
 	lyrics_ren_mini = LyricsRenMini()
 	lyrics_ren = LyricsRen()
 	tauon.synced_to_static_lyrics = TimedLyricsToStatic()
-	timed_lyrics_ren = TimedLyricsRen()
 	text_box_canvas_rect = sdl3.SDL_FRect(0, 0, round(2000 * gui.scale), round(40 * gui.scale))
 	text_box_canvas_hide_rect = sdl3.SDL_FRect(0, 0, round(2000 * gui.scale), round(40 * gui.scale))
 	text_box_canvas = sdl3.SDL_CreateTexture(
@@ -40467,7 +40471,7 @@ def main(holder: Holder) -> None:
 	# Create empty area menu
 	playlist_menu         = tauon.playlist_menu
 	radio_entry_menu      = Menu(tauon, 125)
-	showcase_menu         = Menu(tauon, 135)
+	showcase_menu         = tauon.showcase_menu
 	center_info_menu      = Menu(tauon, 125)
 	cancel_menu           = tauon.cancel_menu
 	gallery_menu          = Menu(tauon, 175, show_icons=True)
@@ -40571,6 +40575,12 @@ def main(holder: Holder) -> None:
 
 	showcase_menu.add(MenuItem(_("Search for Lyrics"), get_lyric_wiki, search_lyrics_deco, pass_ref=True, pass_ref_deco=True))
 	showcase_menu.add(MenuItem("Toggle synced", toggle_synced_lyrics, toggle_synced_lyrics_deco, pass_ref=True, pass_ref_deco=True))
+
+	guitar_chords = GuitarChords(user_directory=user_directory, ddt=ddt, inp=inp, gui=gui, pctl=pctl, colours=colours, mouse_wheel=inp.mouse_wheel, mouse_position=inp.mouse_position, window_size=window_size)
+	showcase_menu.add(MenuItem(_("Search GuitarParty"), guitar_chords.search_guitarparty, pass_ref=True, show_test=chord_lyrics_paste_show_test))
+	showcase_menu.add(MenuItem(_("Paste Chord Lyrics"), guitar_chords.paste_chord_lyrics, pass_ref=True, show_test=chord_lyrics_paste_show_test))
+	showcase_menu.add(MenuItem(_("Clear Chord Lyrics"), guitar_chords.clear_chord_lyrics, pass_ref=True, show_test=chord_lyrics_paste_show_test))
+
 	showcase_menu.add(MenuItem(_("Toggle Lyrics"), toggle_lyrics, toggle_lyrics_deco, pass_ref=True, pass_ref_deco=True))
 	showcase_menu.add_sub(_("Misc…"), 150)
 	showcase_menu.add_to_sub(0, MenuItem(_("Substitute Search..."), show_sub_search, pass_ref=True))
@@ -41359,7 +41369,7 @@ def main(holder: Holder) -> None:
 		MenuItem(_("Visit Website"), visit_radio_station, visit_radio_station_site_deco, pass_ref=True, pass_ref_deco=True))
 	radio_context_menu.add(MenuItem(_("Remove"), remove_station, pass_ref=True))
 
-	showcase = Showcase()
+	showcase = Showcase(tauon=tauon)
 	cctest = ColourPulse2()
 	dl_mon = DLMon(tauon=tauon)
 	tauon.dl_mon = dl_mon
