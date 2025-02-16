@@ -1569,6 +1569,159 @@ class PlayerCtl:
 
 		self.buffering_percent = 0
 
+	def move_radio_playlist(self, source: int, dest: int) -> None:
+		if dest > source:
+			dest += 1
+		try:
+			temp = self.radio_playlists[source]
+			self.radio_playlists[source] = "old"
+			self.radio_playlists.insert(dest, temp)
+			self.radio_playlists.remove("old")
+			self.radio_playlist_viewing = self.radio_playlists.index(temp)
+		except Exception:
+			logging.exception("Playlist move error")
+
+	def move_playlist(self, source: int, dest: int) -> None:
+		if dest > source:
+			dest += 1
+		try:
+			active = self.multi_playlist[self.active_playlist_playing]
+			view = self.multi_playlist[self.active_playlist_viewing]
+
+			temp = self.multi_playlist[source]
+			self.multi_playlist[source] = "old"
+			self.multi_playlist.insert(dest, temp)
+			self.multi_playlist.remove("old")
+
+			self.active_playlist_playing = self.multi_playlist.index(active)
+			self.active_playlist_viewing = self.multi_playlist.index(view)
+			self.default_playlist = self.multi_playlist[self.active_playlist_viewing].playlist_ids
+		except Exception:
+			logging.exception("Playlist move error")
+
+	def delete_playlist(self, index: int, force: bool = False, check_lock: bool = False) -> None:
+		if self.gui.radio_view:
+			del self.radio_playlists[index]
+			if not self.radio_playlists:
+				self.radio_playlists = [RadioPlaylist(uid=uid_gen(),name="Default", stations=[])]
+			return
+
+		if check_lock and pl_is_locked(index):
+			show_message(_("Playlist is locked to prevent accidental deletion"))
+			return
+
+		if not force:
+			if pl_is_locked(index):
+				show_message(_("Playlist is locked to prevent accidental deletion"))
+				return
+
+		if self.gui.rename_playlist_box:
+			return
+
+		# Set screen to be redrawn
+		self.gui.pl_update = 1
+		self.gui.update += 1
+
+		# Backup the playlist to be deleted
+		# self.playlist_backup.append(self.multi_playlist[index])
+		# self.playlist_backup.append(self.multi_playlist[index])
+		undo.bk_playlist(index)
+
+		# If we're deleting the final playlist, delete it and create a blank one in place
+		if len(self.multi_playlist) == 1:
+			logging.warning("Deleting final playlist and creating a new Default one")
+			self.multi_playlist.clear()
+			self.multi_playlist.append(pl_gen())
+			self.default_playlist = self.multi_playlist[0].playlist_ids
+			self.active_playlist_playing = 0
+			return
+
+		# Take note of the id of the playing playlist
+		old_playing_id = self.multi_playlist[self.active_playlist_playing].uuid_int
+
+		# Take note of the id of the viewed open playlist
+		old_view_id = self.multi_playlist[self.active_playlist_viewing].uuid_int
+
+		# Delete the requested playlist
+		del self.multi_playlist[index]
+
+		# Re-set the open viewed playlist number by uid
+		for i, pl in enumerate(self.multi_playlist):
+
+			if pl.uuid_int == old_view_id:
+				self.active_playlist_viewing = i
+				break
+		else:
+			# logging.info("Lost the viewed playlist!")
+			# Try find the playing playlist and make it the viewed playlist
+			for i, pl in enumerate(self.multi_playlist):
+				if pl.uuid_int == old_playing_id:
+					self.active_playlist_viewing = i
+					break
+			else:
+				# Playing playlist was deleted, lets just move down one playlist
+				if self.active_playlist_viewing > 0:
+					self.active_playlist_viewing -= 1
+
+		# Re-initiate the now viewed playlist
+		if old_view_id != self.multi_playlist[self.active_playlist_viewing].uuid_int:
+			self.default_playlist = self.multi_playlist[self.active_playlist_viewing].playlist_ids
+			self.playlist_view_position = self.multi_playlist[self.active_playlist_viewing].position
+			logging.debug("Position reset by playlist delete")
+			self.selected_in_playlist = self.multi_playlist[self.active_playlist_viewing].selected
+			self.gui.shift_selection = [self.selected_in_playlist]
+
+			if self.prefs.album_mode:
+				reload_albums(True)
+				goto_album(self.playlist_view_position)
+
+		# Re-set the playing playlist number by uid
+		for i, pl in enumerate(self.multi_playlist):
+
+			if pl.uuid_int == old_playing_id:
+				self.active_playlist_playing = i
+				break
+		else:
+			logging.info("Lost the playing playlist!")
+			self.active_playlist_playing = self.active_playlist_viewing
+			self.playlist_playing_position = -1
+
+		test_show_add_home_music(tauon=tauon)
+
+		# Cleanup
+		ids = []
+		for p in self.multi_playlist:
+			ids.append(p.uuid_int)
+
+		for key in list(self.gui.gallery_positions.keys()):
+			if key not in ids:
+				del self.gui.gallery_positions[key]
+		for key in list(self.gen_codes.keys()):
+			if key not in ids:
+				del self.gen_codes[key]
+
+		self.db_inc += 1
+
+	def delete_playlist_force(self, index: int):
+		self.delete_playlist(index, force=True, check_lock=True)
+
+	def delete_playlist_by_id(self, id: int, force: bool = False, check_lock: bool = False) -> None:
+		self.delete_playlist(self.id_to_pl(id), force=force, check_lock=check_lock)
+
+	def delete_playlist_ask(self, index: int):
+		print("ark")
+		if self.gui.radio_view:
+			self.delete_playlist_force(index)
+			return
+		gen = self.gen_codes.get(self.pl_to_id(index), "")
+		if (gen and not gen.startswith("self ")) or len(self.multi_playlist[index].playlist_ids) < 2:
+			self.delete_playlist(index)
+			return
+
+		gui.message_box_confirm_callback = delete_playlist_by_id
+		gui.message_box_confirm_reference = (self.pl_to_id(index), True, True)
+		show_message(_("Are you sure you want to delete playlist: {name}?").format(name=self.multi_playlist[index].title), mode="confirm")
+
 	def id_to_pl(self, id: int):
 		for i, item in enumerate(self.multi_playlist):
 			if item.uuid_int == id:
@@ -2734,7 +2887,7 @@ class PlayerCtl:
 					# (This is a copy of the track code, but we don't delete the item)
 
 					if not dry:
-						pl = id_to_pl(q.playlist_id)
+						pl = self.id_to_pl(q.playlist_id)
 						if pl is not None:
 							self.active_playlist_playing = pl
 
@@ -2848,7 +3001,7 @@ class PlayerCtl:
 
 			else:
 				# This is track type
-				pl = id_to_pl(q.playlist_id)
+				pl = self.id_to_pl(q.playlist_id)
 				if not dry and pl is not None:
 					self.active_playlist_playing = pl
 
@@ -9372,9 +9525,9 @@ class ExportPlaylistBox:
 			return
 		target = ""
 		if current["type"] == "xspf":
-			target = export_xspf(id_to_pl(id), direc=path, relative=current["relative"], show=False)
+			target = export_xspf(pctl.id_to_pl(id), direc=path, relative=current["relative"], show=False)
 		if current["type"] == "m3u":
-			target = export_m3u(id_to_pl(id), direc=path, relative=current["relative"], show=False)
+			target = export_m3u(pctl.id_to_pl(id), direc=path, relative=current["relative"], show=False)
 
 		if warnings and target != 1:
 			show_message(_("Playlist exported"), target, mode="done")
@@ -10338,7 +10491,7 @@ class SearchOverlay:
 							if prefs.album_mode:
 								show_in_gal(0)
 						case 8:
-							pl = id_to_pl(item[3])
+							pl = pctl.id_to_pl(item[3])
 							if pl:
 								switch_playlist(pl)
 
@@ -10364,7 +10517,7 @@ class SearchOverlay:
 						case 7:
 							self.click_year(item[1])
 						case 8:
-							pl = id_to_pl(item[3])
+							pl = pctl.id_to_pl(item[3])
 							if pl:
 								switch_playlist(pl)
 						case 11:
@@ -10377,7 +10530,7 @@ class SearchOverlay:
 				if n in (2,) and keymaps.test("add-to-queue") and fade == 1:
 					queue_object = queue_item_gen(
 						item[2],
-						pctl.multi_playlist[id_to_pl(item[3])].playlist_ids.index(item[2]),
+						pctl.multi_playlist[pctl.id_to_pl(item[3])].playlist_ids.index(item[2]),
 						item[3])
 					pctl.force_queue.append(queue_object)
 					queue_timer_set(queue_object=queue_object)
@@ -12383,7 +12536,7 @@ class Over:
 
 			pl = None
 			if prefs.sync_playlist:
-				pl = id_to_pl(prefs.sync_playlist)
+				pl = pctl.id_to_pl(prefs.sync_playlist)
 			if pl is None:
 				prefs.sync_playlist = None
 
@@ -14075,7 +14228,7 @@ class TopPanel:
 				if inp.mouse_up and tauon.playlist_box.drag and coll_point(inp.mouse_up_position, f_rect):
 
 					if gui.radio_view:
-						move_radio_playlist(playlist_box.drag_on, i)
+						pctl.move_radio_playlist(tauon.playlist_box.drag_on, i)
 					else:
 						if tauon.playlist_box.drag_source == 1:
 							pctl.multi_playlist[tauon.playlist_box.drag_on].hidden = False
@@ -14089,7 +14242,7 @@ class TopPanel:
 								pctl.multi_playlist[i].playlist_ids += pctl.multi_playlist[tauon.playlist_box.drag_on].playlist_ids
 								delete_playlist(tauon.playlist_box.drag_on, check_lock=True, force=True)
 							else:
-								move_playlist(tauon.playlist_box.drag_on, i)
+								pctl.move_playlist(tauon.playlist_box.drag_on, i)
 
 					tauon.playlist_box.drag = False
 					gui.update += 1
@@ -14156,7 +14309,7 @@ class TopPanel:
 				if tauon.playlist_box.drag_source == 1:
 					pctl.multi_playlist[tauon.playlist_box.drag_on].hidden = False
 
-				move_playlist(tauon.playlist_box.drag_on, i)
+				pctl.move_playlist(tauon.playlist_box.drag_on, i)
 			tauon.playlist_box.drag = False
 
 		# Need to test length again
@@ -19137,7 +19290,7 @@ class PlaylistBox:
 							pctl.multi_playlist[i].playlist_ids += pctl.multi_playlist[self.drag_on].playlist_ids
 							delete_playlist(self.drag_on, force=True)
 						else:
-							move_playlist(self.drag_on, i)
+							pctl.move_playlist(self.drag_on, i)
 
 					gui.update += 1
 
@@ -19361,7 +19514,7 @@ class PlaylistBox:
 						if self.drag_source == 0 and prefs.drag_to_unpin:
 							pctl.multi_playlist[self.drag_on].hidden = True
 
-						move_playlist(self.drag_on, i)
+						pctl.move_playlist(self.drag_on, i)
 						gui.update += 2
 						self.drag = False
 				elif inp.key_ctrl_down:
@@ -19519,7 +19672,7 @@ class ArtistList:
 	def prep(self):
 		self.scroll_position = 0
 
-		curren_pl_no = id_to_pl(self.id_to_load)
+		curren_pl_no = pctl.id_to_pl(self.id_to_load)
 		if curren_pl_no is None:
 			return
 		current_pl = pctl.multi_playlist[curren_pl_no]
@@ -20064,7 +20217,7 @@ class ArtistList:
 		if pctl.multi_playlist[pctl.active_playlist_viewing].parent_playlist_id:
 
 			# test if parent still exists
-			new = id_to_pl(pctl.multi_playlist[pctl.active_playlist_viewing].parent_playlist_id)
+			new = pctl.id_to_pl(pctl.multi_playlist[pctl.active_playlist_viewing].parent_playlist_id)
 			if new is None or not pctl.multi_playlist[pctl.active_playlist_viewing].title.startswith("Artist:"):
 				pctl.multi_playlist[pctl.active_playlist_viewing].parent_playlist_id = ""
 			else:
@@ -20076,7 +20229,7 @@ class ArtistList:
 			self.current_artist_track_counts = self.saves[viewing_pl_id][4]
 			self.scroll_position = self.saves[viewing_pl_id][2]
 
-			if self.saves[viewing_pl_id][3] != len(pctl.multi_playlist[id_to_pl(viewing_pl_id)].playlist_ids):
+			if self.saves[viewing_pl_id][3] != len(pctl.multi_playlist[pctl.id_to_pl(viewing_pl_id)].playlist_ids):
 				del self.saves[viewing_pl_id]
 				return
 
@@ -20438,7 +20591,7 @@ class TreeView:
 			# Hold highlight while dragging folder
 			if inp.quick_drag and not point_proximity_test(gui.drag_source_position, inp.mouse_position, 15):
 				if gui.shift_selection:
-					if pctl.get_track(pctl.multi_playlist[id_to_pl(pl_id)].playlist_ids[gui.shift_selection[0]]).fullpath.startswith(
+					if pctl.get_track(pctl.multi_playlist[pctl.id_to_pl(pl_id)].playlist_ids[gui.shift_selection[0]]).fullpath.startswith(
 							full_folder_path + "/") and self.dragging_name and item[0].endswith(self.dragging_name):
 						text_colour = (255, 255, 255, 230)
 						if semilight_mode:
@@ -20467,7 +20620,7 @@ class TreeView:
 					stem_to_new_playlist(full_folder_path)
 				elif inp.right_click:
 					if item[3]:
-						for p, id in enumerate(pctl.multi_playlist[id_to_pl(pl_id)].playlist_ids):
+						for p, id in enumerate(pctl.multi_playlist[pctl.id_to_pl(pl_id)].playlist_ids):
 							if msys:
 								if pctl.get_track(id).fullpath.startswith(target.lstrip("/")):
 									folder_tree_menu.activate(in_reference=id)
@@ -20610,7 +20763,7 @@ class TreeView:
 			yy += spacing
 
 		if self.click_drag_source and not point_proximity_test(gui.drag_source_position, inp.mouse_position, 15) and \
-			pctl.default_playlist is pctl.multi_playlist[id_to_pl(pl_id)].playlist_ids:
+			pctl.default_playlist is pctl.multi_playlist[pctl.id_to_pl(pl_id)].playlist_ids:
 			inp.quick_drag = True
 			gui.playlist_hold = True
 
@@ -20622,7 +20775,7 @@ class TreeView:
 
 			gui.shift_selection.clear()
 			set_drag_source()
-			for p, id in enumerate(pctl.multi_playlist[id_to_pl(pl_id)].playlist_ids):
+			for p, id in enumerate(pctl.multi_playlist[pctl.id_to_pl(pl_id)].playlist_ids):
 				if msys:
 					if pctl.get_track(id).fullpath.startswith(
 							self.click_drag_source[1].lstrip("/") + "/" + self.click_drag_source[0] + "/"):
@@ -20681,7 +20834,7 @@ class TreeView:
 		gui.update += 1
 
 	def gen_tree(self, pl_id):
-		pl_no = id_to_pl(pl_id)
+		pl_no = pctl.id_to_pl(pl_id)
 		if pl_no is None:
 			return
 
@@ -20772,7 +20925,7 @@ class QueueBox:
 					playlist.append(item.track_id)
 				else:
 
-					pl = id_to_pl(item.playlist_id)
+					pl = pctl.id_to_pl(item.playlist_id)
 					if pl is None:
 						logging.info("Lost the target playlist")
 						continue
@@ -20868,7 +21021,7 @@ class QueueBox:
 
 		target_track_id = queue_item.track_id
 
-		pl = id_to_pl(queue_item.playlist_id)
+		pl = pctl.id_to_pl(queue_item.playlist_id)
 		if pl is not None:
 			pctl.active_playlist_playing = pl
 
@@ -21160,7 +21313,7 @@ class QueueBox:
 
 				if d_click_timer.get() < 1:
 					if self.d_click_ref == fq[i].uuid_int:
-						pl = id_to_pl(fq[i].uuid_int)
+						pl = pctl.id_to_pl(fq[i].uuid_int)
 						if pl is not None:
 							switch_playlist(pl)
 
@@ -21255,7 +21408,7 @@ class QueueBox:
 				duration += pctl.get_track(item.track_id).length
 				tracks += 1
 			else:
-				pl = id_to_pl(item.playlist_id)
+				pl = pctl.id_to_pl(item.playlist_id)
 				if pl is not None:
 					playlist = pctl.multi_playlist[pl].playlist_ids
 					i = item.position
@@ -27088,7 +27241,7 @@ def move_playing_folder_to_stem(tauon: Tauon, path: str, pl_id: int | None = Non
 				del pl.playlist_ids[i]
 
 	# Find insert location
-	pl = pctl.multi_playlist[id_to_pl(pl_id)].playlist_ids
+	pl = pctl.multi_playlist[pctl.id_to_pl(pl_id)].playlist_ids
 
 	matches = []
 	insert = 0
@@ -28389,160 +28542,6 @@ def test_pl_tab_locked(pl: int) -> bool:
 		return False
 	return pctl.multi_playlist[pl].locked
 
-def move_radio_playlist(source, dest):
-	if dest > source:
-		dest += 1
-	try:
-		temp = pctl.radio_playlists[source]
-		pctl.radio_playlists[source] = "old"
-		pctl.radio_playlists.insert(dest, temp)
-		pctl.radio_playlists.remove("old")
-		pctl.radio_playlist_viewing = pctl.radio_playlists.index(temp)
-	except Exception:
-		logging.exception("Playlist move error")
-
-def move_playlist(tauon: Tauon, source: int, dest: int) -> None:
-	pctl = tauon.pctl
-	if dest > source:
-		dest += 1
-	try:
-		active = pctl.multi_playlist[pctl.active_playlist_playing]
-		view = pctl.multi_playlist[pctl.active_playlist_viewing]
-
-		temp = pctl.multi_playlist[source]
-		pctl.multi_playlist[source] = "old"
-		pctl.multi_playlist.insert(dest, temp)
-		pctl.multi_playlist.remove("old")
-
-		pctl.active_playlist_playing = pctl.multi_playlist.index(active)
-		pctl.active_playlist_viewing = pctl.multi_playlist.index(view)
-		pctl.default_playlist = pctl.multi_playlist[pctl.active_playlist_viewing].playlist_ids
-	except Exception:
-		logging.exception("Playlist move error")
-
-def delete_playlist(index: int, force: bool = False, check_lock: bool = False) -> None:
-	if gui.radio_view:
-		del pctl.radio_playlists[index]
-		if not pctl.radio_playlists:
-			pctl.radio_playlists = [RadioPlaylist(uid=uid_gen(),name="Default", stations=[])]
-		return
-
-	if check_lock and pl_is_locked(index):
-		show_message(_("Playlist is locked to prevent accidental deletion"))
-		return
-
-	if not force:
-		if pl_is_locked(index):
-			show_message(_("Playlist is locked to prevent accidental deletion"))
-			return
-
-	if gui.rename_playlist_box:
-		return
-
-	# Set screen to be redrawn
-	gui.pl_update = 1
-	gui.update += 1
-
-	# Backup the playlist to be deleted
-	# pctl.playlist_backup.append(pctl.multi_playlist[index])
-	# pctl.playlist_backup.append(pctl.multi_playlist[index])
-	undo.bk_playlist(index)
-
-	# If we're deleting the final playlist, delete it and create a blank one in place
-	if len(pctl.multi_playlist) == 1:
-		logging.warning("Deleting final playlist and creating a new Default one")
-		pctl.multi_playlist.clear()
-		pctl.multi_playlist.append(pl_gen())
-		pctl.default_playlist = pctl.multi_playlist[0].playlist_ids
-		pctl.active_playlist_playing = 0
-		return
-
-	# Take note of the id of the playing playlist
-	old_playing_id = pctl.multi_playlist[pctl.active_playlist_playing].uuid_int
-
-	# Take note of the id of the viewed open playlist
-	old_view_id = pctl.multi_playlist[pctl.active_playlist_viewing].uuid_int
-
-	# Delete the requested playlist
-	del pctl.multi_playlist[index]
-
-	# Re-set the open viewed playlist number by uid
-	for i, pl in enumerate(pctl.multi_playlist):
-
-		if pl.uuid_int == old_view_id:
-			pctl.active_playlist_viewing = i
-			break
-	else:
-		# logging.info("Lost the viewed playlist!")
-		# Try find the playing playlist and make it the viewed playlist
-		for i, pl in enumerate(pctl.multi_playlist):
-			if pl.uuid_int == old_playing_id:
-				pctl.active_playlist_viewing = i
-				break
-		else:
-			# Playing playlist was deleted, lets just move down one playlist
-			if pctl.active_playlist_viewing > 0:
-				pctl.active_playlist_viewing -= 1
-
-	# Re-initiate the now viewed playlist
-	if old_view_id != pctl.multi_playlist[pctl.active_playlist_viewing].uuid_int:
-		pctl.default_playlist = pctl.multi_playlist[pctl.active_playlist_viewing].playlist_ids
-		pctl.playlist_view_position = pctl.multi_playlist[pctl.active_playlist_viewing].position
-		logging.debug("Position reset by playlist delete")
-		pctl.selected_in_playlist = pctl.multi_playlist[pctl.active_playlist_viewing].selected
-		gui.shift_selection = [pctl.selected_in_playlist]
-
-		if prefs.album_mode:
-			reload_albums(True)
-			goto_album(pctl.playlist_view_position)
-
-	# Re-set the playing playlist number by uid
-	for i, pl in enumerate(pctl.multi_playlist):
-
-		if pl.uuid_int == old_playing_id:
-			pctl.active_playlist_playing = i
-			break
-	else:
-		logging.info("Lost the playing playlist!")
-		pctl.active_playlist_playing = pctl.active_playlist_viewing
-		pctl.playlist_playing_position = -1
-
-	test_show_add_home_music(tauon=tauon)
-
-	# Cleanup
-	ids = []
-	for p in pctl.multi_playlist:
-		ids.append(p.uuid_int)
-
-	for key in list(gui.gallery_positions.keys()):
-		if key not in ids:
-			del gui.gallery_positions[key]
-	for key in list(pctl.gen_codes.keys()):
-		if key not in ids:
-			del pctl.gen_codes[key]
-
-	pctl.db_inc += 1
-
-def delete_playlist_force(index: int):
-	delete_playlist(index, force=True, check_lock=True)
-
-def delete_playlist_by_id(id: int, force: bool = False, check_lock: bool = False) -> None:
-	delete_playlist(id_to_pl(id), force=force, check_lock=check_lock)
-
-def delete_playlist_ask(index: int):
-	print("ark")
-	if gui.radio_view:
-		delete_playlist_force(index)
-		return
-	gen = pctl.gen_codes.get(pctl.pl_to_id(index), "")
-	if (gen and not gen.startswith("self ")) or len(pctl.multi_playlist[index].playlist_ids) < 2:
-		delete_playlist(index)
-		return
-
-	gui.message_box_confirm_callback = delete_playlist_by_id
-	gui.message_box_confirm_reference = (pctl.pl_to_id(index), True, True)
-	show_message(_("Are you sure you want to delete playlist: {name}?").format(name=pctl.multi_playlist[index].title), mode="confirm")
-
 def rescan_tags(tauon: Tauon, pl: int) -> None:
 	for track in tauon.pctl.multi_playlist[pl].playlist_ids:
 		if tauon.pctl.master_library[track].is_cue is False:
@@ -29148,7 +29147,7 @@ def regenerate_playlist(pl: int = -1, silent: bool = False, id: int | None = Non
 		id = pctl.pl_to_id(pl)
 
 	if pl == -1:
-		pl = id_to_pl(id)
+		pl = pctl.id_to_pl(id)
 		if pl is None:
 			return
 
@@ -31510,7 +31509,7 @@ def queue_timer_set(plural: bool = False, queue_object: TauonQueueItem | None = 
 def split_queue_album(id: int) -> int | None:
 	item = pctl.force_queue[0]
 
-	pl = id_to_pl(item.playlist_id)
+	pl = pctl.id_to_pl(item.playlist_id)
 	if pl is None:
 		return None
 
@@ -34755,7 +34754,7 @@ def get_album_from_first_track(track_position, track_id=None, pl_number=None, pl
 	if pl_number is None:
 
 		if pl_id:
-			pl_number = id_to_pl(pl_id)
+			pl_number = pctl.id_to_pl(pl_id)
 		else:
 			pl_number = pctl.active_playlist_viewing
 
@@ -37380,7 +37379,7 @@ def create_artist_pl(artist: str, replace: bool = False):
 
 	if pctl.multi_playlist[source_pl].parent_playlist_id:
 		if pctl.multi_playlist[source_pl].title.startswith("Artist:"):
-			new = id_to_pl(pctl.multi_playlist[source_pl].parent_playlist_id)
+			new = pctl.id_to_pl(pctl.multi_playlist[source_pl].parent_playlist_id)
 			if new is None:
 				# The original playlist is now gone
 				pctl.multi_playlist[source_pl].parent_playlist_id = ""
@@ -37403,7 +37402,7 @@ def create_artist_pl(artist: str, replace: bool = False):
 
 		# Transfer playing track back to original playlist
 		if pctl.multi_playlist[this_pl].parent_playlist_id:
-			new = id_to_pl(pctl.multi_playlist[this_pl].parent_playlist_id)
+			new = pctl.id_to_pl(pctl.multi_playlist[this_pl].parent_playlist_id)
 			tr = pctl.playing_object()
 			if new is not None and tr and pctl.active_playlist_playing == this_pl:
 				if tr.index not in pctl.multi_playlist[this_pl].playlist_ids and tr.index in pctl.multi_playlist[source_pl].playlist_ids:
@@ -38581,7 +38580,7 @@ def save_state() -> None:
 		save_prefs(bag=bag, cf=cf)
 
 		for key, item in prefs.playlist_exports.items():
-			pl = id_to_pl(key)
+			pl = pctl.id_to_pl(key)
 			if pl is None:
 				continue
 			if item["auto"] is False:
@@ -40931,9 +40930,9 @@ def main(holder: Holder) -> None:
 	delete_icon.colour = [249, 70, 70, 255]
 
 	tab_menu.add(MenuItem(_("Delete"),
-		delete_playlist_force, pass_ref=True, hint="Ctrl+W", icon=delete_icon, disable_test=test_pl_tab_locked, pass_ref_deco=True))
+		pctl.delete_playlist_force, pass_ref=True, hint="Ctrl+W", icon=delete_icon, disable_test=test_pl_tab_locked, pass_ref_deco=True))
 	radio_tab_menu.add(MenuItem(_("Delete"),
-		delete_playlist_force, pass_ref=True, hint="Ctrl+W", icon=delete_icon, disable_test=test_pl_tab_locked, pass_ref_deco=True))
+		pctl.delete_playlist_force, pass_ref=True, hint="Ctrl+W", icon=delete_icon, disable_test=test_pl_tab_locked, pass_ref_deco=True))
 
 	heartx_icon = MenuIcon(asset_loader(bag, loaded_asset_dc, "heart-menu.png", True))
 	spot_heartx_icon = MenuIcon(asset_loader(bag, loaded_asset_dc, "heart-menu.png", True))
@@ -43776,7 +43775,7 @@ def main(holder: Holder) -> None:
 													add_album_to_queue(pctl.default_playlist[album_dex[album_on]])
 											elif inp.right_click:
 												if pctl.quick_add_target:
-													pl = id_to_pl(pctl.quick_add_target)
+													pl = pctl.id_to_pl(pctl.quick_add_target)
 													if pl is not None:
 														parent = pctl.get_track(
 															pctl.default_playlist[album_dex[album_on]]).parent_folder_path
@@ -43893,7 +43892,7 @@ def main(holder: Holder) -> None:
 
 									# Draw quick add highlight
 									if pctl.quick_add_target:
-										pl = id_to_pl(pctl.quick_add_target)
+										pl = pctl.id_to_pl(pctl.quick_add_target)
 										if pl is not None and pctl.default_playlist[album_dex[album_on]] in \
 												pctl.multi_playlist[pl].playlist_ids:
 											c = [110, 233, 90, 255]
