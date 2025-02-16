@@ -4908,6 +4908,7 @@ class Tauon:
 	"""Root class for everything Tauon"""
 	def __init__(self, holder: Holder, bag: Bag, gui: GuiVar):
 		self.bag                          = bag
+		self.inp                          = gui.inp
 		self.t_window                     = holder.t_window
 		self.t_title                      = holder.t_title
 		self.t_version                    = holder.t_version
@@ -5058,6 +5059,61 @@ class Tauon:
 		self.lastfm            = LastFMapi(tauon=self)
 
 		self.tls_context = bag.tls_context
+
+	def do_exit_button(self) -> None:
+		if inp.mouse_up or inp.ab_click:
+			if gui.tray_active and prefs.min_to_tray:
+				if inp.key_shift_down:
+					tauon.exit("User clicked X button with shift key")
+					return
+				tauon.min_to_tray()
+			elif gui.sync_progress and not gui.stop_sync:
+				show_message(_("Stop the sync before exiting!"))
+			else:
+				tauon.exit("User clicked X button")
+
+	def do_maximize_button(self) -> None:
+		if self.gui.fullscreen:
+			self.gui.fullscreen = False
+			sdl3.SDL_SetWindowFullscreen(self.t_window, 0)
+		elif self.gui.maximized:
+			self.gui.maximized = False
+			sdl3.SDL_RestoreWindow(self.t_window)
+		else:
+			self.gui.maximized = True
+			sdl3.SDL_MaximizeWindow(self.t_window)
+
+		self.inp.mouse_down = False
+		self.inp.mouse_click = False
+		self.inp.drag_mode = False
+
+	def do_minimize_button(self) -> None:
+		if self.macos:
+			# hack
+			sdl3.SDL_SetWindowBordered(self.t_window, True)
+			sdl3.SDL_MinimizeWindow(self.t_window)
+			sdl3.SDL_SetWindowBordered(self.t_window, False)
+		else:
+			sdl3.SDL_MinimizeWindow(self.t_window)
+
+		self.inp.mouse_down = False
+		self.inp.mouse_click = False
+		self.inp.drag_mode = False
+
+	def new_playlist(self, switch: bool = True) -> int | None:
+		if self.gui.radio_view:
+			self.pctl.radio_playlists.append(RadioPlaylist(uid=uid_gen(), name=_("New Radio List"), stations=[], scroll=0))
+			return None
+
+		title = gen_unique_pl_title(_("New Playlist"))
+
+		self.top_panel.prime_side = 1
+		self.top_panel.prime_tab = len(self.pctl.multi_playlist)
+
+		self.pctl.multi_playlist.append(pl_gen(title=title))  # [title, 0, [], 0, 0, 0])
+		if switch:
+			switch_playlist(len(self.pctl.multi_playlist) - 1)
+		return len(self.pctl.multi_playlist) - 1
 
 	def coll(self, r: list[int]) -> bool:
 		inp = self.gui.inp
@@ -25653,46 +25709,6 @@ def koel_get_album_thread() -> None:
 	shoot_dl.daemon = True
 	shoot_dl.start()
 
-def do_exit_button() -> None:
-	if inp.mouse_up or inp.ab_click:
-		if gui.tray_active and prefs.min_to_tray:
-			if inp.key_shift_down:
-				tauon.exit("User clicked X button with shift key")
-				return
-			tauon.min_to_tray()
-		elif gui.sync_progress and not gui.stop_sync:
-			show_message(_("Stop the sync before exiting!"))
-		else:
-			tauon.exit("User clicked X button")
-
-def do_maximize_button() -> None:
-	if gui.fullscreen:
-		gui.fullscreen = False
-		sdl3.SDL_SetWindowFullscreen(t_window, 0)
-	elif gui.maximized:
-		gui.maximized = False
-		sdl3.SDL_RestoreWindow(t_window)
-	else:
-		gui.maximized = True
-		sdl3.SDL_MaximizeWindow(t_window)
-
-	inp.mouse_down = False
-	inp.mouse_click = False
-	inp.drag_mode = False
-
-def do_minimize_button():
-	if macos:
-		# hack
-		sdl3.SDL_SetWindowBordered(t_window, True)
-		sdl3.SDL_MinimizeWindow(t_window)
-		sdl3.SDL_SetWindowBordered(t_window, False)
-	else:
-		sdl3.SDL_MinimizeWindow(t_window)
-
-	inp.mouse_down = False
-	inp.mouse_click = False
-	inp.drag_mode = False
-
 def draw_window_tools(tauon: Tauon) -> None:
 	bag         = tauon.bag
 	gui         = tauon.gui
@@ -25747,7 +25763,7 @@ def draw_window_tools(tauon: Tauon) -> None:
 		mac_circle.render(xx + 6 * gui.scale, y, colour)
 		if tauon.coll(rect) and not gui.mouse_unknown:
 			if coll_point(inp.last_click_location, rect):
-				do_exit_button()
+				tauon.do_exit_button()
 	else:
 		rect = (xx, y, x_width, h)
 		last_width = x_width
@@ -25757,7 +25773,7 @@ def draw_window_tools(tauon: Tauon) -> None:
 			ddt.rect((rect[0], rect[1], rect[2], rect[3]), bg_on)
 			tauon.top_panel.exit_button.render(rect[0] + 8 * gui.scale, rect[1] + 8 * gui.scale, x_on)
 			if coll_point(inp.last_click_location, rect):
-				do_exit_button()
+				tauon.do_exit_button()
 		else:
 			tauon.top_panel.exit_button.render(rect[0] + 8 * gui.scale, rect[1] + 8 * gui.scale, x_off)
 
@@ -25797,7 +25813,7 @@ def draw_window_tools(tauon: Tauon) -> None:
 			mac_circle.render(xx + 6 * gui.scale, y, colour)
 			if tauon.coll(rect) and not gui.mouse_unknown:
 				if (inp.mouse_up or inp.ab_click) and coll_point(inp.last_click_location, rect):
-					do_minimize_button()
+					tauon.do_minimize_button()
 
 		else:
 			if r:
@@ -25812,7 +25828,7 @@ def draw_window_tools(tauon: Tauon) -> None:
 				ddt.rect_a((rect[0], rect[1]), (rect[2], rect[3]), bg_on)
 				tauon.top_panel.maximize_button.render(rect[0] + 10 * gui.scale, rect[1] + 10 * gui.scale, fg_on)
 				if (inp.mouse_up or inp.ab_click) and coll_point(inp.last_click_location, rect):
-					do_maximize_button()
+					tauon.do_maximize_button()
 			else:
 				tauon.top_panel.maximize_button.render(rect[0] + 10 * gui.scale, rect[1] + 10 * gui.scale, fg_off)
 
@@ -25836,7 +25852,7 @@ def draw_window_tools(tauon: Tauon) -> None:
 			mac_circle.render(xx + 6 * gui.scale, y, colour)
 			if tauon.coll(rect) and not gui.mouse_unknown:
 				if (inp.mouse_up or inp.ab_click) and coll_point(inp.last_click_location, rect):
-					do_maximize_button()
+					tauon.do_maximize_button()
 		else:
 			if r:
 				xx -= mi_width
@@ -25851,7 +25867,7 @@ def draw_window_tools(tauon: Tauon) -> None:
 				ddt.rect_a((rect[0], rect[1]), (rect[2], rect[3]), bg_on)
 				ddt.rect_a((rect[0] + 11 * gui.scale, rect[1] + 16 * gui.scale), (14 * gui.scale, 3 * gui.scale), fg_on)
 				if (inp.mouse_up or inp.ab_click) and coll_point(inp.last_click_location, rect):
-					do_minimize_button()
+					tauon.do_minimize_button()
 			else:
 				ddt.rect_a(
 					(rect[0] + 11 * gui.scale, rect[1] + 16 * gui.scale), (14 * gui.scale, 3 * gui.scale), fg_off)
@@ -29021,21 +29037,6 @@ def gen_unique_pl_title(base: str, extra: str="", start: int = 1) -> str:
 		else:
 			break
 	return title
-
-def new_playlist(switch: bool = True) -> int | None:
-	if gui.radio_view:
-		pctl.radio_playlists.append(RadioPlaylist(uid=uid_gen(), name=_("New Radio List"), stations=[], scroll=0))
-		return None
-
-	title = gen_unique_pl_title(_("New Playlist"))
-
-	top_panel.prime_side = 1
-	top_panel.prime_tab = len(pctl.multi_playlist)
-
-	pctl.multi_playlist.append(pl_gen(title=title))  # [title, 0, [], 0, 0, 0])
-	if switch:
-		switch_playlist(len(pctl.multi_playlist) - 1)
-	return len(pctl.multi_playlist) - 1
 
 def append_deco():
 	if pctl.playing_state > 0:
@@ -32557,7 +32558,7 @@ def get_spot_album_track(index: int):
 # 	get_spot_recs(pctl.get_track(index))
 
 def drop_tracks_to_new_playlist(track_list: list[int], hidden: bool = False) -> None:
-	pl = new_playlist(switch=False)
+	pl = tauon.new_playlist(switch=False)
 	albums = []
 	artists = []
 	for item in track_list:
@@ -37769,6 +37770,7 @@ def hit_callback(win, point, data, tauon: Tauon):
 	gui          = tauon.gui
 	prefs        = tauon.prefs
 	inp          = tauon.gui.inp
+	macos        = tauon.macos
 
 	x = point.contents.x / logical_size[0] * window_size[0]
 	y = point.contents.y / logical_size[0] * window_size[0]
@@ -38674,7 +38676,7 @@ def drop_file(target: str) -> None:
 				gui.drop_playlist_target = pctl.active_playlist_viewing
 			else:
 				if not target.lower().endswith(".xspf"):
-					gui.drop_playlist_target = new_playlist()
+					gui.drop_playlist_target = tauon.new_playlist()
 				gui.new_playlist_cooldown = True
 	elif gui.lsp and gui.panelY < i_y < window_size[1] - gui.panelBY and i_x < gui.lspw and gui.mode == 1:
 		y = gui.panelY
@@ -38695,7 +38697,7 @@ def drop_file(target: str) -> None:
 				gui.drop_playlist_target = pctl.active_playlist_viewing
 			else:
 				if not target.lower().endswith(".xspf"):
-					gui.drop_playlist_target = new_playlist()
+					gui.drop_playlist_target = tauon.new_playlist()
 				gui.new_playlist_cooldown = True
 
 
@@ -40978,7 +40980,7 @@ def main(holder: Holder) -> None:
 
 	extra_tab_menu = Menu(tauon, 155, show_icons=True)
 
-	extra_tab_menu.add(MenuItem(_("New Playlist"), new_playlist, icon=add_icon))
+	extra_tab_menu.add(MenuItem(_("New Playlist"), tauon.new_playlist, icon=add_icon))
 
 	tab_menu.add(MenuItem(_("Upload"),
 		upload_spotify_playlist, pass_ref=True, pass_ref_deco=True, icon=jell_icon, show_test=spotify_show_test))
@@ -41319,9 +41321,9 @@ def main(holder: Holder) -> None:
 
 	extra_menu      = tauon.extra_menu
 
-	window_menu.add(MenuItem(_("Minimize"), do_minimize_button))
-	window_menu.add(MenuItem(_("Maximize"), do_maximize_button))
-	window_menu.add(MenuItem(_("Exit"), do_exit_button))
+	window_menu.add(MenuItem(_("Minimize"), tauon.do_minimize_button))
+	window_menu.add(MenuItem(_("Maximize"), tauon.do_maximize_button))
+	window_menu.add(MenuItem(_("Exit"),     tauon.do_exit_button))
 
 	# Copy text
 	field_menu.add(MenuItem(_("Copy"), field_copy, pass_ref=True))
@@ -41379,7 +41381,7 @@ def main(holder: Holder) -> None:
 	add_icon.colour = [237, 80, 221, 255]
 	add_icon.colour_callback = new_playlist_colour_callback
 
-	x_menu.add(MenuItem(_("New Playlist"), new_playlist, new_playlist_deco, icon=add_icon))
+	x_menu.add(MenuItem(_("New Playlist"), tauon.new_playlist, new_playlist_deco, icon=add_icon))
 
 	x_menu.add(MenuItem(_("Clean Database!"), clean_db_fast, clean_db_deco, show_test=clean_db_show_test))
 
@@ -42850,13 +42852,13 @@ def main(holder: Holder) -> None:
 			inp.ab_click = False
 
 			if keymaps.test("new-playlist"):
-				new_playlist()
+				tauon.new_playlist()
 
 			if keymaps.test("edit-generator"):
 				edit_generator_box(pctl.active_playlist_viewing)
 
 			if keymaps.test("new-generator-playlist"):
-				new_playlist()
+				tauon.new_playlist()
 				edit_generator_box(pctl.active_playlist_viewing)
 
 			if keymaps.test("delete-playlist"):
@@ -44690,7 +44692,7 @@ def main(holder: Holder) -> None:
 							inp.mouse_position[0] > tauon.top_panel.tabs_right_x and \
 							inp.mouse_position[0] < window_size[0] - gui.offset_extra:
 
-						do_minimize_button()
+						tauon.do_minimize_button()
 
 					# edge_playlist.render(gui.playlist_left, gui.panelY, gui.plw, 2 * gui.scale)
 
