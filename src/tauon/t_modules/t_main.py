@@ -5166,6 +5166,7 @@ class Tauon:
 		self.move_jobs:              list = []
 		self.to_scan:                list = []
 		self.after_scan: list[TrackClass] = []
+		self.quick_import_done: list[str] = []
 		self.move_in_progress:       bool = False
 		self.worker2_lock                 = threading.Lock()
 		#TODO(Martin) : Fix this by moving the class to root of the module
@@ -6076,20 +6077,20 @@ class Tauon:
 
 		if self.system != "windows":
 			gmp = get_global_mouse()
-			gwp = get_window_position()
+			gwp = get_window_position(self.t_window)
 			i_x = gmp[0] - gwp[0]
 			i_x = max(i_x, 0)
-			i_x = min(i_x, window_size[0])
+			i_x = min(i_x, self.bag.window_size[0])
 			i_y = gmp[1] - gwp[1]
 			i_y = max(i_y, 0)
-			i_y = min(i_y, window_size[1])
+			i_y = min(i_y, self.bag.window_size[1])
 		else:
 			i_y = pointer(c_int(0))
 			i_x = pointer(c_int(0))
 
 			sdl3.SDL_GetMouseState(i_x, i_y)
-			i_y = i_y.contents.value / logical_size[0] * window_size[0]
-			i_x = i_x.contents.value / logical_size[0] * window_size[0]
+			i_y = i_y.contents.value / self.bag.logical_size[0] * self.bag.window_size[0]
+			i_x = i_x.contents.value / self.bag.logical_size[0] * self.bag.window_size[0]
 
 		#logging.info((i_x, i_y))
 		self.gui.drop_playlist_target = 0
@@ -6151,14 +6152,14 @@ class Tauon:
 		load_order.target = target.replace("\\", "/")
 
 		if os.path.isdir(load_order.target):
-			quick_import_done.append(load_order.target)
+			self.quick_import_done.append(load_order.target)
 
 			# if not pctl.multi_playlist[self.gui.drop_playlist_target].last_folder:
 			self.pctl.multi_playlist[self.gui.drop_playlist_target].last_folder.append(load_order.target)
-			reduce_paths(pctl.multi_playlist[self.gui.drop_playlist_target].last_folder)
+			reduce_paths(self.pctl.multi_playlist[self.gui.drop_playlist_target].last_folder)
 
 		load_order.playlist = self.pctl.multi_playlist[self.gui.drop_playlist_target].uuid_int
-		load_orders.append(copy.deepcopy(load_order))
+		self.load_orders.append(copy.deepcopy(load_order))
 
 		#logging.info('dropped: ' + str(dropped_file))
 		self.gui.update += 1
@@ -24187,8 +24188,8 @@ class ViewBox:
 
 class DLMon:
 
-	def __init__(self):
-
+	def __init__(self, tauon: Tauon) -> None:
+		self.tauon = tauon
 		self.ticker = Timer()
 		self.ticker.force_set(8)
 
@@ -24274,7 +24275,7 @@ class DLMon:
 
 				elif min_age < 60 \
 				and os.path.isdir(path) \
-				and path not in quick_import_done \
+				and path not in tauon.quick_import_done \
 				and "encode-output" not in path:
 					try:
 						size = get_folder_size(path)
@@ -24314,10 +24315,10 @@ class DLMon:
 
 		if len(self.ready) > 0:
 			temp = set()
-			#logging.info(quick_import_done)
+			#logging.info(tauon.quick_import_done)
 			#logging.info(self.ready)
 			for item in self.ready:
-				if item not in quick_import_done:
+				if item not in tauon.quick_import_done:
 					if os.path.exists(path):
 						temp.add(item)
 				# else:
@@ -25670,7 +25671,7 @@ def get_global_mouse() -> tuple[int, int]:
 	sdl3.SDL_GetGlobalMouseState(i_x, i_y)
 	return i_x.contents.value, i_y.contents.value
 
-def get_window_position() -> tuple[int, int]:
+def get_window_position(t_window: sdl3.SDL_Window) -> tuple[int, int]:
 	i_y = pointer(c_int(0))
 	i_x = pointer(c_int(0))
 	sdl3.SDL_GetWindowPosition(t_window, i_x, i_y)
@@ -35970,7 +35971,7 @@ def worker1(tauon: Tauon) -> None:
 
 						to_got = b
 						gets(target_dir)
-						quick_import_done.append(target_dir)
+						tauon.quick_import_done.append(target_dir)
 					# gets(target_dir)
 
 			return 1
@@ -36797,7 +36798,7 @@ def set_mini_mode():
 		update_layout_do(tauon=tauon)
 
 	if gui.mode < 3:
-		old_window_position = get_window_position()
+		old_window_position = get_window_position(t_window)
 
 	if prefs.mini_mode_on_top:
 		sdl3.SDL_SetWindowAlwaysOnTop(t_window, True)
@@ -41358,7 +41359,7 @@ def main(holder: Holder) -> None:
 
 	showcase = Showcase()
 	cctest = ColourPulse2()
-	dl_mon = DLMon()
+	dl_mon = DLMon(tauon=tauon)
 	tauon.dl_mon = dl_mon
 	dl_menu.add(MenuItem("Dismiss", dismiss_dl))
 
@@ -41481,8 +41482,6 @@ def main(holder: Holder) -> None:
 
 	if gui.remember_library_mode:
 		toggle_library_mode()
-
-	quick_import_done = []
 
 	if reload_state:
 		if reload_state[0] == 1:
@@ -41748,7 +41747,7 @@ def main(holder: Holder) -> None:
 				if pctl.playing_ready() and link.startswith("http"):
 					if system != "windows" and sdl3.SDL_version >= 204:
 						gmp = get_global_mouse()
-						gwp = get_window_position()
+						gwp = get_window_position(t_window)
 						i_x = gmp[0] - gwp[0]
 						i_x = max(i_x, 0)
 						i_x = min(i_x, window_size[0])
@@ -46520,7 +46519,7 @@ def main(holder: Holder) -> None:
 		logging.info("Sending scrobble before close...")
 
 	if gui.mode < 3:
-		old_window_position = get_window_position()
+		old_window_position = get_window_position(t_window)
 
 
 	sdl3.SDL_DestroyTexture(gui.main_texture)
