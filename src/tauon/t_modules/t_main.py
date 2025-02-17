@@ -7349,9 +7349,10 @@ class KoelService:
 
 class TauService:
 	def __init__(self, tauon: Tauon) -> None:
-		self.pctl       = tauon.pctl
-		self.prefs      = tauon.prefs
-		self.processing = False
+		self.pctl              = tauon.pctl
+		self.prefs             = tauon.prefs
+		self.install_directory = tauon.install_directory
+		self.processing        = False
 
 	def resolve_stream(self, key: str) -> str:
 		return "http://" + self.prefs.sat_url + ":7814/api1/file/" + key
@@ -7487,17 +7488,18 @@ class STray:
 		self.tauon.exit("Exit called from tray.")
 
 	def start(self) -> None:
-		menu_options = (("Show", None, self.up),
-						("Play/Pause", None, self.pause),
-						("Stop", None, self.track_stop),
-						("Forward", None, self.advance),
-						("Back", None, self.back))
+		menu_options = (
+			("Show", None, self.up),
+			("Play/Pause", None, self.pause),
+			("Stop", None, self.track_stop),
+			("Forward", None, self.advance),
+			("Back", None, self.back))
 		self.systray = SysTrayIcon(
-			str(install_directory / "assets" / "icon.ico"), "Tauon Music Box",
+			str(self.install_directory / "assets" / "icon.ico"), "Tauon Music Box",
 			menu_options, on_quit=self.on_quit_callback)
 		self.systray.start()
 		self.active = True
-		gui.tray_active = True
+		self.gui.tray_active = True
 
 	def stop(self) -> None:
 		self.systray.shutdown()
@@ -7505,6 +7507,8 @@ class STray:
 
 class GStats:
 	def __init__(self, tauon: Tauon) -> None:
+		self.pctl       = tauon.pctl
+		self.star_store = tauon.star_store
 		self.last_db = 0
 		self.last_pl = 0
 		self.artist_list = []
@@ -7513,22 +7517,21 @@ class GStats:
 		self.genre_dict = {}
 
 	def update(self, playlist):
-
 		pt = 0
 
-		if pctl.master_count != self.last_db or self.last_pl != playlist:
-			self.last_db = pctl.master_count
+		if self.pctl.master_count != self.last_db or self.last_pl != playlist:
+			self.last_db = self.pctl.master_count
 			self.last_pl = playlist
 
 			artists = {}
 
-			for index in pctl.multi_playlist[playlist].playlist_ids:
-				artist = pctl.master_library[index].artist
+			for index in self.pctl.multi_playlist[playlist].playlist_ids:
+				artist = self.pctl.master_library[index].artist
 
 				if artist == "":
 					artist = "<Artist Unspecified>"
 
-				pt = int(star_store.get(index))
+				pt = int(self.star_store.get(index))
 				if pt < 30:
 					continue
 
@@ -7546,10 +7549,10 @@ class GStats:
 			genres = {}
 			genre_dict = {}
 
-			for index in pctl.multi_playlist[playlist].playlist_ids:
-				genre_r = pctl.master_library[index].genre
+			for index in self.pctl.multi_playlist[playlist].playlist_ids:
+				genre_r = self.pctl.master_library[index].genre
 
-				pt = int(star_store.get(index))
+				pt = int(self.star_store.get(index))
 
 				gn = []
 				if "," in genre_r:
@@ -7628,13 +7631,13 @@ class GStats:
 
 			g_albums = {}
 
-			for index in pctl.multi_playlist[playlist].playlist_ids:
-				album = pctl.master_library[index].album
+			for index in self.pctl.multi_playlist[playlist].playlist_ids:
+				album = self.pctl.master_library[index].album
 
 				if album == "":
 					album = "<Album Unspecified>"
 
-				pt = int(star_store.get(index))
+				pt = int(self.star_store.get(index))
 
 				if pt < 30:
 					continue
@@ -7651,18 +7654,24 @@ class GStats:
 			self.album_list = copy.deepcopy(sorted_list)
 
 class Drawing:
+	def __init__(self, tauon: Tauon) -> None:
+		self.tauon      = tauon
+		self.gui        = tauon.gui
+		self.inp        = tauon.gui.inp
+		self.ddt        = tauon.bag.ddt
+		self.star_store = tauon.star_store
 
 	def button(
 		self, text, x, y, w=None, h=None, font=212, text_highlight_colour=None, text_colour=None,
 		background_colour=None, background_highlight_colour=None, press=None, tooltip=""):
 
 		if w is None:
-			w = ddt.get_text_w(text, font) + 18 * gui.scale
+			w = self.ddt.get_text_w(text, font) + 18 * self.gui.scale
 		if h is None:
-			h = 22 * gui.scale
+			h = 22 * self.gui.scale
 
 		rect = (x, y, w, h)
-		tauon.fields.add(rect)
+		self.tauon.fields.add(rect)
 
 		if text_highlight_colour is None:
 			text_highlight_colour = colours.box_button_text_highlight
@@ -7676,35 +7685,38 @@ class Drawing:
 		click = False
 
 		if press is None:
-			press = inp.mouse_click
+			press = self.inp.mouse_click
 
-		if tauon.coll(rect):
+		if self.tauon.coll(rect):
 			if tooltip:
-				tauon.tool_tip.test(x + 15 * gui.scale, y - 28 * gui.scale, tooltip)
-			ddt.rect(rect, background_highlight_colour)
+				self.tauon.tool_tip.test(x + 15 * self.gui.scale, y - 28 * self.gui.scale, tooltip)
+			self.ddt.rect(rect, background_highlight_colour)
 
 			# if background_highlight_colour[3] != 255:
 			#	 background_highlight_colour = None
 
 			ddt.text(
-				(rect[0] + int(rect[2] / 2), rect[1] + 2 * gui.scale, 2), text, text_highlight_colour, font, bg=background_highlight_colour)
+				(rect[0] + int(rect[2] / 2), rect[1] + 2 * self.gui.scale, 2), text, text_highlight_colour, font, bg=background_highlight_colour)
 			if press:
 				click = True
 		else:
-			ddt.rect(rect, background_colour)
+			self.ddt.rect(rect, background_colour)
 			if background_highlight_colour[3] != 255:
 				background_colour = None
-			ddt.text(
-				(rect[0] + int(rect[2] / 2), rect[1] + 2 * gui.scale, 2), text, text_colour, font, bg=background_colour)
+			self.ddt.text(
+				(rect[0] + int(rect[2] / 2), rect[1] + 2 * self.gui.scale, 2), text, text_colour, font, bg=background_colour)
 		return click
 
 class DropShadow:
 
-	def __init__(self, gui: GuiVar):
+	def __init__(self, tauon: Tauon) -> None:
+		self.gui      = tauon.gui
+		self.ddt      = tauon.ddt
+		self.renderer = tauon.bag.renderer
 		self.readys = {}
-		self.underscan = int(15 * gui.scale)
+		self.underscan = int(15 * tauon.gui.scale)
 		self.radius = 4
-		self.grow = 2 * gui.scale
+		self.grow = 2 * tauon.gui.scale
 		self.opacity = 90
 
 	def prepare(self, w, h):
@@ -7723,9 +7735,9 @@ class DropShadow:
 		g.seek(0)
 
 
-		s_image = ddt.load_image(g)
+		s_image = self.ddt.load_image(g)
 
-		c = sdl3.SDL_CreateTextureFromSurface(renderer, s_image)
+		c = sdl3.SDL_CreateTextureFromSurface(self.renderer, s_image)
 		sdl3.SDL_SetTextureAlphaMod(c, self.opacity)
 
 		tex_w = pointer(c_float(0))
@@ -7750,22 +7762,25 @@ class DropShadow:
 		unit = self.readys[(w, h)]
 		unit[0].x = round(x) - round(self.underscan)
 		unit[0].y = round(y) - round(self.underscan)
-		sdl3.SDL_RenderTexture(renderer, unit[1], None, unit[0])
+		sdl3.SDL_RenderTexture(self.renderer, unit[1], None, unit[0])
 
 class LyricsRenMini:
 
-	def __init__(self):
+	def __init__(self, tauon: Tauon) -> None:
+		self.pctl  = tauon.pctl
+		self.ddt   = tauon.ddt
+		self.prefs = tauon.prefs
 		self.index = -1
-		self.text = ""
+		self.text  = ""
 
 		self.lyrics_position = 0
 
 	def generate(self, index, w):
-		self.text = pctl.master_library[index].lyrics
+		self.text = self.pctl.master_library[index].lyrics
 		self.lyrics_position = 0
 
 	def render(self, index, x, y, w, h, p):
-		if index != self.index or self.text != pctl.master_library[index].lyrics:
+		if index != self.index or self.text != self.pctl.master_library[index].lyrics:
 			self.index = index
 			self.generate(index, w)
 
@@ -7777,7 +7792,7 @@ class LyricsRenMini:
 		#	 if inp.mouse_wheel > 0:
 		#		 prefs.lyrics_font_size -= 1
 
-		ddt.text((x, y, 4, w), self.text, colour, prefs.lyrics_font_size, w - (w % 2), colours.side_panel_background)
+		self.ddt.text((x, y, 4, w), self.text, colour, self.prefs.lyrics_font_size, w - (w % 2), colours.side_panel_background)
 
 class LyricsRen:
 
@@ -40308,7 +40323,7 @@ def main(holder: Holder) -> None:
 	ddt.force_subpixel_text = prefs.force_subpixel_text
 
 	launch = Launch(tauon, pctl, gui, ddt)
-	draw = Drawing()
+	draw = Drawing(tauon=tauon)
 	if system == "Linux":
 		prime_fonts(bag)
 	else:
@@ -40375,8 +40390,8 @@ def main(holder: Holder) -> None:
 		ddt.win_prime_font(standard_font, 19, 515, weight=standard_weight, y_offset=1)
 		ddt.win_prime_font(standard_font, 20, 516, weight=standard_weight, y_offset=1)
 		ddt.win_prime_font(standard_font, 21, 517, weight=standard_weight, y_offset=1)
-	drop_shadow = DropShadow(gui)
-	lyrics_ren_mini = LyricsRenMini()
+	drop_shadow = DropShadow(tauon=tauon)
+	lyrics_ren_mini = LyricsRenMini(tauon=tauon)
 	lyrics_ren = LyricsRen()
 	tauon.synced_to_static_lyrics = TimedLyricsToStatic()
 	text_box_canvas_rect = sdl3.SDL_FRect(0, 0, round(2000 * gui.scale), round(40 * gui.scale))
