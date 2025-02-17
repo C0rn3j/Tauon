@@ -24753,7 +24753,7 @@ class Bag:
 	dirs:                   Directories
 	prefs:                  Prefs
 	formats:                Formats
-	renderer:               sdl3.SDL_Renderer
+	renderer:               sdl3.LP_SDL_Renderer
 	ddt:                    TDraw
 	fonts:                  Fonts
 	tls_context:            ssl.SSLContext
@@ -25830,7 +25830,7 @@ def get_global_mouse() -> tuple[int, int]:
 	sdl3.SDL_GetGlobalMouseState(i_x, i_y)
 	return i_x.contents.value, i_y.contents.value
 
-def get_window_position(t_window: sdl3.SDL_Window) -> tuple[int, int]:
+def get_window_position(t_window: sdl3.LP_SDL_Window) -> tuple[int, int]:
 	i_y = pointer(c_int(0))
 	i_x = pointer(c_int(0))
 	sdl3.SDL_GetWindowPosition(t_window, i_x, i_y)
