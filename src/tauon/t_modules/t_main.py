@@ -5167,8 +5167,14 @@ class Tauon:
 	"""Root class for everything Tauon"""
 	def __init__(self, holder: Holder, bag: Bag, gui: GuiVar):
 		self.bag                          = bag
+		self.macos                        = bag.macos
 		self.system                       = bag.system
 		self.colours                      = bag.colours
+		self.cache_directory:        Path = bag.dirs.cache_directory
+		self.user_directory:  Path | None = bag.dirs.user_directory
+		self.install_directory            = bag.dirs.install_directory
+		self.music_directory: Path | None = bag.dirs.music_directory
+		self.locale_directory:       Path = bag.dirs.locale_directory
 		self.inp                          = gui.inp
 		self.n_version                    = holder.n_version
 		self.t_window                     = holder.t_window
@@ -5261,6 +5267,7 @@ class Tauon:
 		self.playlist_box                         = PlaylistBox(tauon=self)
 		self.radio_view                           = RadioView(tauon=self)
 		self.view_box                             = ViewBox(tauon=self)
+		self.artist_info_box                      = ArtistInfoBox(tauon=self)
 		self.pref_box                             = Over(tauon=self)
 		self.fader                                = Fader(tauon=self)
 		self.album_art_gen                        = AlbumArt(tauon=self)
@@ -5269,11 +5276,6 @@ class Tauon:
 		self.tool_tip2.trigger                    = 1.8
 		self.undo                                 = Undo(tauon=self)
 		self.timed_lyrics_ren                     = TimedLyricsRen(tauon=self)
-		self.cache_directory:                Path = bag.dirs.cache_directory
-		self.user_directory:          Path | None = bag.dirs.user_directory
-		self.install_directory                    = bag.dirs.install_directory
-		self.music_directory:         Path | None = bag.dirs.music_directory
-		self.locale_directory:               Path = bag.dirs.locale_directory
 		self.transcode_list:      list[list[int]] = []
 		self.transcode_state:                 str = ""
 		# TODO(Martin): Rework this LC_* stuff, maybe use a simple object instead?
@@ -5324,7 +5326,6 @@ class Tauon:
 		self.quick_close = False
 
 		self.copied_track = None
-		self.macos = bag.macos
 		self.aud: CDLL | None = None
 
 		self.recorded_songs = []
@@ -8446,7 +8447,7 @@ class TextBox2:
 			rect = sdl3.SDL_Rect(pixel_to_logical(x), pixel_to_logical(y), pixel_to_logical(tw), pixel_to_logical(th))
 			sdl3.SDL_SetTextInputArea(self.t_window, rect, pixel_to_logical(space))
 
-		tauon.animate_monitor_timer.set()
+		self.tauon.animate_monitor_timer.set()
 
 		text_box_canvas_hide_rect.x = 0
 		text_box_canvas_hide_rect.y = 0
@@ -8551,6 +8552,9 @@ class TextBox:
 	def draw(
 		self, x: int, y: int, colour: list[int], active: bool = True, secret: bool = False,
 		font: int = 13, width: int = 0, click: bool = False, selection_height: int = 18, big: bool = False):
+		inp = self.inp
+		ddt = self.ddt
+		gui = self.gui
 
 		# A little bit messy
 		# For now, this is set up so where 'width' is set > 0, the cursor position becomes editable,
@@ -8570,11 +8574,11 @@ class TextBox:
 				select_rect = (x - 50 * gui.scale, y - 15 * gui.scale, width + 50 * gui.scale, 35 * gui.scale)
 
 			# Activate Menu
-			if tauon.coll(rect):
+			if self.tauon.coll(rect):
 				if inp.right_click or inp.level_2_right_click:
-					field_menu.activate(self)
+					self.tauon.field_menu.activate(self)
 
-			if click and field_menu.active:
+			if click and self.tauon.field_menu.active:
 				# field_menu.click()
 				click = False
 
@@ -8687,10 +8691,10 @@ class TextBox:
 				self.selection = len(self.text)
 
 			# ddt.rect_r(rect, [255, 50, 50, 80], True)
-			if tauon.coll(rect) and not field_menu.active:
+			if self.tauon.coll(rect) and not self.tauon.field_menu.active:
 				gui.cursor_want = 2
 
-			tauon.fields.add(rect)
+			self.tauon.fields.add(rect)
 
 			# Delete key to remove text in front of cursor
 			if key_del:
@@ -8712,7 +8716,7 @@ class TextBox:
 				if not inp.key_shift_down and not inp.key_shiftr_down:
 					self.selection = self.cursor_position
 
-			if tauon.coll(select_rect):
+			if self.tauon.coll(select_rect):
 				# ddt.rect_r((x - 15, y, width + 16, 19), [50, 255, 50, 50], True)
 				if click:
 					pre = 0
@@ -8756,7 +8760,6 @@ class TextBox:
 
 							if inp.mouse_position[0] >= x + pre + int(diff / 2):
 								self.selection = len(self.text) - i - 1
-
 							else:
 								self.selection = len(self.text) - i
 
@@ -8842,9 +8845,9 @@ class TextBox:
 					[245, 245, 245, 255])
 
 			rect = sdl3.SDL_Rect(pixel_to_logical(x), pixel_to_logical(y), pixel_to_logical(tw), pixel_to_logical(th))
-			sdl3.SDL_SetTextInputArea(t_window, rect, pixel_to_logical(space))
+			sdl3.SDL_SetTextInputArea(self.t_window, rect, pixel_to_logical(space))
 
-		tauon.animate_monitor_timer.set()
+		self.tauon.animate_monitor_timer.set()
 
 class ImageObject:
 	def __init__(self) -> None:
@@ -8861,9 +8864,19 @@ class ImageObject:
 
 class AlbumArt:
 	def __init__(self, tauon: Tauon) -> None:
+		self.tauon                = tauon
+		self.pctl                 = tauon.pctl
+		self.msys                 = tauon.msys
+		self.macos                = tauon.macos
+		self.system               = tauon.system
 		self.gui                  = tauon.gui
+		self.prefs                = tauon.prefs
+		self.ddt                  = tauon.bag.ddt
+		self.renderer             = tauon.bag.renderer
 		self.tls_context          = tauon.bag.tls_context
 		self.folder_image_offsets = tauon.bag.folder_image_offsets
+		self.install_directory    = tauon.install_directory
+		self.window_size          = tauon.bag.window_size
 		self.image_types = {"jpg", "JPG", "jpeg", "JPEG", "PNG", "png", "BMP", "bmp", "GIF", "gif", "jxl", "JXL"}
 		self.art_folder_names = {
 			"art", "scans", "scan", "booklet", "images", "image", "cover",
@@ -8989,7 +9002,7 @@ class AlbumArt:
 		return source_list
 
 	def get_error_img(self, size: float) -> ImageFile:
-		im = Image.open(str(install_directory / "assets" / "load-error.png"))
+		im = Image.open(str(self.install_directory / "assets" / "load-error.png"))
 		im.thumbnail((size, size), Image.Resampling.LANCZOS)
 		return im
 
@@ -9019,7 +9032,7 @@ class AlbumArt:
 		bh = round(box[1])
 		bw = round(box[0])
 
-		if prefs.zoom_art:
+		if self.prefs.zoom_art:
 			temp_dest.w, temp_dest.h = fit_box((unit.original_size[0], unit.original_size[1]), box)
 		else:
 
@@ -9045,7 +9058,7 @@ class AlbumArt:
 		sdl3.SDL_RenderTexture(renderer, unit.texture, None, temp_dest)
 		style_overlay.hole_punches.append(temp_dest)
 
-		gui.art_drawn_rect = (temp_dest.x, temp_dest.y, temp_dest.w, temp_dest.h)
+		self.gui.art_drawn_rect = (temp_dest.x, temp_dest.y, temp_dest.w, temp_dest.h)
 
 		return 0
 
@@ -9086,9 +9099,9 @@ class AlbumArt:
 		else:
 			target = source[offset][1]
 
-		if system == "Windows" or msys:
+		if self.system == "Windows" or self.msys:
 			os.startfile(target)
-		elif macos:
+		elif self.macos:
 			subprocess.call(["open", target])
 		else:
 			subprocess.call(["xdg-open", target])
@@ -9137,8 +9150,8 @@ class AlbumArt:
 		filepath = track.fullpath
 
 		# Use cached file if present
-		if prefs.precache and tauon.cachement:
-			path = tauon.cachement.get_file_cached_only(track)
+		if self.prefs.precache and self.tauon.cachement:
+			path = self.tauon.cachement.get_file_cached_only(track)
 			if path:
 				filepath = path
 
@@ -9200,17 +9213,17 @@ class AlbumArt:
 		elif subsource[0] == 2:
 			try:
 				if track.file_ext == "RADIO" or track.file_ext == "Spotify":
-					if pctl.radio_image_bin:
-						return pctl.radio_image_bin
+					if self.pctl.radio_image_bin:
+						return self.pctl.radio_image_bin
 
 				cached_path = os.path.join(n_cache_dir, hashlib.md5(track.art_url_key.encode()).hexdigest()[:12])
 				if os.path.isfile(cached_path):
 					source_image = open(cached_path, "rb")
 				else:
 					if track.file_ext == "SUB":
-						source_image = subsonic.get_cover(track)
+						source_image = self.tauon.subsonic.get_cover(track)
 					elif track.file_ext == "JELY":
-						source_image = jellyfin.get_cover(track)
+						source_image = self.tauon.jellyfin.get_cover(track)
 					else:
 						response = urllib.request.urlopen(get_network_thumbnail_url(track), context=self.tls_context)
 						source_image = io.BytesIO(response.read())
@@ -9285,13 +9298,13 @@ class AlbumArt:
 			return open(path, "rb")
 
 		# Try last.fm background
-		path = artist_info_box.get_data(artist, get_img_path=True)
+		path = self.tauon.artist_info_box.get_data(artist, get_img_path=True)
 		if os.path.isfile(path):
 			logging.info("Load cached background lfm")
 			return open(path, "rb")
 
 		# Check we've not already attempted a search for this artist
-		if artist in prefs.failed_background_artists:
+		if artist in self.prefs.failed_background_artists:
 			return None
 
 		# Get artist MBID
@@ -9300,18 +9313,18 @@ class AlbumArt:
 			artist_id = s["artist-list"][0]["id"]
 		except Exception:
 			logging.exception(f"Failed to find artist MBID for: {artist}")
-			prefs.failed_background_artists.append(artist)
+			self.prefs.failed_background_artists.append(artist)
 			return None
 
 		# Search fanart.tv for background
 		try:
 			r = requests.get(
 				"https://webservice.fanart.tv/v3/music/" \
-				+ artist_id + "?api_key=" + prefs.fatvap, timeout=(4, 10))
+				+ artist_id + "?api_key=" + self.prefs.fatvap, timeout=(4, 10))
 
 			artlink = r.json()["artistbackground"][0]["url"]
 
-			response = urllib.request.urlopen(artlink, context=tls_context)
+			response = urllib.request.urlopen(artlink, context=self.tls_context)
 			info = response.info()
 
 			assert info.get_content_maintype() == "image"
@@ -9334,21 +9347,21 @@ class AlbumArt:
 
 		except Exception:
 			logging.exception(f"Failed to find fanart background for: {artist}")
-			if not gui.artist_info_panel:
-				artist_info_box.get_data(artist)
-				path = artist_info_box.get_data(artist, get_img_path=True)
+			if not self.gui.artist_info_panel:
+				self.tauon.artist_info_box.get_data(artist)
+				path = self.tauon.artist_info_box.get_data(artist, get_img_path=True)
 				if os.path.isfile(path):
 					logging.debug("Downloaded background lfm")
 					return open(path, "rb")
 
 
-			prefs.failed_background_artists.append(artist)
+			self.prefs.failed_background_artists.append(artist)
 			return None
 
 	def get_blur_im(self, track: TrackClass) -> BytesIO | bool | None:
 		source_image = None
 		self.loaded_bg_type = 0
-		if prefs.enable_fanart_bg:
+		if self.prefs.enable_fanart_bg:
 			source_image = self.get_background(track)
 			if source_image:
 				self.loaded_bg_type = 1
@@ -9380,12 +9393,12 @@ class AlbumArt:
 		if im.mode != "RGB":
 			im = im.convert("RGB")
 
-		ratio = window_size[0] / ox_size
+		ratio = self.window_size[0] / ox_size
 		ratio += 0.2
 
-		if (oy_size * ratio) - ((oy_size * ratio) // 4) < window_size[1]:
+		if (oy_size * ratio) - ((oy_size * ratio) // 4) < self.window_size[1]:
 			logging.info("Adjust bg vertical")
-			ratio = window_size[1] / (oy_size - (oy_size // 4))
+			ratio = self.window_size[1] / (oy_size - (oy_size // 4))
 			ratio += 0.2
 
 		new_x = round(ox_size * ratio)
@@ -9395,12 +9408,12 @@ class AlbumArt:
 
 		if self.loaded_bg_type == 1:
 			artist = get_artist_safe(track)
-			if artist and artist in prefs.bg_flips:
+			if artist and artist in self.prefs.bg_flips:
 				im = im.transpose(Image.FLIP_LEFT_RIGHT)
 
-		if (ox_size < 500 or prefs.art_bg_always_blur) or gui.mode == 3:
-			blur = prefs.art_bg_blur
-			if prefs.mini_mode_mode == 5 and gui.mode == 3:
+		if (ox_size < 500 or self.prefs.art_bg_always_blur) or self.gui.mode == 3:
+			blur = self.prefs.art_bg_blur
+			if self.prefs.mini_mode_mode == 5 and self.gui.mode == 3:
 				blur = 160
 				pix = im.getpixel((new_x // 2, new_y // 4 * 3))
 				pixel_sum = sum(pix) / (255 * 3)
@@ -9410,12 +9423,12 @@ class AlbumArt:
 					im = enhancer.enhance(deduct)
 					logging.info(deduct)
 
-				gui.center_blur_pixel = im.getpixel((new_x // 2, new_y // 4 * 3))
+				self.gui.center_blur_pixel = im.getpixel((new_x // 2, new_y // 4 * 3))
 
 			im = im.filter(ImageFilter.GaussianBlur(blur))
 
 
-		gui.center_blur_pixel = im.getpixel((new_x // 2, new_y // 2))
+		self.gui.center_blur_pixel = im.getpixel((new_x // 2, new_y // 2))
 
 		g = io.BytesIO()
 		g.seek(0)
@@ -9431,7 +9444,6 @@ class AlbumArt:
 		return g
 
 	def save_thumb(self, track_object: TrackClass, size: tuple[int, int], save_path: str, png=False, zoom=False):
-
 		filepath = track_object.fullpath
 		sources = self.get_sources(track_object)
 
@@ -9519,7 +9531,7 @@ class AlbumArt:
 				source_image = self.get_source_raw(0, 0, track, source[offset])
 
 			elif source[offset][0] == 2:
-				idea = prefs.encoder_output / encode_folder_name(track) / "cover.jpg"
+				idea = self.prefs.encoder_output / encode_folder_name(track) / "cover.jpg"
 				if idea.is_file():
 					source_image = idea.open("rb")
 				else:
@@ -9583,19 +9595,17 @@ class AlbumArt:
 					source_image.close()
 					g.close()
 					return None
-				im = Image.open(str(install_directory / "assets" / "load-error.png"))
+				im = Image.open(str(self.install_directory / "assets" / "load-error.png"))
 				o_size = im.size
 
-
 			if not theme_only:
-
-				if prefs.zoom_art:
+				if self.prefs.zoom_art:
 					new_size = fit_box(o_size, box)
 					try:
 						im = im.resize(new_size, Image.Resampling.LANCZOS)
 					except Exception:
 						logging.exception("Failed to resize image")
-						im = Image.open(str(install_directory / "assets" / "load-error.png"))
+						im = Image.open(str(self.install_directory / "assets" / "load-error.png"))
 						o_size = im.size
 						new_size = fit_box(o_size, box)
 						im = im.resize(new_size, Image.Resampling.LANCZOS)
@@ -9604,14 +9614,14 @@ class AlbumArt:
 						im.thumbnail((box[0], box[1]), Image.Resampling.LANCZOS)
 					except Exception:
 						logging.exception("Failed to convert image to thumbnail")
-						im = Image.open(str(install_directory / "assets" / "load-error.png"))
+						im = Image.open(str(self.install_directory / "assets" / "load-error.png"))
 						o_size = im.size
 						im.thumbnail((box[0], box[1]), Image.Resampling.LANCZOS)
 				im.save(g, "BMP")
 				g.seek(0)
 
 			# Processing for "Carbon" theme
-			if track == pctl.playing_object() and gui.theme_name == "Carbon" and track.parent_folder_path != colours.last_album:
+			if track == self.pctl.playing_object() and self.gui.theme_name == "Carbon" and track.parent_folder_path != colours.last_album:
 
 				# Find main image colours
 				try:
@@ -9648,8 +9658,8 @@ class AlbumArt:
 				colours.last_album = track.parent_folder_path
 
 			# Processing for "Auto-theme" setting
-			if prefs.colour_from_image and box[0] != 115 and track.album != gui.theme_temp_current \
-					and track.album not in gui.temp_themes:  # and pctl.master_library[index].parent_folder_path != colours.last_album: #mark2233
+			if self.prefs.colour_from_image and box[0] != 115 and track.album != self.gui.theme_temp_current \
+					and track.album not in self.gui.temp_themes:  # and pctl.master_library[index].parent_folder_path != colours.last_album: #mark2233
 				colours.last_album = track.parent_folder_path
 
 				colours = copy.deepcopy(colours)
@@ -9734,7 +9744,7 @@ class AlbumArt:
 				colours.album_text = colours.title_text
 				colours.album_playing = colours.title_playing
 
-				gui.pl_update = 1
+				self.gui.pl_update = 1
 
 				prcl = 100 - int(test_lumi(colours.playlist_panel_background) * 100)
 
@@ -9761,19 +9771,19 @@ class AlbumArt:
 					colours.row_playing_highlight = [255, 255, 255, 8]
 					colours.gallery_background = rgb_add_hls(colours.playlist_panel_background, 0, 0.03, 0.03)
 
-				gui.temp_themes[track.album] = copy.deepcopy(colours)
-				colours = gui.temp_themes[track.album]
-				gui.theme_temp_current = track.album
+				self.gui.temp_themes[track.album] = copy.deepcopy(colours)
+				colours = self.gui.temp_themes[track.album]
+				self.gui.theme_temp_current = track.album
 
 			if theme_only:
 				source_image.close()
 				g.close()
 				return None
 
-			s_image = ddt.load_image(g)
+			s_image = self.ddt.load_image(g)
 			#logging.error(IMG_GetError())
 
-			c = sdl3.SDL_CreateTextureFromSurface(renderer, s_image)
+			c = sdl3.SDL_CreateTextureFromSurface(self.renderer, s_image)
 
 			tex_w = pointer(c_float(0))
 			tex_h = pointer(c_float(0))
@@ -20586,7 +20596,7 @@ class ArtistList:
 		self.sample_tracks = {}
 
 	def load_img(self, artist):
-		filepath = artist_info_box.get_data(artist, get_img_path=True)
+		filepath = tauon.artist_info_box.get_data(artist, get_img_path=True)
 
 		if filepath and os.path.isfile(filepath):
 			try:
@@ -20916,7 +20926,7 @@ class ArtistList:
 					gui.delay_frame(hover_delay)
 				elif self.hover_timer.get() > hover_delay and not gui.preview_artist_loading:
 					gui.preview_artist = ""
-					path = artist_info_box.get_data(artist, get_img_path=True)
+					path = tauon.artist_info_box.get_data(artist, get_img_path=True)
 					if not path:
 						gui.preview_artist_loading = artist
 						shoot = threading.Thread(
@@ -22847,8 +22857,9 @@ class PictureRender:
 
 class ArtistInfoBox:
 
-	def __init__(self, bag: Bag) -> None:
-
+	def __init__(self, tauon: Tauon) -> None:
+		bag       = tauon.bag
+		self.pctl = tauon.pctl
 		self.artist_on = None
 		self.min_rq_timer = Timer()
 		self.min_rq_timer.force_set(10)
@@ -22868,7 +22879,7 @@ class ArtistInfoBox:
 		self.mini_box = asset_loader(bag, bag.loaded_asset_dc, "mini-box.png", True)
 
 	def manual_dl(self) -> None:
-		track = pctl.playing_object()
+		track = self.pctl.playing_object()
 		if track is None or not track.artist:
 			show_message(_("No artist name found"), mode="warning")
 			return
@@ -24928,8 +24939,8 @@ def get_artist_preview(artist: str, x, y) -> None:
 	# show_message(_("Loading artist image..."))
 
 	gui.preview_artist_loading = artist
-	artist_info_box.get_data(artist, force_dl=True)
-	path = artist_info_box.get_data(artist, get_img_path=True)
+	tauon.artist_info_box.get_data(artist, force_dl=True)
+	path = tauon.artist_info_box.get_data(artist, get_img_path=True)
 	if not path:
 		show_message(_("No artist image found."))
 		if not prefs.enable_fanart_artist and not verify_discogs():
@@ -28112,14 +28123,14 @@ def bio_set_large():
 	# gui.artist_panel_height = 320 * gui.scale
 	prefs.bio_large = True
 	if gui.artist_info_panel:
-		artist_info_box.get_data(artist_info_box.artist_on)
+		tauon.artist_info_box.get_data(tauon.artist_info_box.artist_on)
 
 def bio_set_small():
 	# gui.artist_panel_height = 200 * gui.scale
 	prefs.bio_large = False
 	update_layout_do(tauon=tauon)
 	if gui.artist_info_panel:
-		artist_info_box.get_data(artist_info_box.artist_on)
+		tauon.artist_info_box.get_data(tauon.artist_info_box.artist_on)
 
 def artist_info_panel_close():
 	gui.artist_info_panel ^= True
@@ -28145,8 +28156,8 @@ def toggle_bio_size():
 def flush_artist_bio(artist):
 	if os.path.isfile(os.path.join(a_cache_dir, artist + "-lfm.txt")):
 		os.remove(os.path.join(a_cache_dir, artist + "-lfm.txt"))
-	artist_info_box.text = ""
-	artist_info_box.artist_on = None
+	tauon.artist_info_box.text = ""
+	tauon.artist_info_box.artist_on = None
 
 def test_shift(_):
 	return inp.key_shift_down or inp.key_shiftr_down
@@ -37551,7 +37562,7 @@ def art_metadata_overlay(right, bottom, showc):
 		ddt.text(((right) - (6 * gui.scale + padding), y, 1), line, [200, 200, 200, 255], 12, bg=[30, 30, 30, 255])
 
 def artist_dl_deco():
-	if artist_info_box.status == "Ready":
+	if tauon.artist_info_box.status == "Ready":
 		return [colours.menu_text_disabled, colours.menu_background, None]
 	return [colours.menu_text, colours.menu_background, None]
 
@@ -37934,7 +37945,7 @@ def update_layout_do(tauon: Tauon):
 	# Trigger artist bio reload if panel size has changed
 	if gui.artist_info_panel:
 		if gui.last_artist_panel_height != gui.artist_panel_height:
-			artist_info_box.get_data(artist_info_box.artist_on)
+			tauon.artist_info_box.get_data(tauon.artist_info_box.artist_on)
 		gui.last_artist_panel_height = gui.artist_panel_height
 
 	# prefs.art_bg_blur = 9
@@ -41373,10 +41384,7 @@ def main(holder: Holder) -> None:
 	artist_picture_render = PictureRender()
 	artist_preview_render = PictureRender()
 
-	# artist info box def
-	artist_info_box = ArtistInfoBox(bag=bag)
-
-	artist_info_menu.add(MenuItem(_("Download Artist Data"), artist_info_box.manual_dl, artist_dl_deco, show_test=test_artist_dl))
+	artist_info_menu.add(MenuItem(_("Download Artist Data"), tauon.artist_info_box.manual_dl, artist_dl_deco, show_test=test_artist_dl))
 	artist_info_menu.add(MenuItem(_("Clear Bio"), flush_artist_bio, pass_ref=True, show_test=test_shift))
 
 	radio_thumb_gen = RadioThumbGen(tauon=tauon)
@@ -44659,7 +44667,7 @@ def main(holder: Holder) -> None:
 							draw_sep_hl = False
 
 				if (gui.artist_info_panel and not gui.combo_mode) and not (window_size[0] < 750 * gui.scale and prefs.album_mode):
-					artist_info_box.draw(gui.playlist_left, gui.panelY, gui.plw, gui.artist_panel_height)
+					tauon.artist_info_box.draw(gui.playlist_left, gui.panelY, gui.plw, gui.artist_panel_height)
 
 				if gui.lsp and not gui.combo_mode:
 
