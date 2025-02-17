@@ -4863,22 +4863,23 @@ class Menu:
 
 class GallClass:
 	def __init__(self, tauon: Tauon, size: int = 250, save_out: bool = True) -> None:
-		self.tauon         = tauon
-		self.tls_context   = tauon.bag.tls_context
-		self.renderer      = tauon.bag.renderer
-		self.ddt           = tauon.bag.ddt
-		self.gui           = tauon.gui
-		self.prefs         = tauon.prefs
-		self.search_over   = tauon.search_over
-		self.album_art_gen = tauon.album_art_gen
-		self.gall          = {}
-		self.size          = size
-		self.queue         = []
-		self.key_list      = []
-		self.save_out      = save_out
-		self.i             = 0
-		self.lock          = threading.Lock()
-		self.limit         = 60
+		self.tauon                = tauon
+		self.tls_context          = tauon.bag.tls_context
+		self.renderer             = tauon.bag.renderer
+		self.ddt                  = tauon.bag.ddt
+		self.folder_image_offsets = tauon.bag.folder_image_offsets
+		self.gui                  = tauon.gui
+		self.prefs                = tauon.prefs
+		self.search_over          = tauon.search_over
+		self.album_art_gen        = tauon.album_art_gen
+		self.gall                 = {}
+		self.size                 = size
+		self.queue                = []
+		self.key_list             = []
+		self.save_out             = save_out
+		self.i                    = 0
+		self.lock                 = threading.Lock()
+		self.limit                = 60
 
 	def get_file_source(self, track_object: TrackClass):
 		sources = self.album_art_gen.get_sources(track_object)
@@ -4933,8 +4934,8 @@ class GallClass:
 				if True:
 					offset = 0
 					parent_folder = key[0].parent_folder_path
-					if parent_folder in folder_image_offsets:
-						offset = folder_image_offsets[parent_folder]
+					if parent_folder in self.folder_image_offsets:
+						offset = self.folder_image_offsets[parent_folder]
 					img_name = str(key[2]) + "-" + str(size) + "-" + str(key[0].index) + "-" + str(offset)
 					if self.prefs.cache_gallery and os.path.isfile(os.path.join(g_cache_dir, img_name + ".jpg")):
 						source_image = open(os.path.join(g_cache_dir, img_name + ".jpg"), "rb")
@@ -5046,8 +5047,8 @@ class GallClass:
 		size = round(size)
 
 		# offset = self.get_offset(pctl.master_library[index].fullpath, self.get_sources(index))
-		if track.parent_folder_path in folder_image_offsets:
-			offset = folder_image_offsets[track.parent_folder_path]
+		if track.parent_folder_path in self.folder_image_offsets:
+			offset = self.folder_image_offsets[track.parent_folder_path]
 		else:
 			offset = 0
 
@@ -5174,6 +5175,7 @@ class Tauon:
 		self.t_version                    = holder.t_version
 		self.t_agent                      = holder.t_agent
 		self.t_id                         = holder.t_id
+		self.window_title                 = holder.window_title
 		self.draw_border:            bool = holder.draw_border
 		self.desktop:          str | None = bag.desktop
 		self.device                       = socket.gethostname()
@@ -5248,6 +5250,7 @@ class Tauon:
 		self.star_store                           = self.pctl.star_store
 		self.search_over                          = SearchOverlay(tauon=self)
 		self.lb                                   = ListenBrainz(tauon=self)
+		self.stats_gen                            = GStats(tauon=self)
 		self.deco                                 = Deco(tauon=self)
 		self.lfm_scrobbler                        = self.pctl.lfm_scrobbler
 		self.bottom_bar1                          = BottomBarType1(tauon=self)
@@ -5720,7 +5723,7 @@ class Tauon:
 		if mode == 1:
 			return self.prefs.update_title
 
-		line = window_title
+		line = self.window_title
 		sdl3.SDL_SetWindowTitle(self.t_window, line)
 		self.prefs.update_title ^= True
 		if self.prefs.update_title:
@@ -7145,6 +7148,7 @@ class SubsonicService:
 class KoelService:
 
 	def __init__(self, tauon: Tauon) -> None:
+		self.pctl  = tauon.pctl
 		self.prefs = tauon.prefs
 		self.gui   = tauon.gui
 		self.connected: bool = False
@@ -7205,16 +7209,14 @@ class KoelService:
 			if "message" in j:
 				error = j["message"]
 
-			gui.show_message(_("Could not establish connection/authorisation"), error, mode="error")
-
+			self.gui.show_message(_("Could not establish connection/authorisation"), error, mode="error")
 
 	def resolve_stream(self, id: str) -> tuple[str, dict[str, str]]:
-
 		if not self.connected:
 			self.connect()
 
-		if prefs.network_stream_bitrate > 0:
-			target = f"{self.server}/api/{id}/play/1/{prefs.network_stream_bitrate}"
+		if self.prefs.network_stream_bitrate > 0:
+			target = f"{self.server}/api/{id}/play/1/{self.prefs.network_stream_bitrate}"
 		else:
 			target = f"{self.server}/api/{id}/play/0/0"
 		params = {"jwt-token": self.token }
@@ -7251,8 +7253,7 @@ class KoelService:
 				logging.exception("error submitting listen to koel")
 
 	def get_albums(self, return_list: bool = False) -> list[int] | None:
-
-		gui.update += 1
+		self.gui.update += 1
 		self.scanning = True
 
 		if not self.connected:
@@ -7295,13 +7296,12 @@ class KoelService:
 
 		existing = {}
 
-		for track_id, track in pctl.master_library.items():
+		for track_id, track in self.pctl.master_library.items():
 			if track.is_network and track.file_ext == "KOEL":
 				existing[track.url_key] = track_id
 
 		for song in songs:
-
-			id = pctl.master_count
+			id = self.pctl.master_count
 			replace_existing = False
 
 			e = existing.get(song["id"])
@@ -7330,10 +7330,10 @@ class KoelService:
 			nt.is_network = True
 			nt.file_ext = "KOEL"
 
-			pctl.master_library[id] = nt
+			self.pctl.master_library[id] = nt
 
 			if not replace_existing:
-				pctl.master_count += 1
+				self.pctl.master_count += 1
 
 			playlist.append(nt.index)
 
@@ -7342,14 +7342,15 @@ class KoelService:
 		if return_list:
 			return playlist
 
-		pctl.multi_playlist.append(pl_gen(title=_("Koel Collection"), playlist_ids=playlist))
-		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "koel path tn"
-		standard_sort(len(pctl.multi_playlist) - 1)
-		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
+		self.pctl.multi_playlist.append(pl_gen(title=_("Koel Collection"), playlist_ids=playlist))
+		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "koel path tn"
+		standard_sort(len(self.pctl.multi_playlist) - 1)
+		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 
 class TauService:
 	def __init__(self, tauon: Tauon) -> None:
-		self.prefs = tauon.prefs
+		self.pctl       = tauon.pctl
+		self.prefs      = tauon.prefs
 		self.processing = False
 
 	def resolve_stream(self, key: str) -> str:
@@ -7402,7 +7403,7 @@ class TauService:
 		at = t["tracks"]
 
 		exist = {}
-		for k, v in pctl.master_library.items():
+		for k, v in self.pctl.master_library.items():
 			if v.is_network and v.file_ext == "TAU":
 				exist[v.url_key] = k
 
@@ -7413,7 +7414,7 @@ class TauService:
 			tid = item["id"]
 			id = exist.get(str(tid))
 			if id is None:
-				id = pctl.master_count
+				id = self.pctl.master_count
 				replace_existing = False
 
 			nt = TrackClass()
@@ -7435,51 +7436,55 @@ class TauService:
 
 			nt.is_network = True
 			nt.file_ext = "TAU"
-			pctl.master_library[id] = nt
+			self.pctl.master_library[id] = nt
 
 			if not replace_existing:
-				pctl.master_count += 1
+				self.pctl.master_count += 1
 			playlist.append(nt.index)
 
 		if return_list:
 			self.processing = False
 			return playlist
 
-		pctl.multi_playlist.append(pl_gen(title=name, playlist_ids=playlist))
-		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "tau path tn"
-		standard_sort(len(pctl.multi_playlist) - 1)
-		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
+		self.pctl.multi_playlist.append(pl_gen(title=name, playlist_ids=playlist))
+		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "tau path tn"
+		standard_sort(len(self.pctl.multi_playlist) - 1)
+		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 		self.processing = False
 
 class STray:
 
-	def __init__(self) -> None:
+	def __init__(self, tauon: Tauon) -> None:
+		self.tauon    = tauon
+		self.pctl     = tauon.pctl
+		self.gui      = tauon.gui
+		self.t_window = tauon.t_window
 		self.active = False
 
 	def up(self, systray: SysTrayIcon):
-		sdl3.SDL_ShowWindow(t_window)
-		sdl3.SDL_RaiseWindow(t_window)
-		sdl3.SDL_RestoreWindow(t_window)
-		gui.lowered = False
+		sdl3.SDL_ShowWindow(self.t_window)
+		sdl3.SDL_RaiseWindow(self.t_window)
+		sdl3.SDL_RestoreWindow(self.t_window)
+		self.gui.lowered = False
 
 	def down(self) -> None:
 		if self.active:
-			sdl3.SDL_HideWindow(t_window)
+			sdl3.SDL_HideWindow(self.t_window)
 
 	def advance(self, systray: SysTrayIcon) -> None:
-		pctl.advance()
+		self.pctl.advance()
 
 	def back(self, systray: SysTrayIcon) -> None:
-		pctl.back()
+		self.pctl.back()
 
 	def pause(self, systray: SysTrayIcon) -> None:
-		pctl.play_pause()
+		self.pctl.play_pause()
 
 	def track_stop(self, systray: SysTrayIcon) -> None:
-		pctl.stop()
+		self.pctl.stop()
 
 	def on_quit_callback(self, systray: SysTrayIcon) -> None:
-		tauon.exit("Exit called from tray.")
+		self.tauon.exit("Exit called from tray.")
 
 	def start(self) -> None:
 		menu_options = (("Show", None, self.up),
@@ -7499,8 +7504,7 @@ class STray:
 		self.active = False
 
 class GStats:
-	def __init__(self):
-
+	def __init__(self, tauon: Tauon) -> None:
 		self.last_db = 0
 		self.last_pl = 0
 		self.artist_list = []
@@ -8783,8 +8787,9 @@ class ImageObject:
 
 class AlbumArt:
 	def __init__(self, tauon: Tauon) -> None:
-		self.gui           = tauon.gui
-		self.tls_context   = tauon.bag.tls_context
+		self.gui                  = tauon.gui
+		self.tls_context          = tauon.bag.tls_context
+		self.folder_image_offsets = tauon.bag.folder_image_offsets
 		self.image_types = {"jpg", "JPG", "jpeg", "JPEG", "PNG", "png", "BMP", "bmp", "GIF", "gif", "jxl", "JXL"}
 		self.art_folder_names = {
 			"art", "scans", "scan", "booklet", "images", "image", "cover",
@@ -9023,14 +9028,14 @@ class AlbumArt:
 			return 0
 		parent_folder = os.path.dirname(filepath)
 		# Find cached offset
-		if parent_folder in folder_image_offsets:
+		if parent_folder in self.folder_image_offsets:
 
 			if reverse:
-				folder_image_offsets[parent_folder] -= 1
+				self.folder_image_offsets[parent_folder] -= 1
 			else:
-				folder_image_offsets[parent_folder] += 1
+				self.folder_image_offsets[parent_folder] += 1
 
-			folder_image_offsets[parent_folder] %= len(sources)
+			self.folder_image_offsets[parent_folder] %= len(sources)
 		return 0
 
 	def cycle_offset_reverse(self, track_object: TrackClass) -> None:
@@ -9040,14 +9045,14 @@ class AlbumArt:
 		# Check if folder offset already exsts, if not, make it
 		parent_folder = os.path.dirname(filepath)
 
-		if parent_folder in folder_image_offsets:
+		if parent_folder in self.folder_image_offsets:
 			# Reset the offset if greater than number of images available
-			if folder_image_offsets[parent_folder] > len(source) - 1:
-				folder_image_offsets[parent_folder] = 0
+			if self.folder_image_offsets[parent_folder] > len(source) - 1:
+				self.folder_image_offsets[parent_folder] = 0
 		else:
-			folder_image_offsets[parent_folder] = 0
+			self.folder_image_offsets[parent_folder] = 0
 
-		return folder_image_offsets[parent_folder]
+		return self.folder_image_offsets[parent_folder]
 
 	def get_embed(self, track: TrackClass):
 		# cached = self.embed_cached
@@ -24690,6 +24695,7 @@ class Bag:
 	multi_playlist:         list[TauonPlaylist]
 	radio_playlists:        list[RadioPlaylist]
 	p_force_queue:          list[TauonQueueItem]
+	folder_image_offsets:   dict[str, int]
 	gen_codes:              dict[int, str]
 	master_library:         dict[int, TrackClass]
 	loaded_asset_dc:        dict[str, WhiteModImageAsset | LoadImageAsset]
@@ -29722,7 +29728,7 @@ def export_stats(pl: int) -> None:
 
 	total_size = sum(seen_files.values())
 
-	stats_gen.update(pl)
+	tauon.stats_gen.update(pl)
 	line = _("Playlist:") + "\n" + pctl.multi_playlist[pl].title + "\n\n"
 	line += _("Generated:") + "\n" + time.strftime("%c") + "\n\n"
 	line += _("Tracks in playlist:") + "\n" + str(tracks_in_playlist)
@@ -29823,16 +29829,16 @@ def export_stats(pl: int) -> None:
 
 	line += "\n" + f"-------------- {_('Top Artists')} --------------------" + "\n\n"
 
-	ls = stats_gen.artist_list
+	ls = tauon.stats_gen.artist_list
 	for i, item in enumerate(ls[:50]):
 		line += str(i + 1) + ".\t" + stt2(item[1]) + "\t" + item[0] + "\n"
 
 	line += "\n\n" + f"-------------- {_('Top Albums')} --------------------" + "\n\n"
-	ls = stats_gen.album_list
+	ls = tauon.stats_gen.album_list
 	for i, item in enumerate(ls[:50]):
 		line += str(i + 1) + ".\t" + stt2(item[1]) + "\t" + item[0] + "\n"
 	line += "\n\n" + f"-------------- {_('Top Genres')} --------------------" + "\n\n"
-	ls = stats_gen.genre_list
+	ls = tauon.stats_gen.genre_list
 	for i, item in enumerate(ls[:50]):
 		line += str(i + 1) + ".\t" + stt2(item[1]) + "\t" + item[0] + "\n"
 
@@ -38798,7 +38804,7 @@ def main(holder: Holder) -> None:
 	g_cache_dir = str(cache_directory / "gallery")
 	a_cache_dir = str(cache_directory / "artist")
 	r_cache_dir = str(cache_directory / "radio-thumbs")
-	b_cache_dir = str(user_directory / "artist-backgrounds")
+	b_cache_dir = str(user_directory  / "artist-backgrounds")
 
 	if not os.path.isdir(n_cache_dir):
 		os.makedirs(n_cache_dir)
@@ -39311,6 +39317,7 @@ def main(holder: Holder) -> None:
 		loaded_asset_dc=loaded_asset_dc,
 		radio_playlist_viewing=radio_playlist_viewing,
 		radio_playlists=radio_playlists,
+		folder_image_offsets=folder_image_offsets,
 	)
 
 	gui = GuiVar(
@@ -40034,14 +40041,13 @@ def main(holder: Holder) -> None:
 	if system == "Windows" or msys:
 		from lynxtray import SysTrayIcon
 
-	tray = STray()
 
-	stats_gen = GStats()
 
 	tauon = Tauon(
 		holder=holder,
 		bag=bag,
 		gui=gui)
+	tray = STray(tauon=tauon)
 	tauon.perf_timer = perf_timer
 	tauon.core_timer = core_timer
 	radiobox = tauon.radiobox
