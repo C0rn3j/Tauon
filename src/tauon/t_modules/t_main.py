@@ -1411,13 +1411,14 @@ class PlayerCtl:
 		self.bag                       = self.tauon.bag
 		self.smtc                      = self.tauon.bag.smtc
 		self.radiobox                  = self.tauon.radiobox
-		self.tree_view_box             = self.tauon.tree_view_box
+		self.tree_view_box             = TreeView(tauon=self.tauon, pctl=self)
 		self.artist_list_box           = self.tauon.artist_list_box
 		self.msys                      = self.tauon.msys
-		self.queue_box                 = self.tauon.queue_box
+		self.queue_box                 = QueueBox(tauon=self.tauon, pctl=self)
 		self.running:             bool = True
 		self.prefs                     = self.bag.prefs
 		self.star_store                = StarStore(tauon=self.tauon, pctl=self)
+		self.lastfm                    = LastFMapi(tauon=self.tauon, pctl=self)
 		self.lfm_scrobbler             = LastScrob(tauon=self.tauon, pctl=self)
 		self.install_directory         = self.bag.dirs.install_directory
 		self.loading_in_progress: bool = False
@@ -3459,12 +3460,12 @@ class LastFMapi:
 	scanning_loves = False
 	scanning_scrobbles = False
 
-	def __init__(self, tauon: Tauon) -> None:
+	def __init__(self, tauon: Tauon, pctl: PlayerCtl) -> None:
 		self.tauon          = tauon
-		self.star_store     = tauon.star_store
+		self.star_store     = pctl.star_store
 		self.last_fm_enable = tauon.bag.last_fm_enable
 		self.gui            = self.tauon.gui
-		self.pctl           = self.tauon.pctl
+		self.pctl           = pctl
 		self.prefs          = self.tauon.prefs
 		self.sg             = None
 		self.url            = None
@@ -4133,7 +4134,7 @@ class LastScrob:
 	def __init__(self, tauon: Tauon, pctl: PlayerCtl) -> None:
 		self.tauon   = tauon
 		self.lb      = tauon.lb
-		self.lastfm  = tauon.lastfm
+		self.lastfm  = pctl.lastfm
 		self.gui     = tauon.gui
 		self.pctl    = pctl
 		self.prefs   = tauon.prefs
@@ -5244,15 +5245,17 @@ class Tauon:
 		self.fields                               = Fields(tauon=self)
 		self.artist_list_box                      = ArtistList(tauon=self)
 		self.radiobox                             = RadioBox(tauon=self)
-		self.tree_view_box                        = TreeView(tauon=self)
 		self.dummy_track                          = self.radiobox.dummy_track
-		self.pctl                                 = PlayerCtl(tauon=self)
-		self.star_store                           = self.pctl.star_store
-		self.search_over                          = SearchOverlay(tauon=self)
 		self.lb                                   = ListenBrainz(tauon=self)
+		self.pctl                                 = PlayerCtl(tauon=self)
+		self.queue_box                            = self.pctl.queue_box
+		self.tree_view_box                        = self.pctl.tree_view_box
+		self.star_store                           = self.pctl.star_store
+		self.lastfm                               = self.pctl.lastfm
+		self.lfm_scrobbler                        = self.pctl.lfm_scrobbler
+		self.search_over                          = SearchOverlay(tauon=self)
 		self.stats_gen                            = GStats(tauon=self)
 		self.deco                                 = Deco(tauon=self)
-		self.lfm_scrobbler                        = self.pctl.lfm_scrobbler
 		self.bottom_bar1                          = BottomBarType1(tauon=self)
 		self.top_panel                            = TopPanel(tauon=self)
 		self.playlist_box                         = PlaylistBox(tauon=self)
@@ -5266,7 +5269,6 @@ class Tauon:
 		self.tool_tip2.trigger                    = 1.8
 		self.undo                                 = Undo(tauon=self)
 		self.timed_lyrics_ren                     = TimedLyricsRen(tauon=self)
-		self.queue_box                            = QueueBox(tauon=self)
 		self.cache_directory:                Path = bag.dirs.cache_directory
 		self.user_directory:          Path | None = bag.dirs.user_directory
 		self.install_directory                    = bag.dirs.install_directory
@@ -5361,7 +5363,6 @@ class Tauon:
 		self.subsonic          = SubsonicService(self)
 		self.koel              = KoelService(self)
 		self.tau               = TauService(self)
-		self.lastfm            = LastFMapi(self)
 
 		self.tls_context = bag.tls_context
 
@@ -7711,7 +7712,7 @@ class DropShadow:
 
 	def __init__(self, tauon: Tauon) -> None:
 		self.gui      = tauon.gui
-		self.ddt      = tauon.ddt
+		self.ddt      = tauon.bag.ddt
 		self.renderer = tauon.bag.renderer
 		self.readys = {}
 		self.underscan = int(15 * tauon.gui.scale)
@@ -7768,7 +7769,7 @@ class LyricsRenMini:
 
 	def __init__(self, tauon: Tauon) -> None:
 		self.pctl  = tauon.pctl
-		self.ddt   = tauon.ddt
+		self.ddt   = tauon.bag.ddt
 		self.prefs = tauon.prefs
 		self.index = -1
 		self.text  = ""
@@ -11513,7 +11514,7 @@ class SearchOverlay:
 class MessageBox:
 
 	def __init__(self, tauon: Tauon) -> None:
-		self.ddt         = tauon.ddt
+		self.ddt         = tauon.bag.ddt
 		self.gui         = tauon.gui
 		self.inp         = tauon.gui.inp
 		self.window_size = tauon.bag.window_size
@@ -11599,7 +11600,7 @@ class MessageBox:
 class NagBox:
 	def __init__(self, tauon: Tauon) -> None:
 		self.gui          = tauon.gui
-		self.ddt          = tauon.ddt
+		self.ddt          = tauon.bag.ddt
 		self.prefs        = tauon.prefs
 		self.window_size  = tauon.bag.window_size
 		self.wiggle_timer = Timer(10)
@@ -21309,8 +21310,8 @@ class ArtistList:
 
 class TreeView:
 
-	def __init__(self, tauon: Tauon) -> None:
-		self.pctl  = tauon.pctl
+	def __init__(self, tauon: Tauon, pctl: PlayerCtl) -> None:
+		self.pctl  = pctl
 		self.gui   = tauon.gui
 		self.prefs = tauon.prefs
 		self.trees = {}  # Per playlist tree
@@ -21853,9 +21854,10 @@ class TreeView:
 
 class QueueBox:
 
-	def __init__(self, tauon: Tauon):
+	def __init__(self, tauon: Tauon, pctl: PlayerCtl):
+		self.pctl       = pctl
 		self.queue_menu = tauon.queue_menu
-		self.gui = tauon.gui
+		self.gui        = tauon.gui
 		self.dragging = None
 		self.fq = []
 		self.drag_start_y = 0
@@ -21866,44 +21868,43 @@ class QueueBox:
 		self.d_click_ref = None
 		self.recalc()
 
-		queue_menu.add(MenuItem(_("Remove This"), self.right_remove_item, show_test=self.queue_remove_show))
-		queue_menu.add(MenuItem(_("Play Now"), self.play_now, show_test=self.queue_remove_show))
-		queue_menu.add(MenuItem("Auto-Stop Here", self.toggle_auto_stop, self.toggle_auto_stop_deco, show_test=self.queue_remove_show))
+		self.queue_menu.add(MenuItem(_("Remove This"), self.right_remove_item, show_test=self.queue_remove_show))
+		self.queue_menu.add(MenuItem(_("Play Now"), self.play_now, show_test=self.queue_remove_show))
+		self.queue_menu.add(MenuItem("Auto-Stop Here", self.toggle_auto_stop, self.toggle_auto_stop_deco, show_test=self.queue_remove_show))
 
-		queue_menu.add(MenuItem("Pause Queue", self.toggle_pause, queue_pause_deco))
-		queue_menu.add(MenuItem(_("Clear Queue"), clear_queue, queue_deco, hint="Alt+Shift+Q"))
+		self.queue_menu.add(MenuItem("Pause Queue", self.toggle_pause, queue_pause_deco))
+		self.queue_menu.add(MenuItem(_("Clear Queue"), clear_queue, queue_deco, hint="Alt+Shift+Q"))
 
-		queue_menu.add(MenuItem(_("↳ Except for This"), self.clear_queue_crop, show_test=self.except_for_this_show_test))
+		self.queue_menu.add(MenuItem(_("↳ Except for This"), self.clear_queue_crop, show_test=self.except_for_this_show_test))
 
-		queue_menu.add(MenuItem(_("Queue to New Playlist"), self.make_as_playlist, queue_deco))
-		# queue_menu.add("Finish Playing Album", finish_current, finish_current_deco)
+		self.queue_menu.add(MenuItem(_("Queue to New Playlist"), self.make_as_playlist, queue_deco))
+		# self.queue_menu.add("Finish Playing Album", finish_current, finish_current_deco)
 
-	def recalc(self):
+	def recalc(self) -> None:
 		self.tab_h = 34 * self.gui.scale
 
 	def except_for_this_show_test(self, _):
 		return self.queue_remove_show(_) and test_shift(_)
 
 	def make_as_playlist(self):
-		if pctl.force_queue:
+		if self.pctl.force_queue:
 			playlist = []
-			for item in pctl.force_queue:
-
+			for item in self.pctl.force_queue:
 				if item.type == 0:
 					playlist.append(item.track_id)
 				else:
 
-					pl = pctl.id_to_pl(item.playlist_id)
+					pl = self.pctl.id_to_pl(item.playlist_id)
 					if pl is None:
 						logging.info("Lost the target playlist")
 						continue
 
-					pp = pctl.multi_playlist[pl].playlist_ids
+					pp = self.pctl.multi_playlist[pl].playlist_ids
 
-					i = item.position  # = pctl.playlist_playing_position + 1
+					i = item.position  # = self.pctl.playlist_playing_position + 1
 
 					parts = []
-					album_parent_path = pctl.get_track(item.track_id).parent_folder_path
+					album_parent_path = self.pctl.get_track(item.track_id).parent_folder_path
 
 					while i < len(pp):
 						if pctl.get_track(pp[i]).parent_folder_path != album_parent_path:
@@ -21915,14 +21916,14 @@ class QueueBox:
 					for part in parts:
 						playlist.append(part[0])
 
-			pctl.multi_playlist.append(
+			self.pctl.multi_playlist.append(
 				pl_gen(
 					title=_("Queued Tracks"),
 					playlist_ids=copy.deepcopy(playlist),
 					hide_title=False))
 
 	def drop_tracks_insert(self, insert_position):
-		if not gui.shift_selection:
+		if not self.gui.shift_selection:
 			return
 
 		# remove incomplete album from queue
@@ -41302,7 +41303,7 @@ def main(holder: Holder) -> None:
 
 	if prefs.auto_lfm:
 		listen_icon = lastfm_icon
-	elif lb.enable:
+	elif tauon.lb.enable:
 		listen_icon = lb_icon
 	else:
 		listen_icon = None
