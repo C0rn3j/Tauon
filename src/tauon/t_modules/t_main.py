@@ -1412,6 +1412,7 @@ class PlayerCtl:
 		self.smtc:                bool = self.tauon.bag.smtc
 		self.radiobox                  = self.tauon.radiobox
 		self.msys                      = self.tauon.msys
+		self.queue_box                 = self.tauon.queue_box
 		self.running:             bool = True
 		self.prefs:              Prefs = self.bag.prefs
 		self.star_store                = StarStore(tauon=self.tauon, pctl=self)
@@ -2235,10 +2236,10 @@ class PlayerCtl:
 				goto_album(self.selected_in_playlist)
 
 		if self.prefs.left_panel_mode == "artist list" and self.gui.lsp and not quiet:
-			artist_list_box.locate_artist(self.playing_object())
+			tauon.artist_list_box.locate_artist(self.playing_object())
 
-		if folder_list and self.prefs.left_panel_mode == "folder view" and self.gui.lsp and not quiet and not tree_view_box.lock_pl:
-			tree_view_box.show_track(self.playing_object())
+		if folder_list and self.prefs.left_panel_mode == "folder view" and self.gui.lsp and not quiet and not tauon.tree_view_box.lock_pl:
+			tauon.tree_view_box.show_track(self.playing_object())
 
 		return 0
 
@@ -3087,8 +3088,8 @@ class PlayerCtl:
 					if self.prefs.stop_end_queue and not self.force_queue:
 						self.auto_stop = True
 
-					if queue_box.scroll_position > 0:
-						queue_box.scroll_position -= 1
+					if self.queue_box.scroll_position > 0:
+						self.queue_box.scroll_position -= 1
 
 						# self.advance()
 						# return
@@ -3120,8 +3121,8 @@ class PlayerCtl:
 					self.auto_stop = True
 				if self.prefs.stop_end_queue and not self.force_queue:
 					self.auto_stop = True
-				if queue_box.scroll_position > 0:
-					queue_box.scroll_position -= 1
+				if self.queue_box.scroll_position > 0:
+					self.queue_box.scroll_position -= 1
 
 		# Stop if playlist is empty
 		elif len(self.playing_playlist()) == 0:
@@ -3839,7 +3840,7 @@ class LastFMapi:
 		self.scanning_friends = True
 
 		try:
-			username = prefs.last_fm_username
+			username = self.prefs.last_fm_username
 			logging.info(f"Username is {username}")
 
 			if not username:
@@ -3866,7 +3867,7 @@ class LastFMapi:
 				for track in loves:
 					title = track.track.title.casefold()
 					artist = track.track.artist.name.casefold()
-					for index, tr in pctl.master_library.items():
+					for index, tr in self.pctl.master_library.items():
 
 						if tr.title.casefold() == title and tr.artist.casefold() == artist:
 							tr.lfm_friend_likes.add(friend.name)
@@ -3981,12 +3982,13 @@ class LastFMapi:
 
 class ListenBrainz:
 
-	def __init__(self, prefs: Prefs):
-		self.prefs = prefs
-		self.enable = prefs.enable_lb
+	def __init__(self, tauon: Tauon) -> None:
+		self.t_title = tauon.t_title
+		self.prefs   = tauon.prefs
+		self.enable  = tauon.prefs.enable_lb
 		# self.url = "https://api.listenbrainz.org/1/submit-listens"
 
-	def url(self):
+	def url(self) -> str:
 		url = self.prefs.listenbrainz_url
 		if not url:
 			url = "https://api.listenbrainz.org/"
@@ -3995,7 +3997,6 @@ class ListenBrainz:
 		return url + "1/submit-listens"
 
 	def listen_full(self, track_object: TrackClass, time) -> bool:
-
 		if self.enable is False:
 			return True
 		if self.prefs.scrobble_hold is True:
@@ -4088,7 +4089,7 @@ class ListenBrainz:
 		if track_object.length:
 			additional["duration"] = str(int(track_object.length))
 
-		additional["media_player"] = t_title
+		additional["media_player"] = self.t_title
 		additional["submission_client"] = t_title
 		additional["media_player_version"] = str(n_version)
 
@@ -4127,13 +4128,15 @@ class ListenBrainz:
 class LastScrob:
 
 	def __init__(self, tauon: Tauon, pctl: PlayerCtl) -> None:
-		self.gui = tauon.gui
-		self.pctl = pctl
-		self.prefs = tauon.prefs
+		self.tauon   = tauon
+		self.lastfm  = tauon.lastfm
+		self.gui     = tauon.gui
+		self.pctl    = pctl
+		self.prefs   = tauon.prefs
 		self.a_index = -1
-		self.a_sc = False
-		self.a_pt = False
-		self.queue = []
+		self.a_sc    = False
+		self.a_pt    = False
+		self.queue   = []
 		self.running = False
 
 	def start_queue(self):
@@ -4154,14 +4157,14 @@ class LastScrob:
 
 				success = True
 
-				if tr[2] == "lfm" and self.prefs.auto_lfm and (tauon.lastfm.connected or tauon.lastfm.details_ready()):
-					success = tauon.lastfm.scrobble(tr[0], tr[1])
+				if tr[2] == "lfm" and self.prefs.auto_lfm and (self.lastfm.connected or self.lastfm.details_ready()):
+					success = self.lastfm.scrobble(tr[0], tr[1])
 				elif tr[2] == "lb" and lb.enable:
 					success = lb.listen_full(tr[0], tr[1])
 				elif tr[2] == "maloja":
 					success = maloja_scrobble(tr[0], tr[1])
 				elif tr[2] == "air":
-					success = tauon.subsonic.listen(tr[0], submit=True)
+					success = self.tauon.subsonic.listen(tr[0], submit=True)
 				elif tr[2] == "koel":
 					success = koel.listen(tr[0], submit=True)
 
@@ -4175,7 +4178,7 @@ class LastScrob:
 				logging.exception("SCROBBLE QUEUE ERROR")
 
 		if not self.queue:
-			tauon.scrobble_warning_timer.force_set(1000)
+			self.tauon.scrobble_warning_timer.force_set(1000)
 
 		self.running = False
 
@@ -5228,9 +5231,11 @@ class Tauon:
 		self.playlist_menu         = Menu(self, 130)
 		self.showcase_menu         = Menu(self, 135)
 		self.spotify_playlist_menu = Menu(self, 175)
+		self.queue_menu            = Menu(self, 150)
 		self.fields                               = Fields(tauon=self)
 		self.artist_list_box                      = ArtistList(tauon=self)
 		self.radiobox                             = RadioBox(tauon=self)
+		self.tree_view_box                        = TreeView(tauon=self)
 		self.dummy_track                          = self.radiobox.dummy_track
 		self.pctl                                 = PlayerCtl(tauon=self)
 		self.star_store                           = self.pctl.star_store
@@ -5250,6 +5255,7 @@ class Tauon:
 		self.tool_tip2.trigger                    = 1.8
 		self.undo                                 = Undo(tauon=self)
 		self.timed_lyrics_ren                     = TimedLyricsRen(tauon=self)
+		self.queue_box                            = QueueBox(tauon=self)
 		self.cache_directory:                Path = bag.dirs.cache_directory
 		self.user_directory:          Path | None = bag.dirs.user_directory
 		self.music_directory:         Path | None = bag.dirs.music_directory
@@ -10982,7 +10988,7 @@ class SearchOverlay:
 				# Divert to artist list if mouse over
 				if gui.lsp and prefs.left_panel_mode == "artist list" and 2 < inp.mouse_position[0] < gui.lspw \
 						and gui.panelY < inp.mouse_position[1] < window_size[1] - gui.panelBY:
-					artist_list_box.locate_artist_letter(inp.input_text)
+					self.tauon.artist_list_box.locate_artist_letter(inp.input_text)
 					return
 
 				activate_search_overlay()
@@ -13242,12 +13248,12 @@ class Over:
 		#
 		#             # Reset caches -------------------
 		#             prefs.failed_artists.clear()
-		#             artist_list_box.to_fetch = ""
-		#             for key, value in artist_list_box.thumb_cache.items():
+		#             tauon.artist_list_box.to_fetch = ""
+		#             for key, value in tauon.artist_list_box.thumb_cache.items():
 		#                 if value:
 		#                     sdl3.SDL_DestroyTexture(value[0])
-		#             artist_list_box.thumb_cache.clear()
-		#             artist_list_box.to_fetch = ""
+		#             tauon.artist_list_box.thumb_cache.clear()
+		#             tauon.artist_list_box.to_fetch = ""
 		#
 		#             direc = os.path.join(a_cache_dir)
 		#             if os.path.isdir(direc):
@@ -15198,7 +15204,7 @@ class TopPanel:
 						pctl.after_import_flag = True
 						pctl.notify_change()
 						pctl.update_shuffle_pool(pctl.multi_playlist[i].uuid_int)
-						tree_view_box.clear_target_pl(i)
+						tauon.tree_view_box.clear_target_pl(i)
 						tauon.thread_manager.ready("worker")
 
 				if inp.mouse_up and tauon.radio_view.drag:
@@ -20263,7 +20269,7 @@ class PlaylistBox:
 						tauon.thread_manager.ready("worker")
 						pctl.notify_change()
 						pctl.update_shuffle_pool(pctl.multi_playlist[i].uuid_int)
-						tree_view_box.clear_target_pl(i)
+						tauon.tree_view_box.clear_target_pl(i)
 
 			# Toggle hidden flag on click
 			if draw_pin_indicator and inp.mouse_click and tauon.coll(
@@ -21811,8 +21817,9 @@ class TreeView:
 
 class QueueBox:
 
-	def __init__(self, gui: GuiVar, queue_menu: Menu):
-		self.gui = gui
+	def __init__(self, tauon: Tauon):
+		self.queue_menu = tauon.queue_menu
+		self.gui = tauon.gui
 		self.dragging = None
 		self.fq = []
 		self.drag_start_y = 0
@@ -23077,9 +23084,9 @@ class ArtistInfoBox:
 					logging.exception("Failed to scrape art")
 
 			# Trigger reload of thumbnail in artist list box
-			for key, value in list(artist_list_box.thumb_cache.items()):
+			for key, value in list(tauon.artist_list_box.thumb_cache.items()):
 				if key is None and key == artist:
-					del artist_list_box.thumb_cache[artist]
+					del tauon.artist_list_box.thumb_cache[artist]
 					break
 
 			self.status = "Ready"
@@ -27321,10 +27328,10 @@ def clear_img_cache(delete_disk: bool = True) -> None:
 					os.remove(path)
 
 	prefs.failed_artists.clear()
-	for key, value in artist_list_box.thumb_cache.items():
+	for key, value in tauon.artist_list_box.thumb_cache.items():
 		if value:
 			sdl3.SDL_DestroyTexture(value[0])
-	artist_list_box.thumb_cache.clear()
+	tauon.artist_list_box.thumb_cache.clear()
 	gui.update += 1
 
 def clear_track_image_cache(track: TrackClass):
@@ -28108,7 +28115,7 @@ def stem_to_new_playlist(path: str) -> None:
 	path_stem_to_playlist(path, os.path.basename(path))
 
 def move_playing_folder_to_tree_stem(path: str) -> None:
-	move_playing_folder_to_stem(path, pl_id=tree_view_box.get_pl_id())
+	move_playing_folder_to_stem(path, pl_id=tauon.tree_view_box.get_pl_id())
 
 def move_playing_folder_to_stem(tauon: Tauon, path: str, pl_id: int | None = None) -> None:
 	if not pl_id:
@@ -28257,23 +28264,23 @@ def re_import3(stem):
 	show_message(_("Rescanning folder..."), stem, mode="info")
 
 def collapse_tree_deco():
-	pl_id = tree_view_box.get_pl_id()
+	pl_id = tauon.tree_view_box.get_pl_id()
 
-	if tree_view_box.opens.get(pl_id):
+	if tauon.tree_view_box.opens.get(pl_id):
 		return [colours.menu_text, colours.menu_background, None]
 	return [colours.menu_text_disabled, colours.menu_background, None]
 
 def collapse_tree():
-	tree_view_box.collapse_all()
+	tauon.tree_view_box.collapse_all()
 
 def lock_folder_tree():
-	if tree_view_box.lock_pl:
-		tree_view_box.lock_pl = None
+	if tauon.tree_view_box.lock_pl:
+		tauon.tree_view_box.lock_pl = None
 	else:
-		tree_view_box.lock_pl = pctl.multi_playlist[pctl.active_playlist_viewing].uuid_int
+		tauon.tree_view_box.lock_pl = pctl.multi_playlist[pctl.active_playlist_viewing].uuid_int
 
 def lock_folder_tree_deco():
-	if tree_view_box.lock_pl:
+	if tauon.tree_view_box.lock_pl:
 		return [colours.menu_text, colours.menu_background, _("Unlock Panel")]
 	return [colours.menu_text, colours.menu_background, _("Lock Panel")]
 
@@ -29400,7 +29407,7 @@ def reload(tauon: Tauon) -> None:
 	if tauon.prefs.album_mode:
 		reload_albums(quiet=True)
 
-	# tree_view_box.clear_all()
+	# tauon.tree_view_box.clear_all()
 	# elif gui.combo_mode:
 	#	 reload_albums(quiet=True)
 	#	 combo_pl_render.prep()
@@ -29842,7 +29849,7 @@ def imported_sort(pl: int) -> None:
 	og.sort(key=lambda x: pctl.get_track(x).index)
 
 	reload_albums()
-	tree_view_box.clear_target_pl(pl)
+	tauon.tree_view_box.clear_target_pl(pl)
 
 def imported_sort_folders(pl: int) -> None:
 	if pl_is_locked(pl):
@@ -29861,7 +29868,7 @@ def imported_sort_folders(pl: int) -> None:
 	og.sort(key=lambda x: first_occurrences[pctl.get_track(x).parent_folder_path])
 
 	reload_albums()
-	tree_view_box.clear_target_pl(pl)
+	tauon.tree_view_box.clear_target_pl(pl)
 
 def standard_sort(pl: int) -> None:
 	if pl_is_locked(pl):
@@ -29871,7 +29878,7 @@ def standard_sort(pl: int) -> None:
 	sort_path_pl(pl)
 	sort_track_2(pl)
 	reload_albums()
-	tree_view_box.clear_target_pl(pl)
+	tauon.tree_view_box.clear_target_pl(pl)
 
 def year_s(plt):
 	sorted_temp = sorted(plt, key=lambda x: x[1])
@@ -29949,7 +29956,7 @@ def year_sort(pl: int, custom_list=None):
 	# We can't just assign the playlist because it may disconnect the 'pointer' pctl.default_playlist
 	pctl.multi_playlist[pl].playlist_ids[:] = pl2[:]
 	reload_albums()
-	tree_view_box.clear_target_pl(pl)
+	tauon.tree_view_box.clear_target_pl(pl)
 
 def pl_toggle_playlist_break(ref):
 	pctl.multi_playlist[ref].hide_title ^= 1
@@ -30735,7 +30742,7 @@ def regenerate_playlist(pl: int = -1, silent: bool = False, id: int | None = Non
 	else:
 		source_playlist[:] = playlist[:]
 
-	tree_view_box.clear_target_pl(0, id)
+	tauon.tree_view_box.clear_target_pl(0, id)
 	pctl.regen_in_progress = False
 	gui.pl_update = 1
 	reload()
@@ -32158,7 +32165,7 @@ def del_selected(force_delete: bool = False):
 		undo.bk_tracks(pctl.active_playlist_viewing, li)
 
 	reload(tauon=tauon)
-	tree_view_box.clear_target_pl(pctl.active_playlist_viewing)
+	tauon.tree_view_box.clear_target_pl(pctl.active_playlist_viewing)
 
 	pctl.selected_in_playlist = min(pctl.selected_in_playlist, len(pctl.default_playlist) - 1)
 
@@ -32436,7 +32443,7 @@ def delete_folder(index, force=False):
 			show_message(_("Folder could not be trashed."), _("Try again while holding shift to force delete."),
 				mode="error")
 
-	tree_view_box.clear_target_pl(pctl.active_playlist_viewing)
+	tauon.tree_view_box.clear_target_pl(pctl.active_playlist_viewing)
 	gui.pl_update += 1
 	pctl.notify_change()
 
@@ -32531,7 +32538,7 @@ def rename_parent(index: int, template: str) -> None:
 	if pre_state == 1:
 		pctl.revert()
 
-	tree_view_box.clear_target_pl(pctl.active_playlist_viewing)
+	tauon.tree_view_box.clear_target_pl(pctl.active_playlist_viewing)
 	pctl.notify_change()
 
 def rename_folders_disable_test(index: int) -> bool:
@@ -33306,8 +33313,8 @@ def drop_tracks_to_new_playlist(track_list: list[int], hidden: bool = False) -> 
 	elif len(track_list) == 1 and artists:
 		pctl.multi_playlist[pl].title = artists[0]
 
-	if tree_view_box.dragging_name:
-		pctl.multi_playlist[pl].title = tree_view_box.dragging_name
+	if tauon.tree_view_box.dragging_name:
+		pctl.multi_playlist[pl].title = tauon.tree_view_box.dragging_name
 
 	pctl.notify_change()
 
@@ -34298,7 +34305,7 @@ def locate_artist() -> None:
 			pctl.playlist_view_position = block_starts[0]
 			gui.shift_selection.clear()
 
-		tree_view_box.show_track(pctl.get_track(pctl.default_playlist[pctl.selected_in_playlist]))
+		tauon.tree_view_box.show_track(pctl.get_track(pctl.default_playlist[pctl.selected_in_playlist]))
 	else:
 		show_message(_("No exact matching artist could be found in this playlist"))
 
@@ -36224,7 +36231,7 @@ def worker1(tauon: Tauon) -> None:
 					except Exception:
 						logging.exception("Failed to handle playlist")
 
-			tree_view_box.clear_all()
+			tauon.tree_view_box.clear_all()
 
 		if tauon.worker_save_state and \
 				not gui.pl_pulse and \
@@ -37317,15 +37324,15 @@ def create_artist_pl(artist: str, replace: bool = False):
 
 def aa_sort_alpha():
 	prefs.artist_list_sort_mode = "alpha"
-	artist_list_box.saves.clear()
+	tauon.artist_list_box.saves.clear()
 
 def aa_sort_popular():
 	prefs.artist_list_sort_mode = "popular"
-	artist_list_box.saves.clear()
+	tauon.artist_list_box.saves.clear()
 
 def aa_sort_play():
 	prefs.artist_list_sort_mode = "play"
-	artist_list_box.saves.clear()
+	tauon.artist_list_box.saves.clear()
 
 def toggle_artist_list_style():
 	if prefs.artist_list_style == 1:
@@ -37338,12 +37345,12 @@ def toggle_artist_list_threshold():
 		prefs.artist_list_threshold = 0
 	else:
 		prefs.artist_list_threshold = 4
-	artist_list_box.saves.clear()
+	tauon.artist_list_box.saves.clear()
 
 def toggle_artist_list_threshold_deco():
 	if prefs.artist_list_threshold == 0:
 		return [colours.menu_text, colours.menu_background, _("Filter Small Artists")]
-	save = artist_list_box.saves.get(pctl.multi_playlist[pctl.active_playlist_viewing].uuid_int)
+	save = tauon.artist_list_box.saves.get(pctl.multi_playlist[pctl.active_playlist_viewing].uuid_int)
 	if save and save[5] == 0:
 		return [colours.menu_text_disabled, colours.menu_background, _("Include All Artists")]
 	return [colours.menu_text, colours.menu_background, _("Include All Artists")]
@@ -37766,7 +37773,7 @@ def reload_scale(bag: Bag):
 	bottom_bar_ao1.__init__()
 	tauon.top_panel.__init__()
 	tauon.view_box.__init__(reload=True)
-	queue_box.recalc()
+	tauon.queue_box.recalc()
 	tauon.playlist_box.recalc()
 
 def update_layout_do(tauon: Tauon):
@@ -37835,7 +37842,7 @@ def update_layout_do(tauon: Tauon):
 	if gui.lsp and prefs.left_panel_mode == "folder view":
 		gui.lspw = 260 * gui.scale
 		max_insets = 0
-		for item in tree_view_box.rows:
+		for item in tauon.tree_view_box.rows:
 			max_insets = max(item[2], max_insets)
 
 		p = (pl_width_a * 0.15) - round(200 * gui.scale)
@@ -40033,7 +40040,7 @@ def main(holder: Holder) -> None:
 	star_store = tauon.star_store
 	pctl = tauon.pctl
 	pctl.default_playlist = default_playlist
-	lb = ListenBrainz(prefs)
+	lb = ListenBrainz(tauon=tauon)
 	deco = tauon.deco
 	deco.get_themes = get_themes
 	deco.renderer = renderer
@@ -40458,7 +40465,7 @@ def main(holder: Holder) -> None:
 	cancel_menu           = tauon.cancel_menu
 	gallery_menu          = Menu(tauon, 175, show_icons=True)
 	artist_info_menu      = Menu(tauon, 135)
-	queue_menu            = Menu(tauon, 150)
+	queue_menu            = tauon.queue_menu
 	repeat_menu           = tauon.repeat_menu
 	shuffle_menu          = tauon.shuffle_menu
 	artist_list_menu      = Menu(tauon, 165, show_icons=True)
@@ -41329,10 +41336,6 @@ def main(holder: Holder) -> None:
 	gallery_scroll = ScrollBox()
 	tree_view_scroll = ScrollBox()
 	radio_view_scroll = ScrollBox()
-
-	tree_view_box = TreeView(tauon=tauon)
-
-	queue_box = QueueBox(gui=gui, queue_menu=queue_menu)
 
 	meta_box = MetaBox(tauon=tauon)
 	artist_picture_render = PictureRender()
@@ -44029,7 +44032,7 @@ def main(holder: Holder) -> None:
 							if order.notify and gui.message_box and len(tauon.load_orders) == 1:
 								show_message(_("Rescan folders complete."), mode="done")
 							reload(tauon=tauon)
-							tree_view_box.clear_target_pl(target_pl)
+							tauon.tree_view_box.clear_target_pl(target_pl)
 
 							if order.play and order.tracks:
 
@@ -44655,9 +44658,9 @@ def main(holder: Holder) -> None:
 							update_layout_do(tauon=tauon)
 
 					if prefs.left_panel_mode == "folder view" and not gui.force_side_on_drag:
-						tree_view_box.render(0, gui.panelY, gui.lspw, pl_box_h)
+						tauon.tree_view_box.render(0, gui.panelY, gui.lspw, pl_box_h)
 					elif prefs.left_panel_mode == "artist list" and not gui.force_side_on_drag:
-						artist_list_box.render(*panel_rect)
+						tauon.artist_list_box.render(*panel_rect)
 					else:
 						preview_queue = False
 						if inp.quick_drag and tauon.coll(
@@ -44679,7 +44682,7 @@ def main(holder: Holder) -> None:
 							pl_box_h = 0
 
 						if pctl.force_queue or preview_queue or not prefs.show_playlist_list or not prefs.hide_queue:
-							queue_box.draw(0, gui.panelY + pl_box_h, gui.lspw, full - pl_box_h)
+							tauon.queue_box.draw(0, gui.panelY + pl_box_h, gui.lspw, full - pl_box_h)
 						elif prefs.left_panel_mode == "queue":
 							text = _("Queue is Empty")
 							rect = (0, gui.panelY + pl_box_h, gui.lspw, full - pl_box_h)
@@ -45875,7 +45878,7 @@ def main(holder: Holder) -> None:
 					if pctl.force_queue[-1].type == 1:
 						top_text = "Album"
 
-					queue_box.draw_card(
+					tauon.queue_box.draw_card(
 						rect[0] - 8 * gui.scale, 0, 160 * gui.scale, 210 * gui.scale,
 						rect[1] + 1 * gui.scale, track, fqo, True, False)
 
