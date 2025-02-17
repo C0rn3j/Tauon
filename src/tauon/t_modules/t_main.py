@@ -5366,6 +5366,62 @@ class Tauon:
 
 		self.tls_context = bag.tls_context
 
+	def sort_track_2(self, pl: int, custom_list: list[int] | None = None) -> None:
+		current_folder = ""
+		current_album = ""
+		current_date = ""
+		albums = []
+		if custom_list is None:
+			playlist = self.pctl.multi_playlist[pl].playlist_ids
+		else:
+			playlist = custom_list
+
+		for i in range(len(playlist)):
+			tr = self.pctl.master_library[playlist[i]]
+			if i == 0:
+				albums.append(i)
+				current_folder = tr.parent_folder_path
+				current_album = tr.album
+				current_date = tr.date
+			elif tr.parent_folder_path != current_folder:
+				if tr.album == current_album and tr.album and tr.date == current_date and tr.disc_number \
+						and os.path.dirname(tr.parent_folder_path) == os.path.dirname(current_folder):
+					continue
+				current_folder = tr.parent_folder_path
+				current_album = tr.album
+				current_date = tr.date
+				albums.append(i)
+
+		i = 0
+		while i < len(albums) - 1:
+			playlist[albums[i]:albums[i + 1]] = sorted(playlist[albums[i]:albums[i + 1]], key=index_key)
+			i += 1
+		if len(albums) > 0:
+			playlist[albums[i]:] = sorted(playlist[albums[i]:], key=index_key)
+
+		self.gui.pl_update += 1
+
+	def key_filepath(self, index: int):
+		track = self.pctl.master_library[index]
+		return track.parent_folder_path.lower(), track.filename
+
+	def key_fullpath(self, index: int):
+		return self.pctl.master_library[index].fullpath
+
+#	def key_filename(index: int):
+#		track = self.pctl.master_library[index]
+#		return track.filename
+
+	def sort_path_pl(self, pl: int, custom_list=None):
+		if custom_list is not None:
+			target = custom_list
+		else:
+			target = self.pctl.multi_playlist[pl].playlist_ids
+
+		if use_natsort and False:
+			target[:] = natsort.os_sorted(target, key=self.key_fullpath)
+		else:
+			target.sort(key=self.key_filepath)
 
 	def toggle_gimage(self, mode: int = 0) -> bool:
 		if mode == 1:
@@ -29617,87 +29673,30 @@ def index_key(index: int):
 		logging.exception("Failed to parse as int, returning 'a'")
 		return "a"
 
-def sort_tracK_numbers_album_only(pl: int, custom_list=None):
-	current_folder = ""
-	albums = []
-	if custom_list is None:
-		playlist = pctl.multi_playlist[pl].playlist_ids
-	else:
-		playlist = custom_list
-
-	for i in range(len(playlist)):
-		if i == 0:
-			albums.append(i)
-			current_folder = pctl.master_library[playlist[i]].album
-		elif pctl.master_library[playlist[i]].album != current_folder:
-			current_folder = pctl.master_library[playlist[i]].album
-			albums.append(i)
-
-	i = 0
-	while i < len(albums) - 1:
-		playlist[albums[i]:albums[i + 1]] = sorted(playlist[albums[i]:albums[i + 1]], key=index_key)
-		i += 1
-	if len(albums) > 0:
-		playlist[albums[i]:] = sorted(playlist[albums[i]:], key=index_key)
-
-	gui.pl_update += 1
-
-def sort_track_2(pl: int, custom_list: list[int] | None = None) -> None:
-	current_folder = ""
-	current_album = ""
-	current_date = ""
-	albums = []
-	if custom_list is None:
-		playlist = pctl.multi_playlist[pl].playlist_ids
-	else:
-		playlist = custom_list
-
-	for i in range(len(playlist)):
-		tr = pctl.master_library[playlist[i]]
-		if i == 0:
-			albums.append(i)
-			current_folder = tr.parent_folder_path
-			current_album = tr.album
-			current_date = tr.date
-		elif tr.parent_folder_path != current_folder:
-			if tr.album == current_album and tr.album and tr.date == current_date and tr.disc_number \
-					and os.path.dirname(tr.parent_folder_path) == os.path.dirname(current_folder):
-				continue
-			current_folder = tr.parent_folder_path
-			current_album = tr.album
-			current_date = tr.date
-			albums.append(i)
-
-	i = 0
-	while i < len(albums) - 1:
-		playlist[albums[i]:albums[i + 1]] = sorted(playlist[albums[i]:albums[i + 1]], key=index_key)
-		i += 1
-	if len(albums) > 0:
-		playlist[albums[i]:] = sorted(playlist[albums[i]:], key=index_key)
-
-	gui.pl_update += 1
-
-def key_filepath(index: int):
-	track = pctl.master_library[index]
-	return track.parent_folder_path.lower(), track.filename
-
-def key_fullpath(index: int):
-	return pctl.master_library[index].fullpath
-
-def key_filename(index: int):
-	track = pctl.master_library[index]
-	return track.filename
-
-def sort_path_pl(pl: int, custom_list=None):
-	if custom_list is not None:
-		target = custom_list
-	else:
-		target = pctl.multi_playlist[pl].playlist_ids
-
-	if use_natsort and False:
-		target[:] = natsort.os_sorted(target, key=key_fullpath)
-	else:
-		target.sort(key=key_filepath)
+#def sort_track_numbers_album_only(pl: int, custom_list=None):
+#	current_folder = ""
+#	albums = []
+#	if custom_list is None:
+#		playlist = pctl.multi_playlist[pl].playlist_ids
+#	else:
+#		playlist = custom_list
+#
+#	for i in range(len(playlist)):
+#		if i == 0:
+#			albums.append(i)
+#			current_folder = pctl.master_library[playlist[i]].album
+#		elif pctl.master_library[playlist[i]].album != current_folder:
+#			current_folder = pctl.master_library[playlist[i]].album
+#			albums.append(i)
+#
+#	i = 0
+#	while i < len(albums) - 1:
+#		playlist[albums[i]:albums[i + 1]] = sorted(playlist[albums[i]:albums[i + 1]], key=index_key)
+#		i += 1
+#	if len(albums) > 0:
+#		playlist[albums[i]:] = sorted(playlist[albums[i]:], key=index_key)
+#
+#	gui.pl_update += 1
 
 def append_current_playing(index: int):
 	if tauon.spot_ctl.coasting:
@@ -29915,8 +29914,8 @@ def standard_sort(pl: int) -> None:
 		show_message(_("Playlist is locked"))
 		return
 
-	sort_path_pl(pl)
-	sort_track_2(pl)
+	tauon.sort_path_pl(pl)
+	tauon.sort_track_2(pl)
 	reload_albums()
 	tauon.tree_view_box.clear_target_pl(pl)
 
@@ -30293,7 +30292,7 @@ def regenerate_playlist(pl: int = -1, silent: bool = False, id: int | None = Non
 			playlist = year_sort(0, playlist)
 
 		elif cm == "tn":
-			sort_track_2(0, playlist)
+			tauon.sort_track_2(0, playlist)
 
 		elif cm == "ia>":
 			playlist = gen_last_imported_folders(0, playlist)
@@ -30420,7 +30419,7 @@ def regenerate_playlist(pl: int = -1, silent: bool = False, id: int | None = Non
 						del playlist[i]
 
 		elif cm == "path":
-			sort_path_pl(0, custom_list=playlist)
+			tauon.sort_path_pl(0, custom_list=playlist)
 
 		elif cm == "pa>":
 			playlist = gen_folder_top(0, custom_list=playlist)
@@ -31400,7 +31399,7 @@ def gen_last_imported_folders(index, custom_list=None, reverse=True):
 
 	playlist = copy.deepcopy(source)
 	playlist = sorted(playlist, key=key_import, reverse=reverse)
-	sort_track_2(0, playlist)
+	tauon.sort_track_2(0, playlist)
 
 	if custom_list is not None:
 		return playlist
@@ -31425,7 +31424,7 @@ def gen_last_modified(index, custom_list=None, reverse=True):
 
 	playlist = copy.deepcopy(source)
 	playlist = sorted(playlist, key=key_modified, reverse=reverse)
-	sort_track_2(0, playlist)
+	tauon.sort_track_2(0, playlist)
 
 	if custom_list is not None:
 		return playlist
@@ -33575,14 +33574,14 @@ def sort_ass(h, invert=False, custom_list=None, custom_name=""):
 	ns = False
 
 	if name == "Filepath":
-		key = key_filepath
+		key = tauon.key_filepath
 		if use_natsort:
-			key = key_fullpath
+			key = tauon.key_fullpath
 			ns = True
 	if name == "Filename":
-		key = key_filepath  # key_filename
+		key = tauon.key_filepath  # tauon.key_filename
 		if use_natsort:
-			key = key_fullpath
+			key = tauon.key_fullpath
 			ns = True
 	if name == "Artist":
 		key = key_artist
@@ -36102,9 +36101,7 @@ def worker1(tauon: Tauon) -> None:
 			tag_scan(nt)
 			cue_scan(nt.cue_sheet, nt)
 			del nt
-
 		elif nt.file_ext.lower() in bag.formats.GME_Formats and gme:
-
 			emu = ctypes.c_void_p()
 			err = gme.gme_open_file(nt.fullpath.encode("utf-8"), ctypes.byref(emu), -1)
 			if not err:
@@ -36117,9 +36114,7 @@ def worker1(tauon: Tauon) -> None:
 					commit_track(nt)
 
 				gme.gme_delete(emu)
-
 		else:
-
 			commit_track(nt)
 
 		# bm.get("fill entry")
@@ -36277,12 +36272,12 @@ def worker1(tauon: Tauon) -> None:
 				not gui.pl_pulse and \
 				not pctl.loading_in_progress and \
 				not tauon.to_scan and not tauon.after_scan and \
-				not plex.scanning and \
-				not jellyfin.scanning and \
+				not tauon.plex.scanning and \
+				not tauon.jellyfin.scanning and \
 				not tauon.cm_clean_db and \
-				not lastfm.scanning_friends and \
+				not tauon.lastfm.scanning_friends and \
 				not tauon.move_in_progress and \
-				(gui.lowered or not window_is_focused() or not gui.mouse_in_window):
+				(gui.lowered or not window_is_focused(tauon.t_window) or not gui.mouse_in_window):
 			save_state()
 			cue_list.clear()
 			tauon.worker_save_state = False
@@ -40403,7 +40398,7 @@ def main(holder: Holder) -> None:
 		ddt.win_prime_font(standard_font, 21, 517, weight=standard_weight, y_offset=1)
 	drop_shadow = DropShadow(tauon=tauon)
 	lyrics_ren_mini = LyricsRenMini(tauon=tauon)
-	lyrics_ren = LyricsRen()
+	lyrics_ren = LyricsRen(tauon=tauon)
 	tauon.synced_to_static_lyrics = TimedLyricsToStatic()
 	text_box_canvas_rect = sdl3.SDL_FRect(0, 0, round(2000 * gui.scale), round(40 * gui.scale))
 	text_box_canvas_hide_rect = sdl3.SDL_FRect(0, 0, round(2000 * gui.scale), round(40 * gui.scale))
@@ -40684,8 +40679,6 @@ def main(holder: Holder) -> None:
 	# Clear playlist
 	tab_menu.add(MenuItem(_("Clear"), clear_playlist, pass_ref=True, disable_test=test_pl_tab_locked, pass_ref_deco=True))
 
-	tauon.sort_track_2 = sort_track_2
-
 	delete_icon.xoff = 3
 	delete_icon.colour = [249, 70, 70, 255]
 
@@ -40751,13 +40744,13 @@ def main(holder: Holder) -> None:
 	tab_menu.add_sub(_("Sort…"), 170)
 	extra_tab_menu.add_sub(_("From Current…"), 133)
 	# tab_menu.add(_("Sort by Filepath"), standard_sort, pass_ref=True, disable_test=test_pl_tab_locked, pass_ref_deco=True)
-	# tab_menu.add(_("Sort Track Numbers"), sort_track_2, pass_ref=True)
+	# tab_menu.add(_("Sort Track Numbers"), tauon.sort_track_2, pass_ref=True)
 	# tab_menu.add(_("Sort Year per Artist"), year_sort, pass_ref=True)
 
 	tab_menu.add_to_sub(1, MenuItem(_("Sort by Imported Tracks"), imported_sort, pass_ref=True))
 	tab_menu.add_to_sub(1, MenuItem(_("Sort by Imported Folders"), imported_sort_folders, pass_ref=True))
 	tab_menu.add_to_sub(1, MenuItem(_("Sort by Filepath"), standard_sort, pass_ref=True))
-	tab_menu.add_to_sub(1, MenuItem(_("Sort Track Numbers"), sort_track_2, pass_ref=True))
+	tab_menu.add_to_sub(1, MenuItem(_("Sort Track Numbers"), tauon.sort_track_2, pass_ref=True))
 	tab_menu.add_to_sub(1, MenuItem(_("Sort Year per Artist"), year_sort, pass_ref=True))
 	tab_menu.add_to_sub(1, MenuItem(_("Make Playlist Auto-Sorting"), make_auto_sorting, pass_ref=True))
 
@@ -40769,7 +40762,7 @@ def main(holder: Holder) -> None:
 	tab_menu.add(MenuItem(_("Append Playing"), append_current_playing, append_deco, pass_ref=True))
 	tab_menu.br()
 
-	# tab_menu.add("Sort By Filepath", sort_path_pl, pass_ref=True)
+	# tab_menu.add("Sort By Filepath", tauon.sort_path_pl, pass_ref=True)
 
 	tab_menu.add(MenuItem(_("Export…"), export_playlist_box.activate, pass_ref=True))
 
@@ -44034,7 +44027,7 @@ def main(holder: Holder) -> None:
 							target_pl = 0
 
 							# Sort the tracks by track number
-							sort_track_2(None, order.tracks)
+							tauon.sort_track_2(None, order.tracks)
 
 							for p, playlist in enumerate(pctl.multi_playlist):
 								if playlist.uuid_int == order.playlist:
