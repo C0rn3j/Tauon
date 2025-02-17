@@ -2,9 +2,9 @@
 
 Preamble
 
-Welcome to the Tauon Music Box source code. I started this project when I was first
-learning python, as a result this code can be quite messy. No doubt I have
-written some things terribly wrong or inefficiently in places.
+Welcome to the Tauon Music Box source code.
+I started this project when I was first learning python, as a result this code can be quite messy.
+No doubt I have written some things terribly wrong or inefficiently in places.
 I would highly recommend not using this project as an example on how to code cleanly or correctly.
 
 TODO
@@ -354,16 +354,17 @@ class GuiVar:
 		self.scale = self.bag.prefs.ui_scale
 
 		self.window_id = 0
-		self.update = 2  # UPDATE
+		self.update    = 2  # UPDATE
 		self.update_layout: bool = True
-		self.turbo = True
+		self.turbo      = True
 		self.turbo_next = 0
-		self.pl_update = 1
-		self.lowered = False
-		self.request_raise = False
-		self.maximized = False
-		self.side_drag = False
-		self.ext_drop_mode = False
+		self.pl_update  = 1
+		self.lowered           = False
+		self.request_raise     = False
+		self.maximized         = False
+		self.side_drag         = False
+		self.ext_drop_mode     = False
+		self.quick_search_mode = False
 
 		self.message_box = False
 		self.message_text = ""
@@ -1564,7 +1565,7 @@ class PlayerCtl:
 		self.gui.search_index = 0
 		self.gui.column_d_click_on = -1
 		self.gui.search_error = False
-		if quick_search_mode:
+		if self.gui.quick_search_mode:
 			self.gui.force_search = True
 
 		# if pl_follow:
@@ -10942,7 +10943,7 @@ class SearchOverlay:
 			if prefs.search_on_letter and inp.input_text != "" and gui.layer_focus == 0 and \
 					not inp.key_lalt and not inp.key_ralt and \
 					not inp.key_ctrl_down and not radiobox.active and not rename_track_box.active and \
-					not quick_search_mode and not pref_box.enabled and not gui.rename_playlist_box \
+					not gui.quick_search_mode and not pref_box.enabled and not gui.rename_playlist_box \
 					and not gui.rename_folder_box and inp.input_text.isalnum() and not gui.box_over \
 					and not trans_edit_box.active:
 
@@ -38490,7 +38491,7 @@ def is_level_zero(include_menus: bool = True) -> bool:
 		and not rename_track_box.active \
 		and not radiobox.active \
 		and not pref_box.enabled \
-		and not quick_search_mode \
+		and not gui.quick_search_mode \
 		and not gui.rename_playlist_box \
 		and not tauon.search_over.active \
 		and not gui.box_over \
@@ -39181,8 +39182,6 @@ def main(holder: Holder) -> None:
 	multi_playlist: list[TauonPlaylist] = [pl_gen()]
 	default_playlist: list[int] = multi_playlist[0].playlist_ids
 	playlist_active: int = 0
-
-	quick_search_mode = False
 
 	# ----------------------------------------
 	# Playlist right click menu
@@ -41724,12 +41723,12 @@ def main(holder: Holder) -> None:
 				if event.gbutton.button == sdl3.SDL_GAMEPAD_BUTTON_DPAD_LEFT:
 					if gui.album_tab_mode:
 						inp.key_left_press = True
-					elif is_level_zero() or quick_search_mode:
+					elif is_level_zero() or gui.quick_search_mode:
 						pctl.cycle_playlist_pinned(1)
 				if event.gbutton.button == sdl3.SDL_GAMEPAD_BUTTON_DPAD_RIGHT:
 					if gui.album_tab_mode:
 						inp.key_up_press = True
-					elif is_level_zero() or quick_search_mode:
+					elif is_level_zero() or gui.quick_search_mode:
 						pctl.cycle_playlist_pinned(-1)
 
 			if event.type == sdl3.SDL_EVENT_RENDER_TARGETS_RESET and not msys:
@@ -42307,12 +42306,12 @@ def main(holder: Holder) -> None:
 				if keymaps.test("cycle-playlist-left"):
 					if gui.album_tab_mode and inp.key_left_press:
 						pass
-					elif is_level_zero() or quick_search_mode:
+					elif is_level_zero() or gui.quick_search_mode:
 						pctl.cycle_playlist_pinned(1)
 				if keymaps.test("cycle-playlist-right"):
 					if gui.album_tab_mode and inp.key_up_press:
 						pass
-					elif is_level_zero() or quick_search_mode:
+					elif is_level_zero() or gui.quick_search_mode:
 						pctl.cycle_playlist_pinned(-1)
 
 				if keymaps.test("toggle-console"):
@@ -42334,7 +42333,7 @@ def main(holder: Holder) -> None:
 				if keymaps.test("find-playing-artist"):
 					# standard_size()
 					if len(pctl.track_queue) > 0:
-						quick_search_mode = True
+						gui.quick_search_mode = True
 						search_text.text = ""
 						input_text = pctl.playing_object().artist
 
@@ -42365,7 +42364,7 @@ def main(holder: Holder) -> None:
 			# Disable keys for text cursor control
 			if not gui.rename_folder_box and not rename_track_box.active and not gui.rename_playlist_box and not radiobox.active and not pref_box.enabled and not trans_edit_box.active:
 
-				if not quick_search_mode and not tauon.search_over.active:
+				if not gui.quick_search_mode and not tauon.search_over.active:
 					if prefs.album_mode and gui.album_tab_mode \
 							and not inp.key_ctrl_down \
 							and not inp.key_meta \
@@ -42421,7 +42420,7 @@ def main(holder: Holder) -> None:
 					and not gui.rename_folder_box \
 					and not gui.rename_playlist_box and not tauon.search_over.active and not gui.box_over and not trans_edit_box.active:
 
-				if quick_search_mode:
+				if gui.quick_search_mode:
 					if keymaps.test("add-to-queue") and pctl.selected_ready():
 						add_selected_to_queue()
 						input_text = ""
@@ -42665,8 +42664,7 @@ def main(holder: Holder) -> None:
 					logging.debug("Position changed by page key")
 					gui.shift_selection.clear()
 
-			if quick_search_mode is False and rename_track_box.active is False and gui.rename_folder_box is False and gui.rename_playlist_box is False and not pref_box.enabled and not radiobox.active:
-
+			if gui.quick_search_mode is False and rename_track_box.active is False and gui.rename_folder_box is False and gui.rename_playlist_box is False and not pref_box.enabled and not radiobox.active:
 				if keymaps.test("info-playing"):
 					if pctl.selected_in_playlist < len(pctl.default_playlist):
 						r_menu_index = pctl.get_track(pctl.default_playlist[pctl.selected_in_playlist]).index
@@ -44734,7 +44732,7 @@ def main(holder: Holder) -> None:
 
 				tauon.fields.add(gui.scroll_hide_box)
 				if scroll_hide_timer.get() < 0.9 or ((tauon.coll(
-						gui.scroll_hide_box) or scroll_hold or quick_search_mode) and \
+						gui.scroll_hide_box) or scroll_hold or gui.quick_search_mode) and \
 						not menu_is_open() and \
 						not pref_box.enabled and \
 						not gui.rename_playlist_box \
@@ -45504,30 +45502,29 @@ def main(holder: Holder) -> None:
 
 				tauon.search_over.render()
 
-				if keymaps.test("quick-find") and quick_search_mode is False:
+				if keymaps.test("quick-find") and gui.quick_search_mode is False:
 					if not tauon.search_over.active and not gui.box_over:
-						quick_search_mode = True
+						gui.quick_search_mode = True
 					if search_clear_timer.get() > 3:
 						search_text.text = ""
 					input_text = ""
 				elif (keymaps.test("quick-find") or (
-						inp.key_esc_press and len(editline) == 0)) or (inp.mouse_click and quick_search_mode is True):
-					quick_search_mode = False
+						inp.key_esc_press and len(editline) == 0)) or (inp.mouse_click and gui.quick_search_mode is True):
+					gui.quick_search_mode = False
 					search_text.text = ""
 
-				# if (key_backslash_press or (inp.key_ctrl_down and key_f_press)) and quick_search_mode is False:
+				# if (key_backslash_press or (inp.key_ctrl_down and key_f_press)) and gui.quick_search_mode is False:
 				#     if not tauon.search_over.active:
-				#         quick_search_mode = True
+				#         gui.quick_search_mode = True
 				#     if search_clear_timer.get() > 3:
 				#         search_text.text = ""
 				#     input_text = ""
 				# elif ((key_backslash_press or (inp.key_ctrl_down and key_f_press)) or (
-				#             inp.key_esc_press and len(editline) == 0)) or input.mouse_click and quick_search_mode is True:
-				#     quick_search_mode = False
+				#             inp.key_esc_press and len(editline) == 0)) or input.mouse_click and gui.quick_search_mode is True:
+				#     gui.quick_search_mode = False
 				#     search_text.text = ""
 
-				if quick_search_mode is True:
-
+				if gui.quick_search_mode is True:
 					rect2 = [0, window_size[1] - 85 * gui.scale, 420 * gui.scale, 25 * gui.scale]
 					rect = [0, window_size[1] - 125 * gui.scale, 420 * gui.scale, 65 * gui.scale]
 					rect[0] = int(window_size[0] / 2) - int(rect[2] / 2)
@@ -45545,7 +45542,7 @@ def main(holder: Holder) -> None:
 						gui.search_index = -1
 
 					if inp.backspace_press and search_text.text == "":
-						quick_search_mode = False
+						gui.quick_search_mode = False
 
 					if len(search_text.text) == 0:
 						gui.search_error = False
@@ -45630,7 +45627,7 @@ def main(holder: Holder) -> None:
 										pctl.active_playlist_viewing].title + "\" f\"" + search_text.text + "\""
 									pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 							search_text.text = ""
-							quick_search_mode = False
+							gui.quick_search_mode = False
 
 					if (len(input_text) > 0 and not gui.search_error) or inp.key_down_press is True or inp.backspace_press \
 							or gui.force_search:
@@ -45729,7 +45726,7 @@ def main(holder: Holder) -> None:
 						pctl.jump(pctl.default_playlist[gui.search_index], gui.search_index)
 						if prefs.album_mode:
 							goto_album(pctl.playlist_playing_position)
-						quick_search_mode = False
+						gui.quick_search_mode = False
 						search_clear_timer.set()
 				elif not tauon.search_over.active:
 					if inp.key_up_press and ((
