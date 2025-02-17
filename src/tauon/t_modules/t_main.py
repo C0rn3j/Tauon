@@ -1409,15 +1409,17 @@ class PlayerCtl:
 		self.tauon                     = tauon
 		self.gui                       = self.tauon.gui
 		self.bag                       = self.tauon.bag
-		self.smtc:                bool = self.tauon.bag.smtc
+		self.smtc                      = self.tauon.bag.smtc
 		self.radiobox                  = self.tauon.radiobox
+		self.tree_view_box             = self.tauon.tree_view_box
+		self.artist_list_box           = self.tauon.artist_list_box
 		self.msys                      = self.tauon.msys
 		self.queue_box                 = self.tauon.queue_box
 		self.running:             bool = True
-		self.prefs:              Prefs = self.bag.prefs
+		self.prefs                     = self.bag.prefs
 		self.star_store                = StarStore(tauon=self.tauon, pctl=self)
 		self.lfm_scrobbler             = LastScrob(tauon=self.tauon, pctl=self)
-		self.install_directory:   Path = self.bag.dirs.install_directory
+		self.install_directory         = self.bag.dirs.install_directory
 		self.loading_in_progress: bool = False
 		self.taskbar_progress:    bool = True
 
@@ -1813,7 +1815,7 @@ class PlayerCtl:
 			self.delete_playlist(index)
 			return
 
-		self.gui.message_box_confirm_callback = delete_playlist_by_id
+		self.gui.message_box_confirm_callback = self.delete_playlist_by_id
 		self.gui.message_box_confirm_reference = (self.pl_to_id(index), True, True)
 		show_message(_("Are you sure you want to delete playlist: {name}?").format(name=self.multi_playlist[index].title), mode="confirm")
 
@@ -2236,10 +2238,10 @@ class PlayerCtl:
 				goto_album(self.selected_in_playlist)
 
 		if self.prefs.left_panel_mode == "artist list" and self.gui.lsp and not quiet:
-			tauon.artist_list_box.locate_artist(self.playing_object())
+			self.artist_list_box.locate_artist(self.playing_object())
 
-		if folder_list and self.prefs.left_panel_mode == "folder view" and self.gui.lsp and not quiet and not tauon.tree_view_box.lock_pl:
-			tauon.tree_view_box.show_track(self.playing_object())
+		if folder_list and self.prefs.left_panel_mode == "folder view" and self.gui.lsp and not quiet and not self.tree_view_box.lock_pl:
+			self.tree_view_box.show_track(self.playing_object())
 
 		return 0
 
@@ -2253,7 +2255,7 @@ class PlayerCtl:
 		self.set_volume()
 
 	def set_volume(self, notify: bool = True) -> None:
-		if (self.tauon.spot_ctl.coasting or self.tauon.spot_ctl.playing) and not self.tauon.spot_ctl.local and self.tauon.gui.inp.mouse_down:
+		if (self.tauon.spot_ctl.coasting or self.tauon.spot_ctl.playing) and not self.tauon.spot_ctl.local and self.gui.inp.mouse_down:
 			# Rate limit network volume change
 			t = self.volume_update_timer.get()
 			if t < 0.3:
@@ -3513,8 +3515,8 @@ class LastFMapi:
 				logging.exception("Unknown error")
 				show_message(_("Error"), _("Unknown error."), mode="error")
 
-		if not toggle_lfm_auto(mode=1):
-			toggle_lfm_auto()
+		if not self.tauon.toggle_lfm_auto(mode=1):
+			self.tauon.toggle_lfm_auto()
 
 	def auth3(self) -> None:
 		"""This is used for 'logout'"""
@@ -3977,15 +3979,16 @@ class LastFMapi:
 			if "retry" in str(e):
 				return 2
 				# show_message(_("Could not update Last.fm. ", str(e), mode='warning')
-			pctl.b_time -= 5000
+			self.pctl.b_time -= 5000
 			return 1
 
 class ListenBrainz:
 
 	def __init__(self, tauon: Tauon) -> None:
-		self.t_title = tauon.t_title
-		self.prefs   = tauon.prefs
-		self.enable  = tauon.prefs.enable_lb
+		self.t_title   = tauon.t_title
+		self.n_version = tauon.n_version
+		self.prefs     = tauon.prefs
+		self.enable    = tauon.prefs.enable_lb
 		# self.url = "https://api.listenbrainz.org/1/submit-listens"
 
 	def url(self) -> str:
@@ -4039,7 +4042,7 @@ class ListenBrainz:
 		data["payload"].append({"track_metadata": metadata})
 		data["payload"][0]["listened_at"] = time
 
-		r = requests.post(self.url(), headers={"Authorization": "Token " + prefs.lb_token}, data=json.dumps(data), timeout=10)
+		r = requests.post(self.url(), headers={"Authorization": "Token " + self.prefs.lb_token}, data=json.dumps(data), timeout=10)
 		if r.status_code != 200:
 			show_message(_("There was an error submitting data to ListenBrainz"), r.text, mode="warning")
 			return False
@@ -4090,8 +4093,8 @@ class ListenBrainz:
 			additional["duration"] = str(int(track_object.length))
 
 		additional["media_player"] = self.t_title
-		additional["submission_client"] = t_title
-		additional["media_player_version"] = str(n_version)
+		additional["submission_client"] = self.t_title
+		additional["media_player_version"] = str(self.n_version)
 
 		metadata["additional_info"] = additional
 		data["payload"].append({"track_metadata": metadata})
@@ -4129,6 +4132,7 @@ class LastScrob:
 
 	def __init__(self, tauon: Tauon, pctl: PlayerCtl) -> None:
 		self.tauon   = tauon
+		self.lb      = tauon.lb
 		self.lastfm  = tauon.lastfm
 		self.gui     = tauon.gui
 		self.pctl    = pctl
@@ -4139,13 +4143,13 @@ class LastScrob:
 		self.queue   = []
 		self.running = False
 
-	def start_queue(self):
+	def start_queue(self) -> None:
 		self.running = True
 		mini_t = threading.Thread(target=self.process_queue)
 		mini_t.daemon = True
 		mini_t.start()
 
-	def process_queue(self):
+	def process_queue(self) -> None:
 		time.sleep(0.4)
 
 		while self.queue:
@@ -4159,14 +4163,14 @@ class LastScrob:
 
 				if tr[2] == "lfm" and self.prefs.auto_lfm and (self.lastfm.connected or self.lastfm.details_ready()):
 					success = self.lastfm.scrobble(tr[0], tr[1])
-				elif tr[2] == "lb" and lb.enable:
-					success = lb.listen_full(tr[0], tr[1])
+				elif tr[2] == "lb" and self.lb.enable:
+					success = self.lb.listen_full(tr[0], tr[1])
 				elif tr[2] == "maloja":
 					success = maloja_scrobble(tr[0], tr[1])
 				elif tr[2] == "air":
 					success = self.tauon.subsonic.listen(tr[0], submit=True)
 				elif tr[2] == "koel":
-					success = koel.listen(tr[0], submit=True)
+					success = self.tauon.koel.listen(tr[0], submit=True)
 
 				if not success:
 					logging.info("Re-queue scrobble")
@@ -4237,23 +4241,23 @@ class LastScrob:
 
 		if track_object.is_network:
 			if track_object.file_ext == "SUB":
-				tauon.subsonic.listen(track_object, submit=False)
+				self.tauon.subsonic.listen(track_object, submit=False)
 
 		if not self.prefs.scrobble_hold:
-			if self.prefs.auto_lfm and (tauon.lastfm.connected or tauon.lastfm.details_ready()):
-				mini_t = threading.Thread(target=tauon.lastfm.update, args=([track_object]))
+			if self.prefs.auto_lfm and (self.tauon.lastfm.connected or self.tauon.lastfm.details_ready()):
+				mini_t = threading.Thread(target=self.tauon.lastfm.update, args=([track_object]))
 				mini_t.daemon = True
 				mini_t.start()
 
-			if lb.enable:
-				mini_t = threading.Thread(target=lb.listen_playing, args=([track_object]))
+			if self.lb.enable:
+				mini_t = threading.Thread(target=self.lb.listen_playing, args=([track_object]))
 				mini_t.daemon = True
 				mini_t.start()
 
 	def scrob_full_track(self, track_object: TrackClass):
 		# logging.info("SCROBBLE")
 		track_object.lfm_scrobbles += 1
-		gui.pl_update += 1
+		self.gui.pl_update += 1
 
 		if track_object.is_network:
 			if track_object.file_ext == "SUB":
@@ -4261,12 +4265,12 @@ class LastScrob:
 			if track_object.file_ext == "KOEL":
 				self.queue.append((track_object, int(time.time()), "koel"))
 
-		if not prefs.scrobble_hold:
-			if prefs.auto_lfm and (tauon.lastfm.connected or tauon.lastfm.details_ready()):
+		if not self.prefs.scrobble_hold:
+			if self.prefs.auto_lfm and (self.tauon.lastfm.connected or self.tauon.lastfm.details_ready()):
 				self.queue.append((track_object, int(time.time()), "lfm"))
-			if lb.enable:
+			if self.lb.enable:
 				self.queue.append((track_object, int(time.time()), "lb"))
-			if prefs.maloja_url and prefs.maloja_enable:
+			if self.prefs.maloja_url and self.prefs.maloja_enable:
 				self.queue.append((track_object, int(time.time()), "maloja"))
 
 class Strings:
@@ -4832,7 +4836,7 @@ class Menu:
 		# Reposition the menu if it would otherwise intersect with far edge of window
 		if not position:
 			if self.pos[0] + self.w > self.window_size[0]:
-				self.pos[0] -= round(self.w + 3 * gui.scale)
+				self.pos[0] -= round(self.w + 3 * self.gui.scale)
 
 		# Get height size of menu
 		full_h = 0
@@ -4851,14 +4855,18 @@ class Menu:
 			self.pos[1] -= shown_h
 
 			# Prevent moving outside top of window
-			if self.pos[1] < gui.panelY:
-				self.pos[1] = gui.panelY
-				self.pos[0] += 5 * gui.scale
+			if self.pos[1] < self.gui.panelY:
+				self.pos[1] = self.gui.panelY
+				self.pos[0] += 5 * self.gui.scale
 
 		self.active = True
 
 class GallClass:
 	def __init__(self, tauon: Tauon, size: int = 250, save_out: bool = True) -> None:
+		self.tauon         = tauon
+		self.tls_context   = tauon.bag.tls_context
+		self.renderer      = tauon.bag.renderer
+		self.ddt           = tauon.bag.ddt
 		self.gui           = tauon.gui
 		self.prefs         = tauon.prefs
 		self.search_over   = tauon.search_over
@@ -4888,7 +4896,7 @@ class GallClass:
 		if self.search_over.active:
 			while QuickThumbnail.queue:
 				img = QuickThumbnail.queue.pop(0)
-				response = urllib.request.urlopen(img.url, context=tls_context)
+				response = urllib.request.urlopen(img.url, context=self.tls_context)
 				source_image = io.BytesIO(response.read())
 				img.read_and_thumbnail(source_image, img.size, img.size)
 				source_image.close()
@@ -4956,7 +4964,7 @@ class GallClass:
 
 					# elif source[0] == 1:
 					#	 #logging.info('tag')
-					#	 source_image = io.BytesIO(album_art_gen.get_embed(key[0]))
+					#	 source_image = io.BytesIO(self.album_art_gen.get_embed(key[0]))
 					#
 					# elif source[0] == 2:
 					#	 try:
@@ -4967,7 +4975,7 @@ class GallClass:
 					#		 logging.exception("IMAGE NETWORK LOAD ERROR")
 					# else:
 					#	 source_image = open(source[1], 'rb')
-					source_image = album_art_gen.get_source_raw(0, 0, key[0], subsource=source)
+					source_image = self.album_art_gen.get_source_raw(0, 0, key[0], subsource=source)
 
 				g = io.BytesIO()
 				g.seek(0)
@@ -4985,7 +4993,7 @@ class GallClass:
 						im.thumbnail((size, size), Image.Resampling.LANCZOS)
 					except Exception:
 						logging.exception("Failed to work with thumbnail")
-						im = album_art_gen.get_error_img(size)
+						im = self.album_art_gen.get_error_img(size)
 						error = True
 
 					im.save(g, "BMP")
@@ -5025,7 +5033,7 @@ class GallClass:
 		return False
 
 	def render(self, track: TrackClass, location, size=None, force_offset=None) -> bool | None:
-		if tauon.gallery_load_delay.get() < 0.5:
+		if self.tauon.gallery_load_delay.get() < 0.5:
 			return None
 
 		x = round(location[0])
@@ -5064,8 +5072,8 @@ class GallClass:
 			if order[0] == 2:
 				# finish processing
 
-				s_image = ddt.load_image(order[1])
-				c = sdl3.SDL_CreateTextureFromSurface(renderer, s_image)
+				s_image = self.ddt.load_image(order[1])
+				c = sdl3.SDL_CreateTextureFromSurface(self.renderer, s_image)
 				sdl3.SDL_DestroySurface(s_image)
 				tex_w = pointer(c_float(0))
 				tex_h = pointer(c_float(0))
@@ -5089,7 +5097,7 @@ class GallClass:
 				order[3].y = y
 				order[3].x = int((size - order[3].w) / 2) + order[3].x
 				order[3].y = int((size - order[3].h) / 2) + order[3].y
-				sdl3.SDL_RenderTexture(renderer, order[2], None, order[3])
+				sdl3.SDL_RenderTexture(self.renderer, order[2], None, order[3])
 
 				if (track, size, offset) in self.key_list:
 					self.key_list.remove((track, size, offset))
@@ -5097,7 +5105,7 @@ class GallClass:
 
 				# Remove old images to conserve RAM usage
 				if len(self.key_list) > self.limit:
-					gui.update += 1
+					self.gui.update += 1
 					key = self.key_list[0]
 					# while key in self.queue:
 					#	 self.queue.remove(key)
@@ -5107,9 +5115,7 @@ class GallClass:
 					del self.key_list[0]
 
 				return True
-
 		else:
-
 			if key not in self.queue:
 				self.queue.append(key)
 				if self.lock.locked():
@@ -5162,6 +5168,7 @@ class Tauon:
 		self.system                       = bag.system
 		self.colours                      = bag.colours
 		self.inp                          = gui.inp
+		self.n_version                    = holder.n_version
 		self.t_window                     = holder.t_window
 		self.t_title                      = holder.t_title
 		self.t_version                    = holder.t_version
@@ -5240,6 +5247,7 @@ class Tauon:
 		self.pctl                                 = PlayerCtl(tauon=self)
 		self.star_store                           = self.pctl.star_store
 		self.search_over                          = SearchOverlay(tauon=self)
+		self.lb                                   = ListenBrainz(tauon=self)
 		self.deco                                 = Deco(tauon=self)
 		self.lfm_scrobbler                        = self.pctl.lfm_scrobbler
 		self.bottom_bar1                          = BottomBarType1(tauon=self)
@@ -5258,6 +5266,7 @@ class Tauon:
 		self.queue_box                            = QueueBox(tauon=self)
 		self.cache_directory:                Path = bag.dirs.cache_directory
 		self.user_directory:          Path | None = bag.dirs.user_directory
+		self.install_directory                    = bag.dirs.install_directory
 		self.music_directory:         Path | None = bag.dirs.music_directory
 		self.locale_directory:               Path = bag.dirs.locale_directory
 		self.transcode_list:      list[list[int]] = []
@@ -5347,9 +5356,9 @@ class Tauon:
 		self.plex              = PlexService(self)
 		self.jellyfin          = Jellyfin(self)
 		self.subsonic          = SubsonicService(self)
-		self.koel              = KoelService()
-		self.tau               = TauService()
-		self.lastfm            = LastFMapi(tauon=self)
+		self.koel              = KoelService(self)
+		self.tau               = TauService(self)
+		self.lastfm            = LastFMapi(self)
 
 		self.tls_context = bag.tls_context
 
@@ -5442,7 +5451,7 @@ class Tauon:
 
 		self.prefs.thin_gallery_borders ^= True
 		self.gui.update += 1
-		update_layout_do(tauon=tauon)
+		update_layout_do(tauon=self)
 
 	def toggle_gallery_row_space(self, mode: int = 0) -> bool:
 		if mode == 1:
@@ -5450,7 +5459,7 @@ class Tauon:
 
 		self.prefs.increase_gallery_row_spacing ^= True
 		self.gui.update += 1
-		update_layout_do(tauon=tauon)
+		update_layout_do(tauon=self)
 
 	def toggle_galler_text(self, mode: int = 0) -> bool:
 		if mode == 1:
@@ -5458,7 +5467,7 @@ class Tauon:
 
 		self.gui.gallery_show_text ^= True
 		self.gui.update += 1
-		update_layout_do(tauon=tauon)
+		update_layout_do(tauon=self)
 
 		# Jump to playing album
 		if self.prefs.album_mode and self.gui.first_in_grid is not None:
@@ -5895,11 +5904,11 @@ class Tauon:
 
 	def toggle_lb(self, mode: int = 0) -> bool | None:
 		if mode == 1:
-			return lb.enable
-		if not lb.enable and not self.prefs.lb_token:
+			return self.lb.enable
+		if not self.lb.enable and not self.prefs.lb_token:
 			show_message(_("Can't enable this if there's no token."), mode="warning")
 			return None
-		lb.enable ^= True
+		self.lb.enable ^= True
 		return None
 
 	def toggle_maloja(self, mode: int = 0) -> bool | None:
@@ -6075,8 +6084,8 @@ class Tauon:
 
 	def switch_rg_album(self, mode: int = 0) -> bool | None:
 		if mode == 1:
-			return True if prefs.replay_gain == 2 else False
-		prefs.replay_gain = 0 if prefs.replay_gain == 2 else 2
+			return True if self.prefs.replay_gain == 2 else False
+		self.prefs.replay_gain = 0 if self.prefs.replay_gain == 2 else 2
 		return None
 
 	def switch_rg_auto(self, mode: int = 0) -> bool | None:
@@ -6224,7 +6233,7 @@ class Tauon:
 
 		self.pctl.cargo = []
 		if self.pctl.default_playlist:
-			for item in gui.shift_selection:
+			for item in self.gui.shift_selection:
 				self.pctl.cargo.append(self.pctl.default_playlist[item])
 
 		if not self.pctl.cargo and -1 < self.pctl.selected_in_playlist < len(self.pctl.default_playlist):
@@ -6240,7 +6249,7 @@ class Tauon:
 		del_selected()
 
 	def s_append(self, index: int) -> None:
-		paste(playlist_no=index)
+		self.paste(playlist_no=index)
 
 	def paste(self, playlist_no: int | None = None, track_id: int | None = None) -> None:
 		clip = copy_from_clipboard()
@@ -6278,7 +6287,7 @@ class Tauon:
 			clip = False
 
 		elif "spotify" in clip:
-			pctl.cargo.clear()
+			self.pctl.cargo.clear()
 			for link in clip.split("\n"):
 				logging.info(link)
 				link = link.strip()
@@ -6290,7 +6299,7 @@ class Tauon:
 						self.pctl.cargo.extend(l)
 				elif clip.startswith("https://open.spotify.com/playlist/"):
 					self.spot_ctl.playlist(link)
-			if prefs.album_mode:
+			if self.prefs.album_mode:
 				reload_albums()
 			self.gui.pl_update += 1
 			clip = False
@@ -6303,10 +6312,10 @@ class Tauon:
 					target = str(urllib.parse.unquote(line)).replace("file://", "").replace("\r", "")
 					load_order = LoadClass()
 					load_order.target = target
-					load_order.playlist = pctl.multi_playlist[pctl.active_playlist_viewing].uuid_int
+					load_order.playlist = self.pctl.multi_playlist[self.pctl.active_playlist_viewing].uuid_int
 
 					if playlist_no is not None:
-						load_order.playlist = pctl.pl_to_id(playlist_no)
+						load_order.playlist = self.pctl.pl_to_id(playlist_no)
 					if track_id is not None:
 						load_order.playlist_position = r_menu_position
 
@@ -6414,7 +6423,7 @@ class Tauon:
 
 		self.pctl.multi_playlist.append(pl_gen(title=title))  # [title, 0, [], 0, 0, 0])
 		if switch:
-			pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
+			self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 		return len(self.pctl.multi_playlist) - 1
 
 	def coll(self, r: list[int]) -> bool:
@@ -6431,7 +6440,7 @@ class Tauon:
 
 		if prefs.enable_web and not gui.web_running:
 			webThread = threading.Thread(
-				target=webserve, args=[pctl, prefs, gui, self.album_art_gen, str(install_directory), self.strings, self])
+				target=webserve, args=[self.pctl, prefs, gui, self.album_art_gen, str(self.install_directory), self.strings, self])
 			webThread.daemon = True
 			webThread.start()
 			show_message(_("Web server starting"), _("External connections will be accepted."), mode="done")
@@ -6447,7 +6456,7 @@ class Tauon:
 	def start_remote(self) -> None:
 		if not self.web_running:
 			self.web_thread = threading.Thread(
-				target=webserve2, args=[pctl, prefs, gui, self.album_art_gen, str(install_directory), self.strings, self])
+				target=webserve2, args=[self.pctl, self.prefs, self.gui, self.album_art_gen, str(self.install_directory), self.strings, self])
 			self.web_thread.daemon = True
 			self.web_thread.start()
 			self.web_running = True
@@ -6540,14 +6549,14 @@ class Tauon:
 
 	def set_tray_icons(self, force: bool = False):
 
-		indicator_icon_play =    str(self.pctl.install_directory / "assets/svg/tray-indicator-play.svg")
-		indicator_icon_pause =   str(self.pctl.install_directory / "assets/svg/tray-indicator-pause.svg")
-		indicator_icon_default = str(self.pctl.install_directory / "assets/svg/tray-indicator-default.svg")
+		indicator_icon_play =    str(self.install_directory / "assets/svg/tray-indicator-play.svg")
+		indicator_icon_pause =   str(self.install_directory / "assets/svg/tray-indicator-pause.svg")
+		indicator_icon_default = str(self.install_directory / "assets/svg/tray-indicator-default.svg")
 
 		if self.prefs.tray_theme == "gray":
-			indicator_icon_play =    str(self.pctl.install_directory / "assets/svg/tray-indicator-play-g1.svg")
-			indicator_icon_pause =   str(self.pctl.install_directory / "assets/svg/tray-indicator-pause-g1.svg")
-			indicator_icon_default = str(self.pctl.install_directory / "assets/svg/tray-indicator-default-g1.svg")
+			indicator_icon_play =    str(self.install_directory / "assets/svg/tray-indicator-play-g1.svg")
+			indicator_icon_pause =   str(self.install_directory / "assets/svg/tray-indicator-pause-g1.svg")
+			indicator_icon_default = str(self.install_directory / "assets/svg/tray-indicator-default-g1.svg")
 
 		user_icon_dir = self.cache_directory / "icon-export"
 		def install_tray_icon(src: str, name: str) -> None:
@@ -6568,10 +6577,10 @@ class Tauon:
 	def test_ffmpeg(self) -> bool:
 		if self.get_ffmpeg():
 			return True
-		if msys:
+		if self.msys:
 			show_message(_("This feature requires FFMPEG. Shall I can download that for you? (80MB)"), mode="confirm")
-			gui.message_box_confirm_callback = self.download_ffmpeg
-			gui.message_box_confirm_reference = (None,)
+			self.gui.message_box_confirm_callback = self.download_ffmpeg
+			self.gui.message_box_confirm_reference = (None,)
 		else:
 			show_message(_("FFMPEG could not be found"))
 		return False
@@ -6581,8 +6590,8 @@ class Tauon:
 		p = shutil.which("ffmpeg")
 		if p:
 			return p
-		p = str(user_directory / "ffmpeg.exe")
-		if msys and os.path.isfile(p):
+		p = str(self.user_directory / "ffmpeg.exe")
+		if self.msys and os.path.isfile(p):
 			return p
 		return None
 
@@ -6590,36 +6599,36 @@ class Tauon:
 		p = shutil.which("ffprobe")
 		if p:
 			return p
-		p = str(user_directory / "ffprobe.exe")
-		if msys and os.path.isfile(p):
+		p = str(self.user_directory / "ffprobe.exe")
+		if self.msys and os.path.isfile(p):
 			return p
 		return None
 
 	def bg_save(self) -> None:
 		self.worker_save_state = True
-		tauon.thread_manager.ready("worker")
+		self.thread_manager.ready("worker")
 
 	def exit(self, reason: str) -> None:
 		logging.info("Shutting down. Reason: " + reason)
-		pctl.running = False
+		self.pctl.running = False
 		self.wake()
 
 	def min_to_tray(self) -> None:
-		sdl3.SDL_HideWindow(t_window)
-		gui.mouse_unknown = True
+		sdl3.SDL_HideWindow(self.t_window)
+		self.gui.mouse_unknown = True
 
 	def raise_window(self) -> None:
-		sdl3.SDL_ShowWindow(t_window)
-		sdl3.SDL_RaiseWindow(t_window)
-		sdl3.SDL_RestoreWindow(t_window)
-		gui.lowered = False
-		gui.update += 1
+		sdl3.SDL_ShowWindow(self.t_window)
+		sdl3.SDL_RaiseWindow(self.t_window)
+		sdl3.SDL_RestoreWindow(self.t_window)
+		self.gui.lowered = False
+		self.gui.update += 1
 
 	def focus_window(self) -> None:
-		sdl3.SDL_RaiseWindow(t_window)
+		sdl3.SDL_RaiseWindow(self.t_window)
 
 	def get_playing_playlist_id(self) -> int:
-		return self.pctl.pl_to_id(pctl.active_playlist_playing)
+		return self.pctl.pl_to_id(self.pctl.active_playlist_playing)
 
 	def wake(self) -> None:
 		sdl3.SDL_PushEvent(ctypes.byref(self.dummy_event))
@@ -6635,7 +6644,7 @@ class PlexService:
 		self.scanning = False
 
 	def connect(self) -> None:
-		if not prefs.plex_username or not prefs.plex_password or not prefs.plex_servername:
+		if not self.prefs.plex_username or not self.prefs.plex_password or not self.prefs.plex_servername:
 			show_message(_("Missing username, password and/or server name"), mode="warning")
 			self.scanning = False
 			return
@@ -6699,12 +6708,12 @@ class PlexService:
 		playlist: list[int] = []
 
 		existing = {}
-		for track_id, track in pctl.master_library.items():
+		for track_id, track in self.pctl.master_library.items():
 			if track.is_network and track.file_ext == "PLEX":
 				existing[track.url_key] = track_id
 
 		albums = self.resource.library.section("Music").albums()
-		gui.to_got = 0
+		self.gui.to_got = 0
 
 		for album in albums:
 			year = album.year
@@ -6718,7 +6727,7 @@ class PlexService:
 					logging.warning("Skipping track with invalid duration - " + track.title + " - " + track.grandparentTitle)
 					continue
 
-				id = pctl.master_count
+				id = self.pctl.master_count
 				replace_existing = False
 
 				e = existing.get(track.key)
@@ -6752,16 +6761,16 @@ class PlexService:
 				nt.url_key = track.key
 				nt.date = str(year)
 
-				pctl.master_library[id] = nt
+				self.pctl.master_library[id] = nt
 
 				if not replace_existing:
-					pctl.master_count += 1
+					self.pctl.master_count += 1
 
 				playlist.append(nt.index)
 
-			gui.to_got += 1
-			gui.update += 1
-			gui.pl_update += 1
+			self.gui.to_got += 1
+			self.gui.update += 1
+			self.gui.pl_update += 1
 
 		self.scanning = False
 
@@ -6770,11 +6779,12 @@ class PlexService:
 
 		self.pctl.multi_playlist.append(pl_gen(title=_("PLEX Collection"), playlist_ids=playlist))
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "plex path"
-		pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
+		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 
 class SubsonicService:
 
 	def __init__(self, tauon: Tauon) -> None:
+		self.gui        = tauon.gui
 		self.prefs      = tauon.prefs
 		self.t_title    = tauon.t_title
 		self.star_store = tauon.star_store
@@ -6828,8 +6838,8 @@ class SubsonicService:
 
 	def resolve_stream(self, key):
 		p = {"id": key}
-		if prefs.network_stream_bitrate > 0:
-			p["maxBitRate"] = prefs.network_stream_bitrate
+		if self.prefs.network_stream_bitrate > 0:
+			p["maxBitRate"] = self.prefs.network_stream_bitrate
 
 		return self.r("stream", p={"id": key}, get_url=True)
 		# logging.info(response.content)
@@ -6862,11 +6872,11 @@ class SubsonicService:
 	def get_music3(self, return_list: bool = False):
 
 		self.scanning = True
-		gui.to_got = 0
+		self.gui.to_got = 0
 
 		existing = {}
 
-		for track_id, track in pctl.master_library.items():
+		for track_id, track in self.pctl.master_library.items():
 			if track.is_network and track.file_ext == "SUB":
 				existing[track.url_key] = track_id
 
@@ -6899,7 +6909,6 @@ class SubsonicService:
 		dupes = []
 
 		def getsongs(index, folder_id, name: str, inner: bool = False, parent=None):
-
 			try:
 				d = self.r("getMusicDirectory", p={"id": folder_id})
 				if "child" not in d["subsonic-response"]["directory"]:
@@ -6918,12 +6927,10 @@ class SubsonicService:
 
 			items = d["subsonic-response"]["directory"]["child"]
 
-			gui.update = 2
+			self.gui.update = 2
 
 			for item in items:
-
 				if item["isDir"]:
-
 					if "userRating" in item and "artist" in item:
 						rating = item["userRating"]
 						if album_star_store.get_rating_artist_title(item["artist"], item["title"]) == 0 and rating == 0:
@@ -6991,8 +6998,7 @@ class SubsonicService:
 
 		for sset in songsets:
 			for nt, name, song_id, rating in sset:
-
-				id = pctl.master_count
+				id = self.pctl.master_count
 
 				replace_existing = False
 				ex = existing.get(song_id)
@@ -7001,9 +7007,9 @@ class SubsonicService:
 					replace_existing = True
 
 				nt.index = id
-				pctl.master_library[id] = nt
+				self.pctl.master_library[id] = nt
 				if not replace_existing:
-					pctl.master_count += 1
+					self.pctl.master_count += 1
 
 				playlist.append(nt.index)
 
@@ -7016,9 +7022,9 @@ class SubsonicService:
 		if return_list:
 			return playlist
 
-		pctl.multi_playlist.append(pl_gen(title=_("Airsonic Collection"), playlist_ids=playlist))
-		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "air"
-		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
+		self.pctl.multi_playlist.append(pl_gen(title=_("Airsonic Collection"), playlist_ids=playlist))
+		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "air"
+		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 
 	# def get_music2(self, return_list=False):
 	#
@@ -7138,7 +7144,9 @@ class SubsonicService:
 
 class KoelService:
 
-	def __init__(self) -> None:
+	def __init__(self, tauon: Tauon) -> None:
+		self.prefs = tauon.prefs
+		self.gui   = tauon.gui
 		self.connected: bool = False
 		self.resource = None
 		self.scanning:  bool = False
@@ -7147,9 +7155,8 @@ class KoelService:
 		self.token:      str = ""
 
 	def connect(self) -> None:
-
 		logging.info("Connect to koel...")
-		if not prefs.koel_username or not prefs.koel_password or not prefs.koel_server_url:
+		if not self.prefs.koel_username or not self.prefs.koel_password or not self.prefs.koel_server_url:
 			show_message(_("Missing username, password and/or server URL"), mode="warning")
 			self.scanning = False
 			return
@@ -7159,9 +7166,9 @@ class KoelService:
 			logging.info("Already authorised")
 			return
 
-		password = prefs.koel_password
-		username = prefs.koel_username
-		server = prefs.koel_server_url
+		password = self.prefs.koel_password
+		username = self.prefs.koel_username
+		server   = self.prefs.koel_server_url
 		self.server = server
 
 		target = server + "/api/me"
@@ -7179,7 +7186,7 @@ class KoelService:
 			r = requests.post(target, json=body, headers=headers, timeout=10)
 		except Exception:
 			logging.exception("Could not establish connection")
-			gui.show_message(_("Could not establish connection"), mode="error")
+			self.gui.show_message(_("Could not establish connection"), mode="error")
 			return
 
 		if r.status_code == 200:
@@ -7341,17 +7348,18 @@ class KoelService:
 		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 
 class TauService:
-	def __init__(self) -> None:
+	def __init__(self, tauon: Tauon) -> None:
+		self.prefs = tauon.prefs
 		self.processing = False
 
 	def resolve_stream(self, key: str) -> str:
-		return "http://" + prefs.sat_url + ":7814/api1/file/" + key
+		return "http://" + self.prefs.sat_url + ":7814/api1/file/" + key
 
 	def resolve_picture(self, key: str) -> str:
-		return "http://" + prefs.sat_url + ":7814/api1/pic/medium/" + key
+		return "http://" + self.prefs.sat_url + ":7814/api1/pic/medium/" + key
 
 	def get(self, point: str):
-		url = "http://" + prefs.sat_url + ":7814/api1/"
+		url = "http://" + self.prefs.sat_url + ":7814/api1/"
 		data = None
 		try:
 			r = requests.get(url + point, timeout=10)
@@ -7362,7 +7370,6 @@ class TauService:
 		return data
 
 	def get_playlist(self, playlist_name: str | None = None, return_list: bool = False) -> list[int] | None:
-
 		p = self.get("playlists")
 
 		if not p or not p["playlists"]:
@@ -8777,6 +8784,7 @@ class ImageObject:
 class AlbumArt:
 	def __init__(self, tauon: Tauon) -> None:
 		self.gui           = tauon.gui
+		self.tls_context   = tauon.bag.tls_context
 		self.image_types = {"jpg", "JPG", "jpeg", "JPEG", "PNG", "png", "BMP", "bmp", "GIF", "gif", "jxl", "JXL"}
 		self.art_folder_names = {
 			"art", "scans", "scan", "booklet", "images", "image", "cover",
@@ -9125,7 +9133,7 @@ class AlbumArt:
 					elif track.file_ext == "JELY":
 						source_image = jellyfin.get_cover(track)
 					else:
-						response = urllib.request.urlopen(get_network_thumbnail_url(track), context=tls_context)
+						response = urllib.request.urlopen(get_network_thumbnail_url(track), context=self.tls_context)
 						source_image = io.BytesIO(response.read())
 					if source_image:
 						with Path(cached_path).open("wb") as file:
@@ -40040,7 +40048,6 @@ def main(holder: Holder) -> None:
 	star_store = tauon.star_store
 	pctl = tauon.pctl
 	pctl.default_playlist = default_playlist
-	lb = ListenBrainz(tauon=tauon)
 	deco = tauon.deco
 	deco.get_themes = get_themes
 	deco.renderer = renderer
