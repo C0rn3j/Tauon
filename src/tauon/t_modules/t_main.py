@@ -11512,28 +11512,33 @@ class SearchOverlay:
 
 class MessageBox:
 
-	def __init__(self):
-		pass
+	def __init__(self, tauon: Tauon) -> None:
+		self.ddt         = tauon.ddt
+		self.gui         = tauon.gui
+		self.inp         = tauon.gui.inp
+		self.window_size = tauon.bag.window_size
 
-	def get_rect(self):
-
-		w1 = ddt.get_text_w(gui.message_text, 15) + 74 * gui.scale
-		w2 = ddt.get_text_w(gui.message_subtext, 12) + 74 * gui.scale
-		w3 = ddt.get_text_w(gui.message_subtext2, 12) + 74 * gui.scale
+	def get_rect(self) -> tuple[int, int, float, int]:
+		w1 = self.ddt.get_text_w(gui.message_text, 15) + 74 * gui.scale
+		w2 = self.ddt.get_text_w(gui.message_subtext, 12) + 74 * gui.scale
+		w3 = self.ddt.get_text_w(gui.message_subtext2, 12) + 74 * gui.scale
 		w = max(w1, w2, w3)
 
-		w = max(w, 210 * gui.scale)
+		w = max(w, 210 * self.gui.scale)
 
-		h = round(60 * gui.scale)
-		if gui.message_subtext2:
-			h += round(15 * gui.scale)
+		h = round(60 * self.gui.scale)
+		if self.gui.message_subtext2:
+			h += round(15 * self.gui.scale)
 
-		x = int(window_size[0] / 2) - int(w / 2)
-		y = int(window_size[1] / 2) - int(h / 2)
+		x = int(self.window_size[0] / 2) - int(w / 2)
+		y = int(self.window_size[1] / 2) - int(h / 2)
 
 		return x, y, w, h
 
-	def render(self):
+	def render(self) -> None:
+		inp = self.inp
+		gui = self.gui
+		ddt = self.ddt
 		if inp.mouse_click or inp.key_return_press or inp.right_click or inp.key_esc_press or inp.backspace_press \
 				or keymaps.test("quick-find") or (inp.k_input and tauon.message_box_min_timer.get() > 1.2):
 
@@ -11588,22 +11593,25 @@ class MessageBox:
 			if gui.message_subtext2:
 				ddt.text((x + 63 * gui.scale, y + (9 + 42) * gui.scale), gui.message_subtext2, colours.message_box_text,
 					12)
-
 		else:
 			ddt.text((x + 62 * gui.scale, y + 20 * gui.scale), gui.message_text, colours.message_box_text, 15)
 
 class NagBox:
-	def __init__(self):
+	def __init__(self, tauon: Tauon) -> None:
+		self.gui          = tauon.gui
+		self.ddt          = tauon.ddt
+		self.prefs        = tauon.prefs
+		self.window_size  = tauon.bag.window_size
 		self.wiggle_timer = Timer(10)
 
 	def draw(self):
-		w = 485 * gui.scale
-		h = 165 * gui.scale
-		x = int(window_size[0] / 2) - int(w / 2)
+		w = 485 * self.gui.scale
+		h = 165 * self.gui.scale
+		x = int(self.window_size[0] / 2) - int(w / 2)
 		# if self.wiggle_timer.get() < 0.5:
 		#     gui.update += 1
 		#     x += math.sin(tauon.core_timer.get() * 40) * 4
-		y = int(window_size[1] / 2) - int(h / 2)
+		y = int(self.window_size[1] / 2) - int(h / 2)
 
 		# xx = x - round(8 * gui.scale)
 		# hh = 0.0 #349 / 360
@@ -11615,7 +11623,7 @@ class NagBox:
 		# 	ddt.rect(re, c)
 		# 	xx += 3
 
-		ddt.rect_a((x - 2 * gui.scale, y - 2 * gui.scale), (w + 4 * gui.scale, h + 4 * gui.scale),
+		ddt.rect_a((x - 2 * self.gui.scale, y - 2 * self.gui.scale), (w + 4 * self.gui.scale, h + 4 * self.gui.scale),
 			self.colours.box_text_border)
 		ddt.rect_a((x, y), (w, h), self.colours.message_box_bg)
 
@@ -11627,37 +11635,37 @@ class NagBox:
 		#
 		# 	gui.update += 1
 
-		ddt.text_background_colour = self.colours.message_box_bg
+		self.ddt.text_background_colour = self.colours.message_box_bg
 
-		x += round(10 * gui.scale)
-		y += round(13 * gui.scale)
+		x += round(10 * self.gui.scale)
+		y += round(13 * self.gui.scale)
 		ddt.text((x, y), _("Welcome to v7.2.0!"), self.colours.message_box_text, 212)
-		y += round(20 * gui.scale)
+		y += round(20 * self.gui.scale)
 
 		link_pa = draw_linked_text(
 			(x, y),
 			_("You can check out the release notes on the https://") + "github.com/Taiko2k/TauonMusicBox/releases",
 			self.colours.message_box_text, 12, replace=_("Github release page."))
-		link_activate(x, y, link_pa, click=gui.level_2_click)
+		link_activate(x, y, link_pa, click=self.gui.level_2_click)
 
-		heart_notify_icon.render(x + round(425 * gui.scale), y + round(80 * gui.scale), [255, 90, 90, 255])
+		heart_notify_icon.render(x + round(425 * self.gui.scale), y + round(80 * self.gui.scale), [255, 90, 90, 255])
 
-		y += round(30 * gui.scale)
+		y += round(30 * self.gui.scale)
 		ddt.text((x, y), _("New supporter bonuses!"), self.colours.message_box_text, 212)
 
-		y += round(20 * gui.scale)
+		y += round(20 * self.gui.scale)
 
 		ddt.text((x, y), _("A new supporter bonus theme is now available! Check it out at the above link!"),
 			self.colours.message_box_text, 12)
 		# link_activate(x, y, link_pa, click=gui.level_2_click)
 
-		y += round(20 * gui.scale)
-		ddt.text((x, y), _("Your support means a lot! Love you!"), self.colours.message_box_text, 12)
+		y += round(20 * self.gui.scale)
+		self.ddt.text((x, y), _("Your support means a lot! Love you!"), self.colours.message_box_text, 12)
 
-		y += round(30 * gui.scale)
+		y += round(30 * self.gui.scale)
 
-		if draw.button("Close", x, y, press=gui.level_2_click):
-			prefs.show_nag = False
+		if draw.button("Close", x, y, press=self.gui.level_2_click):
+			self.prefs.show_nag = False
 			# show_message("Oh... :( 💔")
 		# if draw.button("Show supporter page", x + round(304 * gui.scale), y, background_colour=[60, 140, 60, 255], background_highlight_colour=[60, 150, 60, 255], press=gui.level_2_click):
 		#     webbrowser.open("https://github.com/sponsors/Taiko2k", new=2, autoraise=True)
@@ -41306,8 +41314,8 @@ def main(holder: Holder) -> None:
 	x_menu.add(MenuItem(_("Disengage Quick Add"), stop_quick_add, show_test=show_stop_quick_add))
 
 	added = []
-	message_box = MessageBox()
-	nagbox = NagBox()
+	message_box = MessageBox(tauon=tauon)
+	nagbox = NagBox(tauon=tauon)
 
 	spot_search_rate_timer = Timer()
 
