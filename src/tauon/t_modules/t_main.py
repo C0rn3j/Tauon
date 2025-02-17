@@ -7696,7 +7696,7 @@ class Drawing:
 			# if background_highlight_colour[3] != 255:
 			#	 background_highlight_colour = None
 
-			ddt.text(
+			self.ddt.text(
 				(rect[0] + int(rect[2] / 2), rect[1] + 2 * self.gui.scale, 2), text, text_highlight_colour, font, bg=background_highlight_colour)
 			if press:
 				click = True
@@ -7770,6 +7770,7 @@ class LyricsRenMini:
 	def __init__(self, tauon: Tauon) -> None:
 		self.pctl  = tauon.pctl
 		self.ddt   = tauon.bag.ddt
+		self.colours = tauon.bag.colours
 		self.prefs = tauon.prefs
 		self.index = -1
 		self.text  = ""
@@ -7785,7 +7786,7 @@ class LyricsRenMini:
 			self.index = index
 			self.generate(index, w)
 
-		colour = colours.side_bar_line1
+		colour = self.colours.side_bar_line1
 
 		# if inp.key_ctrl_down:
 		#	 if inp.mouse_wheel < 0:
@@ -7793,31 +7794,30 @@ class LyricsRenMini:
 		#	 if inp.mouse_wheel > 0:
 		#		 prefs.lyrics_font_size -= 1
 
-		self.ddt.text((x, y, 4, w), self.text, colour, self.prefs.lyrics_font_size, w - (w % 2), colours.side_panel_background)
+		self.ddt.text((x, y, 4, w), self.text, colour, self.prefs.lyrics_font_size, w - (w % 2), self.colours.side_panel_background)
 
 class LyricsRen:
 
-	def __init__(self):
-
+	def __init__(self, tauon: Tauon) -> None:
+		self.ddt     = tauon.bag.ddt
+		self.colours = tauon.bag.colours
 		self.index = -1
 		self.text = ""
 
 		self.lyrics_position = 0
 
-	def test_update(self, track_object: TrackClass):
-
+	def test_update(self, track_object: TrackClass) -> None:
 		if track_object.index != self.index or self.text != track_object.lyrics:
 			self.index = track_object.index
 			self.text = track_object.lyrics
 			self.lyrics_position = 0
 
-	def render(self, x, y, w, h, p):
+	def render(self, x, y, w, h, p) -> None:
+		colour = self.colours.lyrics
+		if test_lumi(self.colours.gallery_background) < 0.5:
+			colour = self.colours.grey(40)
 
-		colour = colours.lyrics
-		if test_lumi(colours.gallery_background) < 0.5:
-			colour = colours.grey(40)
-
-		ddt.text((x, y, 4, w), self.text, colour, 17, w, colours.playlist_panel_background)
+		self.ddt.text((x, y, 4, w), self.text, colour, 17, w, self.colours.playlist_panel_background)
 
 class TimedLyricsToStatic:
 
@@ -7856,13 +7856,14 @@ class TimedLyricsToStatic:
 class TimedLyricsRen:
 
 	def __init__(self, tauon: Tauon) -> None:
-		self.tauon     = tauon
+		self.tauon         = tauon
 		self.showcase_menu = tauon.showcase_menu
-		self.top_panel = tauon.top_panel
-		self.pctl      = tauon.pctl
-		self.colours   = tauon.bag.colours
-		self.inp       = tauon.gui.inp
-		self.index     = -1
+		self.top_panel     = tauon.top_panel
+		self.pctl          = tauon.pctl
+		self.colours       = tauon.bag.colours
+		self.window_size   = tauon.bag.window_size
+		self.inp           = tauon.gui.inp
+		self.index         = -1
 
 		self.scanned = {}
 		self.ready = False
@@ -7933,12 +7934,12 @@ class TimedLyricsRen:
 		if not self.ready:
 			return False
 
-		if inp.mouse_wheel and (pctl.playing_state != 1 or pctl.track_queue[pctl.queue_step] != index):
+		if self.inp.mouse_wheel and (self.pctl.playing_state != 1 or self.pctl.track_queue[self.pctl.queue_step] != index):
 			if side_panel:
-				if tauon.coll((x, y, w, h)):
-					self.scroll_position += int(inp.mouse_wheel * 30 * gui.scale)
+				if self.tauon.coll((x, y, w, h)):
+					self.scroll_position += int(self.inp.mouse_wheel * 30 * self.gui.scale)
 			else:
-				self.scroll_position += int(inp.mouse_wheel * 30 * gui.scale)
+				self.scroll_position += int(self.inp.mouse_wheel * 30 * self.gui.scale)
 
 		line_active = -1
 		last = -1
@@ -7948,47 +7949,44 @@ class TimedLyricsRen:
 		if side_panel:
 			bg = colours.top_panel_background
 			font_size = 15
-			spacing = round(17 * gui.scale)
+			spacing = round(17 * self.gui.scale)
 		else:
 			bg = colours.playlist_panel_background
 			font_size = 17
-			spacing = round(23 * gui.scale)
+			spacing = round(23 * self.gui.scale)
 
 		test_time = get_real_time()
 
-		if pctl.track_queue[pctl.queue_step] == index:
-
+		if self.pctl.track_queue[self.pctl.queue_step] == index:
 			for i, line in enumerate(self.data):
 				if line[0] < test_time:
 					last = i
 
 				if line[0] > test_time:
-					pctl.wake_past_time = line[0]
+					self.pctl.wake_past_time = line[0]
 					line_active = last
 					break
 			else:
 				line_active = len(self.data) - 1
 
-			if pctl.playing_state == 1:
+			if self.pctl.playing_state == 1:
 				self.scroll_position = (max(0, line_active)) * spacing * -1
 
 		yy = y + self.scroll_position
 
 		for i, line in enumerate(self.data):
-
-			if 0 < yy < window_size[1]:
-
-				colour = colours.lyrics
-				if test_lumi(colours.gallery_background) < 0.5:
-					colour = colours.grey(40)
+			if 0 < yy < self.window_size[1]:
+				colour = self.colours.lyrics
+				if test_lumi(self.colours.gallery_background) < 0.5:
+					colour = self.colours.grey(40)
 
 				if i == line_active and highlight:
 					colour = [255, 210, 50, 255]
-					if colours.lm:
+					if self.colours.lm:
 						colour = [180, 130, 210, 255]
 
-				h = ddt.text((x, yy, 4, w - 20 * gui.scale), line[1], colour, font_size, w - 20 * gui.scale, bg)
-				yy += max(h - round(6 * gui.scale), spacing)
+				h = self.ddt.text((x, yy, 4, w - 20 * self.gui.scale), line[1], colour, font_size, w - 20 * self.gui.scale, bg)
+				yy += max(h - round(6 * self.gui.scale), spacing)
 			else:
 				yy += spacing
 		return None
@@ -7996,8 +7994,14 @@ class TimedLyricsRen:
 class TextBox2:
 	cursor = True
 
-	def __init__(self) -> None:
-
+	def __init__(self, tauon: Tauon) -> None:
+		self.tauon    = tauon
+		self.t_window = tauon.t_window
+		self.renderer = tauon.bag.renderer
+		self.ddt      = tauon.bag.ddt
+		self.gui      = tauon.gui
+		self.inp      = tauon.gui.inp
+		self.renderer = tauon.bag.renderer
 		self.text: str = ""
 		self.cursor_position = 0
 		self.selection = 0
@@ -8019,7 +8023,6 @@ class TextBox2:
 			sdl3.SDL_SetClipboardText(text.encode("utf-8"))
 
 	def set_text(self, text: str) -> None:
-
 		self.text = text
 		if self.cursor_position > len(text):
 			self.cursor_position = 0
@@ -8033,7 +8036,6 @@ class TextBox2:
 		self.selection = self.cursor_position
 
 	def highlight_all(self) -> None:
-
 		self.selection = len(self.text)
 		self.cursor_position = 0
 
@@ -8057,7 +8059,6 @@ class TextBox2:
 				return self.text[0: len(self.text) - max(self.cursor_position, self.selection)]
 			if p == 2:
 				return self.text[len(self.text) - min(self.cursor_position, self.selection):]
-
 		else:
 			return ""
 
@@ -8068,36 +8069,36 @@ class TextBox2:
 		# For now, this is set up so where 'width' is set > 0, the cursor position becomes editable,
 		# otherwise it is fixed to end
 
-		sdl3.SDL_SetRenderTarget(renderer, text_box_canvas)
-		sdl3.SDL_SetRenderDrawBlendMode(renderer, sdl3.SDL_BLENDMODE_NONE)
-		sdl3.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0)
+		sdl3.SDL_SetRenderTarget(self.renderer, text_box_canvas)
+		sdl3.SDL_SetRenderDrawBlendMode(self.renderer, sdl3.SDL_BLENDMODE_NONE)
+		sdl3.SDL_SetRenderDrawColor(self.renderer, 0, 0, 0, 0)
 
 		text_box_canvas_rect.x = 0
 		text_box_canvas_rect.y = 0
-		sdl3.SDL_RenderFillRect(renderer, text_box_canvas_rect)
+		sdl3.SDL_RenderFillRect(self.renderer, text_box_canvas_rect)
 
-		sdl3.SDL_SetRenderDrawBlendMode(renderer, sdl3.SDL_BLENDMODE_BLEND)
+		sdl3.SDL_SetRenderDrawBlendMode(self.renderer, sdl3.SDL_BLENDMODE_BLEND)
 
-		selection_height *= gui.scale
+		selection_height *= self.gui.scale
 
 		if click is False:
-			click = inp.mouse_click
-		if inp.mouse_down:
-			gui.update = 2  # TODO, more elegant fix
+			click = self.inp.mouse_click
+		if self.inp.mouse_down:
+			self.gui.update = 2  # TODO, more elegant fix
 
-		rect = (x - 3, y - 2, width - 3, 21 * gui.scale)
-		select_rect = (x - 20 * gui.scale, y - 2, width + 20 * gui.scale, 21 * gui.scale)
+		rect = (x - 3, y - 2, width - 3, 21 * self.gui.scale)
+		select_rect = (x - 20 * self.gui.scale, y - 2, width + 20 * self.gui.scale, 21 * self.gui.scale)
 
-		tauon.fields.add(rect)
+		self.tauon.fields.add(rect)
 
 		# Activate Menu
-		if tauon.coll(rect):
-			if inp.right_click or inp.level_2_right_click:
-				field_menu.activate(self)
+		if self.tauon.coll(rect):
+			if self.inp.right_click or self.inp.level_2_right_click:
+				self.tauon.field_menu.activate(self)
 
 		if width > 0 and active:
 
-			if click and field_menu.active:
+			if click and self.tauon.field_menu.active:
 				# field_menu.click()
 				click = False
 
@@ -8123,7 +8124,7 @@ class TextBox2:
 				self.selection = self.cursor_position
 
 			# Ctrl + Backspace to delete word
-			if inp.backspace_press and (inp.key_ctrl_down or inp.key_rctrl_down) and \
+			if self.inp.backspace_press and (self.inp.key_ctrl_down or self.inp.key_rctrl_down) and \
 					self.cursor_position == self.selection and len(self.text) > 0 and self.cursor_position < len(
 				self.text):
 				while g() == " ":
@@ -8132,60 +8133,60 @@ class TextBox2:
 					d()
 
 			# Ctrl + left to move cursor back a word
-			elif (inp.key_ctrl_down or inp.key_rctrl_down) and inp.key_left_press:
+			elif (self.inp.key_ctrl_down or self.inp.key_rctrl_down) and self.inp.key_left_press:
 				while g() == " ":
 					self.cursor_position += 1
-					if not inp.key_shift_down:
+					if not self.inp.key_shift_down:
 						self.selection = self.cursor_position
 				while g() != None and g() not in " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~":
 					self.cursor_position += 1
-					if not inp.key_shift_down:
+					if not self.inp.key_shift_down:
 						self.selection = self.cursor_position
 					if g() == " ":
 						self.cursor_position -= 1
-						if not inp.key_shift_down:
+						if not self.inp.key_shift_down:
 							self.selection = self.cursor_position
 						break
 
 			# Ctrl + right to move cursor forward a word
-			elif (inp.key_ctrl_down or inp.key_rctrl_down) and inp.key_up_press:
+			elif (self.inp.key_ctrl_down or self.inp.key_rctrl_down) and self.inp.key_up_press:
 				while g2() == " ":
 					self.cursor_position -= 1
-					if not inp.key_shift_down:
+					if not self.inp.key_shift_down:
 						self.selection = self.cursor_position
 				while g2() != None and g2() not in " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~":
 					self.cursor_position -= 1
-					if not inp.key_shift_down:
+					if not self.inp.key_shift_down:
 						self.selection = self.cursor_position
 					if g2() == " ":
 						self.cursor_position += 1
-						if not inp.key_shift_down:
+						if not self.inp.key_shift_down:
 							self.selection = self.cursor_position
 						break
 
 			# Handle normal backspace
-			elif inp.backspace_press and len(self.text) > 0 and self.cursor_position < len(self.text):
-				while inp.backspace_press and len(self.text) > 0 and self.cursor_position < len(self.text):
+			elif self.inp.backspace_press and len(self.text) > 0 and self.cursor_position < len(self.text):
+				while self.inp.backspace_press and len(self.text) > 0 and self.cursor_position < len(self.text):
 					if self.selection != self.cursor_position:
 						self.eliminate_selection()
 					else:
 						self.text = self.text[0:len(self.text) - self.cursor_position - 1] + self.text[len(
 							self.text) - self.cursor_position:]
-					inp.backspace_press -= 1
-			elif inp.backspace_press and len(self.get_selection()) > 0:
+					self.inp.backspace_press -= 1
+			elif self.inp.backspace_press and len(self.get_selection()) > 0:
 				self.eliminate_selection()
 
 			# Left and right arrow keys to move cursor
-			if inp.key_up_press:
+			if self.inp.key_up_press:
 				if self.cursor_position > 0:
 					self.cursor_position -= 1
-				if not inp.key_shift_down and not inp.key_shiftr_down:
+				if not self.inp.key_shift_down and not self.inp.key_shiftr_down:
 					self.selection = self.cursor_position
 
-			if inp.key_left_press:
+			if self.inp.key_left_press:
 				if self.cursor_position < len(self.text):
 					self.cursor_position += 1
-				if not inp.key_shift_down and not inp.key_shiftr_down:
+				if not self.inp.key_shift_down and not self.inp.key_shiftr_down:
 					self.selection = self.cursor_position
 
 			if self.paste_text:
@@ -8201,29 +8202,29 @@ class TextBox2:
 				self.paste_text = ""
 
 			# Paste via ctrl-v
-			if inp.key_ctrl_down and key_v_press:
+			if self.inp.key_ctrl_down and key_v_press:
 				clip = sdl3.SDL_GetClipboardText().decode("utf-8")
 				self.eliminate_selection()
 				self.text = self.text[0: len(self.text) - self.cursor_position] + clip + self.text[len(
 					self.text) - self.cursor_position:]
 
-			if inp.key_ctrl_down and key_c_press:
+			if self.inp.key_ctrl_down and key_c_press:
 				self.copy()
 
-			if inp.key_ctrl_down and key_x_press:
+			if self.inp.key_ctrl_down and key_x_press:
 				if len(self.get_selection()) > 0:
 					text = self.get_selection()
 					if text != "":
 						sdl3.SDL_SetClipboardText(text.encode("utf-8"))
 					self.eliminate_selection()
 
-			if inp.key_ctrl_down and key_a_press:
+			if self.inp.key_ctrl_down and key_a_press:
 				self.cursor_position = 0
 				self.selection = len(self.text)
 
-			# ddt.rect(rect, [255, 50, 50, 80], True)
-			if tauon.coll(rect) and not field_menu.active:
-				gui.cursor_want = 2
+			# self.ddt.rect(rect, [255, 50, 50, 80], True)
+			if self.tauon.coll(rect) and not self.tauon.field_menu.active:
+				self.gui.cursor_want = 2
 
 			# Delete key to remove text in front of cursor
 			if key_del:
@@ -8238,26 +8239,26 @@ class TextBox2:
 
 			if key_home_press:
 				self.cursor_position = len(self.text)
-				if not inp.key_shift_down and not inp.key_shiftr_down:
+				if not self.inp.key_shift_down and not self.inp.key_shiftr_down:
 					self.selection = self.cursor_position
 			if key_end_press:
 				self.cursor_position = 0
-				if not inp.key_shift_down and not inp.key_shiftr_down:
+				if not self.inp.key_shift_down and not self.inp.key_shiftr_down:
 					self.selection = self.cursor_position
 
-			width -= round(15 * gui.scale)
-			t_len = ddt.get_text_w(self.text, font)
+			width -= round(15 * self.gui.scale)
+			t_len = self.ddt.get_text_w(self.text, font)
 			if active and editline and editline != input_text:
-				t_len += ddt.get_text_w(editline, font)
+				t_len += self.ddt.get_text_w(editline, font)
 			if not click and not self.down_lock:
-				cursor_x = ddt.get_text_w(self.text[:len(self.text) - self.cursor_position], font)
+				cursor_x = self.ddt.get_text_w(self.text[:len(self.text) - self.cursor_position], font)
 				if self.cursor_position == 0 or cursor_x < self.offset + round(
-						15 * gui.scale) or cursor_x > self.offset + width:
+						15 * self.gui.scale) or cursor_x > self.offset + width:
 					if t_len > width:
 						self.offset = t_len - width
 
 						if cursor_x < self.offset:
-							self.offset = cursor_x - round(15 * gui.scale)
+							self.offset = cursor_x - round(15 * self.gui.scale)
 
 							self.offset = max(self.offset, 0)
 					else:
@@ -8265,21 +8266,21 @@ class TextBox2:
 
 			x -= self.offset
 
-			if tauon.coll(select_rect):  # tauon.coll((x - 15, y, width + 16, selection_height + 1)):
+			if self.tauon.coll(select_rect):  # tauon.coll((x - 15, y, width + 16, selection_height + 1)):
 				# ddt.rect_r((x - 15, y, width + 16, 19), [50, 255, 50, 50], True)
 				if click:
 					pre = 0
 					post = 0
-					if inp.mouse_position[0] < x + 1:
+					if self.inp.mouse_position[0] < x + 1:
 						self.cursor_position = len(self.text)
 					else:
 						for i in range(len(self.text)):
-							post = ddt.get_text_w(self.text[0:i + 1], font)
+							post = self.ddt.get_text_w(self.text[0:i + 1], font)
 							# pre_half = int((post - pre) / 2)
 
-							if x + pre - 0 <= inp.mouse_position[0] <= x + post + 0:
+							if x + pre - 0 <= self.inp.mouse_position[0] <= x + post + 0:
 								diff = post - pre
-								if inp.mouse_position[0] >= x + pre + int(diff / 2):
+								if self.inp.mouse_position[0] >= x + pre + int(diff / 2):
 									self.cursor_position = len(self.text) - i - 1
 								else:
 									self.cursor_position = len(self.text) - i
@@ -8290,7 +8291,7 @@ class TextBox2:
 					self.selection = 0
 					self.down_lock = True
 
-			if inp.mouse_up:
+			if self.inp.mouse_up:
 				self.down_lock = False
 			if self.down_lock:
 				pre = 0
@@ -8298,18 +8299,18 @@ class TextBox2:
 				text = self.text
 				if secret:
 					text = "●" * len(self.text)
-				if inp.mouse_position[0] < x + 1:
+				if self.inp.mouse_position[0] < x + 1:
 					self.selection = len(text)
 				else:
 
 					for i in range(len(text)):
-						post = ddt.get_text_w(text[0:i + 1], font)
+						post = self.ddt.get_text_w(text[0:i + 1], font)
 						# pre_half = int((post - pre) / 2)
 
-						if x + pre - 0 <= inp.mouse_position[0] <= x + post + 0:
+						if x + pre - 0 <= self.inp.mouse_position[0] <= x + post + 0:
 							diff = post - pre
 
-							if inp.mouse_position[0] >= x + pre + int(diff / 2):
+							if self.inp.mouse_position[0] >= x + pre + int(diff / 2):
 								self.selection = len(text) - i - 1
 
 							else:
@@ -8324,71 +8325,70 @@ class TextBox2:
 			text = self.text[0: len(self.text) - self.cursor_position]
 			if secret:
 				text = "●" * len(text)
-			a = ddt.get_text_w(text, font)
+			a = self.ddt.get_text_w(text, font)
 
 			text = self.text[0: len(self.text) - self.selection]
 			if secret:
 				text = "●" * len(text)
-			b = ddt.get_text_w(text, font)
+			b = self.ddt.get_text_w(text, font)
 
 			top = y
 			if big:
-				top -= 12 * gui.scale
+				top -= 12 * self.gui.scale
 
-			ddt.rect([a, 0, b - a, selection_height], [40, 120, 180, 255])
+			self.ddt.rect([a, 0, b - a, selection_height], [40, 120, 180, 255])
 
 			if self.selection != self.cursor_position:
 				inf_comp = 0
 				text = self.get_selection(0)
 				if secret:
 					text = "●" * len(text)
-				space = ddt.text((0, 0), text, colour, font)
+				space = self.ddt.text((0, 0), text, colour, font)
 				text = self.get_selection(1)
 				if secret:
 					text = "●" * len(text)
-				space += ddt.text((0 + space - inf_comp, 0), text, [240, 240, 240, 255], font, bg=[40, 120, 180, 255])
+				space += self.ddt.text((0 + space - inf_comp, 0), text, [240, 240, 240, 255], font, bg=[40, 120, 180, 255])
 				text = self.get_selection(2)
 				if secret:
 					text = "●" * len(text)
-				ddt.text((0 + space - (inf_comp * 2), 0), text, colour, font)
+				self.ddt.text((0 + space - (inf_comp * 2), 0), text, colour, font)
 			else:
 				text = self.text
 				if secret:
 					text = "●" * len(text)
-				ddt.text((0, 0), text, colour, font)
+				self.ddt.text((0, 0), text, colour, font)
 
 			text = self.text[0: len(self.text) - self.cursor_position]
 			if secret:
 				text = "●" * len(text)
-			space = ddt.get_text_w(text, font)
+			space = self.ddt.get_text_w(text, font)
 
 			if TextBox.cursor and self.selection == self.cursor_position:
 				# ddt.line(x + space, y + 2, x + space, y + 15, colour)
-
-				ddt.rect((0 + space, 0 + 2, 1 * gui.scale, 14 * gui.scale), colour)
+				self.ddt.rect((0 + space, 0 + 2, 1 * self.gui.scale, 14 * self.gui.scale), colour)
 
 			if click:
 				self.selection = self.cursor_position
 
 		else:
-			width -= round(15 * gui.scale)
+			width -= round(15 * self.gui.scale)
 			text = self.text
 			if secret:
 				text = "●" * len(text)
-			t_len = ddt.get_text_w(text, font)
-			ddt.text((0, 0), text, colour, font)
+			t_len = self.ddt.get_text_w(text, font)
+			self.ddt.text((0, 0), text, colour, font)
 			self.offset = 0
-			if tauon.coll(rect) and not field_menu.active:
-				gui.cursor_want = 2
+			if self.tauon.coll(rect) and not self.tauon.field_menu.active:
+				self.gui.cursor_want = 2
 
 		if active:
-			tw, th = ddt.get_text_wh(editline, font, max_x=2000)
+			tw, th = self.ddt.get_text_wh(editline, font, max_x=2000)
 			if editline != "" and editline != input_text:
-				ex = ddt.text((space + round(4 * gui.scale), 0), editline, [240, 230, 230, 255], font)
-				ddt.rect((space + round(4 * gui.scale), th + round(2 * gui.scale), ex, round(1 * gui.scale)), [245, 245, 245, 255])
+				ex = self.ddt.text((space + round(4 * self.gui.scale), 0), editline, [240, 230, 230, 255], font)
+				self.ddt.rect((space + round(4 * self.gui.scale), th + round(2 * self.gui.scale), ex, round(1 * self.gui.scale)), [245, 245, 245, 255])
 
 			rect = sdl3.SDL_Rect(pixel_to_logical(x), pixel_to_logical(y), pixel_to_logical(tw), pixel_to_logical(th))
-			sdl3.SDL_SetTextInputArea(t_window, rect, pixel_to_logical(space))
+			sdl3.SDL_SetTextInputArea(self.t_window, rect, pixel_to_logical(space))
 
 		tauon.animate_monitor_timer.set()
 
@@ -8396,36 +8396,41 @@ class TextBox2:
 		text_box_canvas_hide_rect.y = 0
 
 		# if self.offset:
-		sdl3.SDL_SetRenderDrawBlendMode(renderer, sdl3.SDL_BLENDMODE_NONE)
+		sdl3.SDL_SetRenderDrawBlendMode(self.renderer, sdl3.SDL_BLENDMODE_NONE)
 
 		text_box_canvas_hide_rect.w = round(self.offset)
-		sdl3.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0)
-		sdl3.SDL_RenderFillRect(renderer, text_box_canvas_hide_rect)
+		sdl3.SDL_SetRenderDrawColor(self.renderer, 0, 0, 0, 0)
+		sdl3.SDL_RenderFillRect(self.renderer, text_box_canvas_hide_rect)
 
 		text_box_canvas_hide_rect.w = round(t_len)
-		text_box_canvas_hide_rect.x = round(self.offset + width + round(5 * gui.scale))
-		sdl3.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0)
-		sdl3.SDL_RenderFillRect(renderer, text_box_canvas_hide_rect)
+		text_box_canvas_hide_rect.x = round(self.offset + width + round(5 * self.gui.scale))
+		sdl3.SDL_SetRenderDrawColor(self.renderer, 0, 0, 0, 0)
+		sdl3.SDL_RenderFillRect(self.renderer, text_box_canvas_hide_rect)
 
-		sdl3.SDL_SetRenderDrawBlendMode(renderer, sdl3.SDL_BLENDMODE_BLEND)
-		sdl3.SDL_SetRenderTarget(renderer, gui.main_texture)
+		sdl3.SDL_SetRenderDrawBlendMode(self.renderer, sdl3.SDL_BLENDMODE_BLEND)
+		sdl3.SDL_SetRenderTarget(self.renderer, self.gui.main_texture)
 
 		text_box_canvas_rect.x = round(x)
 		text_box_canvas_rect.y = round(y)
-		sdl3.SDL_RenderTexture(renderer, text_box_canvas, None, text_box_canvas_rect)
+		sdl3.SDL_RenderTexture(self.renderer, text_box_canvas, None, text_box_canvas_rect)
 
 class TextBox:
 	cursor = True
 
-	def __init__(self) -> None:
-
+	def __init__(self, tauon: Tauon) -> None:
+		self.tauon    = tauon
+		self.t_window = tauon.t_window
+		self.renderer = tauon.bag.renderer
+		self.ddt      = tauon.bag.ddt
+		self.gui      = tauon.gui
+		self.inp      = tauon.gui.inp
+		self.renderer = tauon.bag.renderer
 		self.text = ""
 		self.cursor_position = 0
 		self.selection = 0
 		self.down_lock = False
 
 	def paste(self) -> None:
-
 		if sdl3.SDL_HasClipboardText():
 			clip = sdl3.SDL_GetClipboardText().decode("utf-8")
 
@@ -8447,7 +8452,6 @@ class TextBox:
 			sdl3.SDL_SetClipboardText(text.encode("utf-8"))
 
 	def set_text(self, text):
-
 		self.text = text
 		self.cursor_position = 0
 		self.selection = 0
@@ -8456,7 +8460,6 @@ class TextBox:
 		self.text = ""
 
 	def highlight_all(self) -> None:
-
 		self.selection = len(self.text)
 		self.cursor_position = 0
 
@@ -8486,7 +8489,6 @@ class TextBox:
 				return self.text[0: len(self.text) - max(self.cursor_position, self.selection)]
 			if p == 2:
 				return self.text[len(self.text) - min(self.cursor_position, self.selection):]
-
 		else:
 			return ""
 
@@ -8498,10 +8500,10 @@ class TextBox:
 		# For now, this is set up so where 'width' is set > 0, the cursor position becomes editable,
 		# otherwise it is fixed to end
 
-		selection_height *= gui.scale
+		selection_height *= self.gui.scale
 
 		if click is False:
-			click = inp.mouse_click
+			click = self.inp.mouse_click
 
 		if width > 0 and active:
 
@@ -10699,7 +10701,7 @@ class ExportPlaylistBox:
 		self.pref_box = tauon.pref_box
 		self.active = False
 		self.id = None
-		self.directory_text_box = TextBox2()
+		self.directory_text_box = TextBox2(tauon=tauon)
 		self.default = {
 			"path": str(tauon.bag.dirs.music_directory) if tauon.bag.dirs.music_directory else str(tauon.bag.dirs.user_directory / "playlists"),
 			"type": "xspf",
@@ -10810,7 +10812,7 @@ class SearchOverlay:
 		self.inp   = tauon.gui.inp
 
 		self.active = False
-		self.search_text = TextBox()
+		self.search_text = TextBox(tauon=tauon)
 
 		self.worker2_lock = tauon.worker2_lock
 		self.results = []
@@ -11778,7 +11780,7 @@ class Over:
 
 		self.themes = []
 		self.view_supporters = False
-		self.key_box = TextBox2()
+		self.key_box = TextBox2(tauon=tauon)
 		self.key_box_focused = False
 
 	def theme(self, x0: int, y0: int, w0: int, h0: int):
@@ -19010,9 +19012,9 @@ class RadioBox:
 		self.edit_mode = True
 		self.add_mode = False
 		self.radio_field_active = 1
-		self.radio_field = TextBox2()
-		self.radio_field_title = TextBox2()
-		self.radio_field_search = TextBox2()
+		self.radio_field = TextBox2(tauon=tauon)
+		self.radio_field_title = TextBox2(tauon=tauon)
+		self.radio_field_search = TextBox2(tauon=tauon)
 
 		self.x = 1
 		self.y = 1
@@ -40409,51 +40411,51 @@ def main(holder: Holder) -> None:
 		renderer, sdl3.SDL_PIXELFORMAT_ARGB8888, sdl3.SDL_TEXTUREACCESS_TARGET, round(text_box_canvas_rect.w), round(text_box_canvas_rect.h))
 	sdl3.SDL_SetTextureBlendMode(text_box_canvas, sdl3.SDL_BLENDMODE_BLEND)
 
-	rename_text_area = TextBox()
-	gst_output_field = TextBox2()
+	rename_text_area = TextBox(tauon=tauon)
+	gst_output_field = TextBox2(tauon=tauon)
 	gst_output_field.text = prefs.gst_output
-	search_text = TextBox()
-	rename_files = TextBox2()
-	sub_lyrics_a = TextBox2()
-	sub_lyrics_b = TextBox2()
-	sync_target = TextBox2()
-	edit_artist = TextBox2()
-	edit_album = TextBox2()
-	edit_title = TextBox2()
-	edit_album_artist = TextBox2()
+	search_text = TextBox(tauon=tauon)
+	rename_files = TextBox2(tauon=tauon)
+	sub_lyrics_a = TextBox2(tauon=tauon)
+	sub_lyrics_b = TextBox2(tauon=tauon)
+	sync_target = TextBox2(tauon=tauon)
+	edit_artist = TextBox2(tauon=tauon)
+	edit_album = TextBox2(tauon=tauon)
+	edit_title = TextBox2(tauon=tauon)
+	edit_album_artist = TextBox2(tauon=tauon)
 
 	rename_files.text = prefs.rename_tracks_template
 	if rename_files_previous:
 		rename_files.text = rename_files_previous
 
-	text_plex_usr = TextBox2()
-	text_plex_pas = TextBox2()
-	text_plex_ser = TextBox2()
+	text_plex_usr = TextBox2(tauon=tauon)
+	text_plex_pas = TextBox2(tauon=tauon)
+	text_plex_ser = TextBox2(tauon=tauon)
 
-	text_jelly_usr = TextBox2()
-	text_jelly_pas = TextBox2()
-	text_jelly_ser = TextBox2()
+	text_jelly_usr = TextBox2(tauon=tauon)
+	text_jelly_pas = TextBox2(tauon=tauon)
+	text_jelly_ser = TextBox2(tauon=tauon)
 
-	text_koel_usr = TextBox2()
-	text_koel_pas = TextBox2()
-	text_koel_ser = TextBox2()
+	text_koel_usr = TextBox2(tauon=tauon)
+	text_koel_pas = TextBox2(tauon=tauon)
+	text_koel_ser = TextBox2(tauon=tauon)
 
-	text_air_usr = TextBox2()
-	text_air_pas = TextBox2()
-	text_air_ser = TextBox2()
+	text_air_usr = TextBox2(tauon=tauon)
+	text_air_pas = TextBox2(tauon=tauon)
+	text_air_ser = TextBox2(tauon=tauon)
 
-	text_spot_client = TextBox2()
-	text_spot_secret = TextBox2()
-	text_spot_username = TextBox2()
-	text_spot_password = TextBox2()
+	text_spot_client = TextBox2(tauon=tauon)
+	text_spot_secret = TextBox2(tauon=tauon)
+	text_spot_username = TextBox2(tauon=tauon)
+	text_spot_password = TextBox2(tauon=tauon)
 
-	text_maloja_url = TextBox2()
-	text_maloja_key = TextBox2()
+	text_maloja_url = TextBox2(tauon=tauon)
+	text_maloja_key = TextBox2(tauon=tauon)
 
-	text_sat_url = TextBox2()
-	text_sat_playlist = TextBox2()
+	text_sat_url = TextBox2(tauon=tauon)
+	text_sat_playlist = TextBox2(tauon=tauon)
 
-	rename_folder = TextBox2()
+	rename_folder = TextBox2(tauon=tauon)
 	rename_folder.text = prefs.rename_folder_template
 	if rename_folder_previous:
 		rename_folder.text = rename_folder_previous
@@ -46302,7 +46304,6 @@ def main(holder: Holder) -> None:
 					sdl3.SDL_RenderTexture(renderer, gui.spec1_tex, None, gui.spec1_rec)
 
 			if gui.vis == 1:
-
 				if prefs.backend == 2 or True:
 					if pctl.playing_state == 1 or pctl.playing_state == 3:
 						# gui.level_update = True
@@ -46354,48 +46355,37 @@ def main(holder: Holder) -> None:
 							gui.level_peak[0] -= decay
 
 				for t in range(12):
-
 					if gui.level_peak[0] < t:
 						met = False
 					else:
 						met = True
 					if gui.level_peak[0] < 0.2:
 						met = False
-
 					if gui.level_meter_colour_mode == 1:
-
 						if not met:
 							cc = [15, 10, 20, 255]
 						else:
 							cc = colorsys.hls_to_rgb(0.68 + (t * 0.015), 0.4, 0.7)
 							cc = (int(cc[0] * 255), int(cc[1] * 255), int(cc[2] * 255), 255)
-
 					elif gui.level_meter_colour_mode == 2:
-
 						if not met:
 							cc = [11, 11, 13, 255]
 						else:
 							cc = colorsys.hls_to_rgb(0.63 - (t * 0.015), 0.4, 0.7)
 							cc = (int(cc[0] * 255), int(cc[1] * 255), int(cc[2] * 255), 255)
-
 					elif gui.level_meter_colour_mode == 3:
-
 						if not met:
 							cc = [12, 6, 0, 255]
 						else:
 							cc = colorsys.hls_to_rgb(0.11 - (t * 0.010), 0.4, 0.7 + (t * 0.02))
 							cc = (int(cc[0] * 255), int(cc[1] * 255), int(cc[2] * 255), 255)
-
 					elif gui.level_meter_colour_mode == 4:
-
 						if not met:
 							cc = [10, 10, 10, 255]
 						else:
 							cc = colorsys.hls_to_rgb(0.3 - (t * 0.03), 0.4, 0.7 + (t * 0.02))
 							cc = (int(cc[0] * 255), int(cc[1] * 255), int(cc[2] * 255), 255)
-
 					else:
-
 						if t < 7:
 							cc = colours.level_green
 							if met is False:
@@ -46414,7 +46404,6 @@ def main(holder: Holder) -> None:
 
 				y -= 7 * gui.scale
 				for t in range(12):
-
 					if gui.level_peak[1] < t:
 						met = False
 					else:
@@ -46423,7 +46412,6 @@ def main(holder: Holder) -> None:
 						met = False
 
 					if gui.level_meter_colour_mode == 1:
-
 						if not met:
 							cc = [15, 10, 20, 255]
 						else:
@@ -46431,7 +46419,6 @@ def main(holder: Holder) -> None:
 							cc = (int(cc[0] * 255), int(cc[1] * 255), int(cc[2] * 255), 255)
 
 					elif gui.level_meter_colour_mode == 2:
-
 						if not met:
 							cc = [11, 11, 13, 255]
 						else:
@@ -46439,7 +46426,6 @@ def main(holder: Holder) -> None:
 							cc = (int(cc[0] * 255), int(cc[1] * 255), int(cc[2] * 255), 255)
 
 					elif gui.level_meter_colour_mode == 3:
-
 						if not met:
 							cc = [12, 6, 0, 255]
 						else:
@@ -46447,7 +46433,6 @@ def main(holder: Holder) -> None:
 							cc = (int(cc[0] * 255), int(cc[1] * 255), int(cc[2] * 255), 255)
 
 					elif gui.level_meter_colour_mode == 4:
-
 						if not met:
 							cc = [10, 10, 10, 255]
 						else:
@@ -46455,7 +46440,6 @@ def main(holder: Holder) -> None:
 							cc = (int(cc[0] * 255), int(cc[1] * 255), int(cc[2] * 255), 255)
 
 					else:
-
 						if t < 7:
 							cc = colours.level_green
 							if met is False:
@@ -46498,7 +46482,7 @@ def main(holder: Holder) -> None:
 			if int(pctl.playing_time) != int(pctl.last_playing_time):
 				pctl.last_playing_time = pctl.playing_time
 				bottom_bar1.seek_time = pctl.playing_time
-				if not prefs.power_save or window_is_focused(tauon.bag.t_window):
+				if not prefs.power_save or window_is_focused(tauon.t_window):
 					gui.update = 1
 
 		# Auto save play times to disk
