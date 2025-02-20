@@ -14879,9 +14879,9 @@ class TopPanel:
 			colour = [250, 250, 250, 255]
 			if colours.lm:
 				colour = [10, 10, 10, 255]
-			text = _("Tauon Music Box SHUFFLE!")
+			text = _("Tauon SHUFFLE!")
 			if prefs.album_shuffle_lock_mode:
-				text = _("Tauon Music Box ALBUM SHUFFLE!")
+				text = _("ALBUM SHUFFLE")
 			ddt.text((window_size[0] // 2, 8 * gui.scale, 2), text, colour, 212, bg=colours.top_panel_background)
 		if gui.top_bar_mode2:
 			tr = pctl.playing_object()
@@ -15425,8 +15425,6 @@ class TopPanel:
 			ddt.text((x + self.tab_text_start_space, y + self.tab_text_y_offset), text, fg, self.tab_text_font, bg=bg)
 
 			# Drop pulse
-			if gui.ext_drop_mode and tauon.coll(rect):
-				ddt.rect_si(rect, [50, 230, 250, 255], round(3 * gui.scale))
 
 			if gui.pl_pulse and gui.drop_playlist_target == i:
 				if tab_pulse.render(
@@ -15443,7 +15441,7 @@ class TopPanel:
 					else:
 						ddt.rect((x, y, bar_highlight_size, gui.panelY2), [80, 160, 200, 255])
 
-				elif inp.quick_drag is True and pl_is_mut(i):
+				elif (inp.quick_drag or gui.ext_drop_mode) is True and pl_is_mut(i):
 					ddt.rect((x, y + self.height - bar_highlight_size, tab_width, bar_highlight_size), [80, 200, 180, 255])
 			# Drag yellow line highlight if single track already in playlist
 			elif inp.quick_drag and not point_proximity_test(gui.drag_source_position, inp.mouse_position, 15 * gui.scale):
@@ -15474,7 +15472,7 @@ class TopPanel:
 
 		# Quick drag single track onto bar to create new playlist function and indicator
 		if prefs.tabs_on_top:
-			if inp.quick_drag and inp.mouse_position[0] > x and inp.mouse_position[1] < gui.panelY and tauon.quick_d_timer.get() > 1:
+			if (inp.quick_drag or gui.ext_drop_mode) and inp.mouse_position[0] > x and inp.mouse_position[1] < gui.panelY and tauon.quick_d_timer.get() > 1:
 				ddt.rect((x, y, 2 * gui.scale, gui.panelY2), [80, 200, 180, 255])
 
 				if inp.mouse_up:
@@ -17725,9 +17723,6 @@ class StandardPlaylist:
 
 		rect = (left, gui.panelY, width, window_size[1] - (gui.panelBY + gui.panelY))
 		ddt.rect(rect, colours.playlist_panel_background)
-
-		if gui.ext_drop_mode and tauon.coll(rect):
-			ddt.rect(rect, [255,0,0,255])
 
 		# This draws an optional background image
 		if pl_bg:
@@ -20474,7 +20469,7 @@ class PlaylistBox:
 			# # If mouse over
 			if hit:
 				# Draw indicator for dragging tracks
-				if inp.quick_drag and pl_is_mut(i):
+				if (inp.quick_drag or gui.ext_drop_mode) and pl_is_mut(i):
 					ddt.rect((tab_start + tab_width - self.indicate_w, yy, self.indicate_w, self.tab_h), [80, 200, 180, 255])
 
 				# Draw indicators for moving tab
@@ -20530,7 +20525,7 @@ class PlaylistBox:
 		tauon.fields.add(rect)
 
 		if tauon.coll(rect):
-			if inp.quick_drag:
+			if inp.quick_drag or gui.ext_drop_mode:
 				ddt.rect((tab_start, yy, tab_width, self.indicate_w), [80, 160, 200, 255])
 				if inp.mouse_up:
 					drop_tracks_to_new_playlist(gui.shift_selection)
@@ -28114,6 +28109,11 @@ def toggle_shuffle_layout(albums: bool = False):
 
 def toggle_shuffle_layout_albums():
 	toggle_shuffle_layout(albums=True)
+
+def toggle_shuffle_layout_deco():
+	if not prefs.shuffle_lock:
+		return [colours.menu_text, colours.menu_background, _("Shuffle Lockdown")]
+	return [colours.menu_text, colours.menu_background, _("Exit Shuffle Lockdown")]
 
 def exit_shuffle_layout(_: int, tauon: Tauon) -> bool:
 	return tauon.prefs.shuffle_lock
@@ -41315,7 +41315,7 @@ def main(holder: Holder) -> None:
 		listen_icon = None
 
 	x_menu.add(MenuItem("LFM", tauon.lastfm.toggle, last_fm_menu_deco, icon=listen_icon, show_test=lastfm_menu_test))
-	x_menu.add(MenuItem(_("Exit Shuffle Lockdown"), toggle_shuffle_layout, show_test=exit_shuffle_layout))
+	x_menu.add(MenuItem(_("Exit Shuffle Lockdown"), toggle_shuffle_layout, toggle_shuffle_layout_deco)) #show_test=exit_shuffle_layout))
 	x_menu.add(MenuItem(_("Donate"), open_donate_link))
 	x_menu.add(MenuItem(_("Exit"), tauon.exit, hint="Alt+F4", set_ref="User clicked menu exit button", pass_ref=+True))
 	x_menu.add(MenuItem(_("Disengage Quick Add"), stop_quick_add, show_test=show_stop_quick_add))
@@ -41825,6 +41825,8 @@ def main(holder: Holder) -> None:
 				mouse_moved = True
 				gui.mouse_unknown = False
 				gui.ext_drop_mode = True
+				gui.pl_update += 1
+				gui.update += 2
 			elif event.type == sdl3.SDL_EVENT_DROP_COMPLETE:
 				gui.ext_drop_mode = False
 			elif event.type == sdl3.SDL_EVENT_DROP_FILE:
@@ -43080,7 +43082,7 @@ def main(holder: Holder) -> None:
 			# inp.mouse_position[0], inp.mouse_position[1] = input_sdl.mouse()
 			gui.showed_title = False
 
-			if not gui.mouse_in_window and not tauon.bottom_bar1.volume_bar_being_dragged and not tauon.bottom_bar1.volume_hit and not tauon.bottom_bar1.seek_hit:
+		if not gui.ext_drop_mode and not gui.mouse_in_window and not tauon.bottom_bar1.volume_bar_being_dragged and not tauon.bottom_bar1.volume_hit and not tauon.bottom_bar1.seek_hit:
 				inp.mouse_position[0] = -300.
 				inp.mouse_position[1] = -300.
 
@@ -44300,7 +44302,7 @@ def main(holder: Holder) -> None:
 					rect = (gui.playlist_left, gui.panelY, gui.plw, window_size[1] - (gui.panelBY + gui.panelY))
 
 					if gui.ext_drop_mode and tauon.coll(rect):
-						ddt.rect_si(rect, [50, 230, 250, 255], round(5 * gui.scale))
+						ddt.rect_si(rect, [80, 200, 180, 255], round(3 * gui.scale))
 					tauon.fields.add(rect)
 
 					if gui.combo_mode and inp.key_esc_press and is_level_zero():
