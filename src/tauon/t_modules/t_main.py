@@ -1342,6 +1342,7 @@ class TrackClass:
 		self.disc_number:  str = ""
 		self.disc_total:   str = ""
 		self.lyrics:       str = ""
+		self.synced:       str = ""
 
 		self.lfm_friend_likes = set()
 		self.lfm_scrobbles: int = 0
@@ -7914,6 +7915,7 @@ class TimedLyricsRen:
 
 	def __init__(self, tauon: Tauon) -> None:
 		self.tauon         = tauon
+		self.gui           = tauon.gui
 		self.showcase_menu = tauon.showcase_menu
 		self.top_panel     = tauon.top_panel
 		self.pctl          = tauon.pctl
@@ -8011,7 +8013,7 @@ class TimedLyricsRen:
 			bg = colours.playlist_panel_background
 			font_size = 17
 			spacing = round(23 * self.gui.scale)
-
+		bg[3] = 255
 		test_time = get_real_time()
 
 		if self.pctl.track_queue[self.pctl.queue_step] == index:
@@ -22589,9 +22591,11 @@ class MetaBox:
 
 			gui.showed_title = True
 
-	def lyrics(self, x, y, w, h, track: TrackClass):
-		self.ddt.rect((x, y, w, h), colours.side_panel_background)
-		self.ddt.text_background_colour = colours.side_panel_background
+	def lyrics(self, x: int, y: int, w: int, h: int, track: TrackClass) -> None:
+		bg = self.colours.side_panel_background
+		bg[3] = 255
+		self.ddt.rect((x, y, w, h), bg)
+		self.ddt.text_background_colour = bg
 
 		if not track:
 			return
@@ -22647,10 +22651,13 @@ class MetaBox:
 		lyric_side_top_pulse.render(x, y, w - round(17 * gui.scale), 16 * gui.scale)
 		lyric_side_bottom_pulse.render(x, y + h, w - round(17 * gui.scale), 15 * gui.scale, bottom=True)
 
-	def draw(self, x, y, w, h, track=None):
+	def draw(self, x: int, y: int, w: int, h: int, track=None):
 		colours = self.colours
 
-		self.ddt.rect((x, y, w, h), colours.side_panel_background)
+		bg = self.colours.side_panel_background
+		bg[3] = 255
+		self.ddt.text_background_colour = bg
+		self.ddt.rect((x, y, w, h), bg)
 
 		if not track:
 			return
@@ -27249,6 +27256,8 @@ def prime_fonts(bag: Bag) -> None:
 	ddt.prime_font(standard_font, 13, 516)
 
 def find_synced_lyric_data(track: TrackClass) -> list[str] | None:
+	if track.synced:
+		return track.synced.splitlines()
 	if track.is_network:
 		return None
 
@@ -28615,10 +28624,14 @@ def get_lyric_fire(track_object: TrackClass, silent: bool = False) -> str | None
 			func = lyric_sources[name]
 
 			try:
-				lyrics = func(s_artist, s_title)
-				if lyrics:
-					logging.info(f"Found lyrics from {name}")
-					track_object.lyrics = lyrics
+				lyrics, synced = func(s_artist, s_title)
+				if lyrics or synced:
+					if lyrics:
+						logging.info(f"Found lyrics from {name}")
+						track_object.lyrics = lyrics
+					if synced:
+						logging.info(f"Found synced lyrics")
+						track_object.synced = synced
 					found = True
 					break
 			except Exception:
