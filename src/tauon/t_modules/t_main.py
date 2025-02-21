@@ -6345,8 +6345,10 @@ class Tauon:
 		tauonqueueitem_jar = []
 		trackclass_jar = []
 		for v in pctl.multi_playlist:
+			logging.critical(v)
 			tauonplaylist_jar.append(v.__dict__)
 		for v in pctl.radio_playlists:
+			logging.critical(v)
 			radioplaylist_jar.append(v.__dict__)
 		for v in pctl.force_queue:
 			tauonqueueitem_jar.append(v.__dict__)
@@ -39251,7 +39253,7 @@ def main(holder: Holder) -> None:
 	smtc = False
 
 	radio_playlist_viewing = 0
-	radio_playlists = [{"uid": uid_gen(), "name": "Default", "items": []}]
+	radio_playlists: list[RadioPlaylist] = [RadioPlaylist(uid=uid_gen(), name="Default", stations=[])]
 
 	ddt = TDraw(renderer)
 	fonts = Fonts()
@@ -39420,9 +39422,6 @@ def main(holder: Holder) -> None:
 
 	perf_timer = Timer()
 	perf_timer.set()
-
-	radio_playlists: list[RadioPlaylist] = [RadioPlaylist(uid=uid_gen(), name="Default", stations=[])]
-	# radio_playlists: list[dict[str, int | str | list[dict[str, str]]]]
 
 	primary_stations: list[RadioStation] = []
 
