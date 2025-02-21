@@ -271,6 +271,10 @@ class DConsole:
 class GuiVar:
 	"""Use to hold any variables for use in relation to UI"""
 
+	def set_drag_source(self):
+		self.drag_source_position = tuple(self.inp.click_location)
+		self.drag_source_position_persist = tuple(self.inp.click_location)
+
 	def show_message(self, line1: str, line2: str = "", line3: str = "", mode: str = "info") -> None:
 		show_message(line1, line2, line3, mode=mode)
 
@@ -5860,9 +5864,9 @@ class Tauon:
 				top_line = (_("End of playlist"))
 				id = None
 
-			song_notification.update(top_line, bottom_line, i_path)
+			self.bag.song_notification.update(top_line, bottom_line, i_path)
 
-			shoot_dl = threading.Thread(target=notify_song_fire, args=([song_notification, delay, id]))
+			shoot_dl = threading.Thread(target=notify_song_fire, args=([self.bag.song_notification, delay, id]))
 			shoot_dl.daemon = True
 			shoot_dl.start()
 
@@ -16644,7 +16648,7 @@ class TopPanel:
 						pctl.radio_playlist_viewing = i
 					else:
 						pctl.switch_playlist(i)
-					set_drag_source()
+					gui.set_drag_source()
 
 				# Drag to move playlist
 				if inp.mouse_up and tauon.playlist_box.drag and coll_point(inp.mouse_up_position, f_rect):
@@ -19331,7 +19335,7 @@ class StandardPlaylist:
 						if inp.mouse_click \
 						and not (prefs.scroll_enable and inp.mouse_position[0] < 30 * gui.scale) and not gui.side_drag:
 							inp.quick_drag = True
-							set_drag_source()
+							gui.set_drag_source()
 
 							if not pl_is_locked(pctl.active_playlist_viewing) or inp.key_shift_down:
 								gui.playlist_hold = True
@@ -19452,7 +19456,7 @@ class StandardPlaylist:
 			# Begin drag single track
 			if inp.mouse_click and line_hit and not gui.side_drag:
 				inp.quick_drag = True
-				set_drag_source()
+				gui.set_drag_source()
 
 			# Shift Move Selection
 			if move_on_title or (inp.mouse_up and gui.playlist_hold is True and tauon.coll((
@@ -21712,7 +21716,7 @@ class PlaylistBox:
 						self.drag_on = i
 						self.drag = True
 						self.drag_source = 1
-						set_drag_source()
+						gui.set_drag_source()
 
 				# Process input of dragging tracks onto tab
 				if inp.quick_drag is True and inp.mouse_up:
@@ -23040,7 +23044,7 @@ class TreeView:
 					# inp.quick_drag = True
 					if not self.click_drag_source:
 						self.click_drag_source = item
-						set_drag_source()
+						gui.set_drag_source()
 
 				elif inp.mouse_up and self.click_drag_source == item:
 					# Click tree level folder to open/close branch
@@ -23173,7 +23177,7 @@ class TreeView:
 				self.dragging_name = os.path.basename(self.dragging_name)
 
 			gui.shift_selection.clear()
-			set_drag_source()
+			gui.set_drag_source()
 			for p, id in enumerate(pctl.multi_playlist[pctl.id_to_pl(pl_id)].playlist_ids):
 				if msys:
 					if pctl.get_track(id).fullpath.startswith(
@@ -23876,6 +23880,7 @@ class MetaBox:
 	def __init__(self, tauon: Tauon):
 		self.tauon         = tauon
 		self.gui           = tauon.gui
+		self.inp           = tauon.inp
 		self.pctl          = tauon.pctl
 		self.fonts         = tauon.bag.fonts
 		self.prefs         = tauon.prefs
@@ -26167,6 +26172,7 @@ class Bag:
 	gen_codes:              dict[int, str]
 	master_library:         dict[int, TrackClass]
 	loaded_asset_dc:        dict[str, WhiteModImageAsset | LoadImageAsset]
+	song_notification:      None = None
 
 @dataclass
 class Formats:
@@ -26325,10 +26331,6 @@ def get_artist_preview(artist: str, x, y) -> None:
 	set_artist_preview(path, artist, x, y)
 	gui.message_box = False
 	gui.preview_artist_loading = ""
-
-def set_drag_source():
-	gui.drag_source_position = tuple(inp.click_location)
-	gui.drag_source_position_persist = tuple(inp.click_location)
 
 def update_set(tauon: Tauon) -> None:
 	"""This is used to scale columns when windows is resized or items added/removed"""
@@ -40054,9 +40056,9 @@ def main(holder: Holder) -> None:
 			logging.exception("Failed init notifications")
 
 		if bag.de_notify_support:
-			song_notification = Notify.Notification.new("Next track notification")
+			bag.song_notification = Notify.Notification.new("Next track notification")
 			value = GLib.Variant("s", t_id)
-			song_notification.set_hint("desktop-entry", value)
+			bag.song_notification.set_hint("desktop-entry", value)
 
 	QuickThumbnail.renderer = holder.renderer
 
@@ -46555,7 +46557,7 @@ def main(holder: Holder) -> None:
 			sm.unload()
 	elif bag.de_notify_support:
 		try:
-			song_notification.close()
+			bag.song_notification.close()
 			g_tc_notify.close()
 			Notify.uninit()
 		except Exception:
