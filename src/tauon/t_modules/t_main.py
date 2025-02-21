@@ -518,7 +518,8 @@ class GuiVar:
 
 		self.pref_gallery_w = 600
 
-		self.artist_info_panel = False
+		self.artist_info_panel: bool = False
+		self.album_artist_dict: dict[int, str] = {}
 
 		self.show_hearts = True
 
@@ -11206,7 +11207,7 @@ class AlbumArt:
 		rect.x = round(int((unit.request_size[0] - unit.actual_size[0]) / 2) + location[0])
 		rect.y = round(int((unit.request_size[1] - unit.actual_size[1]) / 2) + location[1])
 
-		tauon.style_overlay.hole_punches.append(rect)
+		self.tauon.style_overlay.hole_punches.append(rect)
 
 		sdl3.SDL_RenderTexture(self.renderer, unit.texture, None, rect)
 
@@ -36804,7 +36805,7 @@ def worker1(tauon: Tauon) -> None:
 				else:
 					break
 
-			album_artist_dict.clear()
+			gui.album_artist_dict.clear()
 
 		tauon.artist_list_box.worker()
 
@@ -37074,7 +37075,7 @@ def worker1(tauon: Tauon) -> None:
 				lastfm.sync_pull_love(pctl.master_library[track])
 				del tauon.to_scan[0]
 				gui.update += 1
-			album_artist_dict.clear()
+			gui.album_artist_dict.clear()
 			pctl.notify_change()
 			gui.pl_update += 1
 
@@ -39085,7 +39086,6 @@ def main(holder: Holder) -> None:
 	# gui.offset_extra = 0
 
 	album_dex = []
-	album_artist_dict = {}
 	row_len = 5
 	last_row = 0
 	album_v_gap = 66
@@ -43779,32 +43779,32 @@ def main(holder: Holder) -> None:
 
 									if gui.gallery_show_text:
 										c_index = pctl.default_playlist[album_dex[album_on]]
-										if c_index in album_artist_dict:
+										if c_index in gui.album_artist_dict:
 											pass
 										else:
 											i = album_dex[album_on]
 											if pctl.master_library[pctl.default_playlist[i]].album_artist:
-												album_artist_dict[c_index] = pctl.master_library[
+												gui.album_artist_dict[c_index] = pctl.master_library[
 													pctl.default_playlist[i]].album_artist
 											else:
 												while i < len(pctl.default_playlist) - 1:
 													if pctl.master_library[pctl.default_playlist[i]].parent_folder_name != \
 															pctl.master_library[
 																pctl.default_playlist[album_dex[album_on]]].parent_folder_name:
-														album_artist_dict[c_index] = pctl.master_library[
+														gui.album_artist_dict[c_index] = pctl.master_library[
 															pctl.default_playlist[album_dex[album_on]]].artist
 														break
 													if pctl.master_library[pctl.default_playlist[i]].artist != \
 															pctl.master_library[
 																pctl.default_playlist[album_dex[album_on]]].artist:
-														album_artist_dict[c_index] = _("Various Artists")
+														gui.album_artist_dict[c_index] = _("Various Artists")
 														break
 													i += 1
 												else:
-													album_artist_dict[c_index] = pctl.master_library[
+													gui.album_artist_dict[c_index] = pctl.master_library[
 														pctl.default_playlist[album_dex[album_on]]].artist
 
-										line = album_artist_dict[c_index]
+										line = gui.album_artist_dict[c_index]
 										line2 = pctl.master_library[pctl.default_playlist[album_dex[album_on]]].album
 										if singles:
 											line2 = pctl.master_library[
@@ -44086,7 +44086,7 @@ def main(holder: Holder) -> None:
 								pctl.loading_in_progress = False
 								pctl.notify_change()
 								gui.auto_play_import = False
-								album_artist_dict.clear()
+								gui.album_artist_dict.clear()
 							break
 
 				if gui.show_playlist:
