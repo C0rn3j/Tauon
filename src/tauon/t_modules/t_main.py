@@ -2052,7 +2052,6 @@ class PlayerCtl:
 					state, tr.title.encode("utf-16"), len(tr.title), tr.artist.encode("utf-16"), len(tr.artist),
 					image_path.encode("utf-16"), len(image_path))
 
-
 		if self.mpris is not None and mpris is True:
 			while self.notify_in_progress:
 				time.sleep(0.01)
@@ -2161,7 +2160,6 @@ class PlayerCtl:
 		return target_track
 
 	def playing_object(self) -> TrackClass | None:
-
 		if self.playing_state == 3:
 			return self.radiobox.dummy_track
 
@@ -2486,7 +2484,7 @@ class PlayerCtl:
 		if self.prefs.update_title:
 			update_title_do()
 		self.notify_update()
-		hit_discord()
+		self.tauon.hit_discord()
 		self.render_playlist()
 
 		if self.lfm_scrobbler.a_sc:
@@ -2585,7 +2583,7 @@ class PlayerCtl:
 
 		self.render_playlist()
 		self.notify_update()
-		notify_song()
+		self.tauon.notify_song()
 		self.lfm_scrobbler.start_queue()
 		self.gui.pl_update += 1
 
@@ -2675,7 +2673,7 @@ class PlayerCtl:
 		elif self.playing_state == 2:
 			self.playerCommand = "pauseoff"
 			self.playing_state = 1
-			notify_song()
+			self.tauon.notify_song()
 
 		self.playerCommandReady = True
 
@@ -3530,7 +3528,7 @@ class PlayerCtl:
 		self.notify_update()
 		self.lfm_scrobbler.start_queue()
 		if play:
-			notify_song(end_of_playlist, delay=1.3)
+			self.tauon.notify_song(end_of_playlist, delay=1.3)
 		return None
 
 	def reset_missing_flags(self) -> None:
@@ -5361,6 +5359,9 @@ class Tauon:
 		self.artist_info_box                      = ArtistInfoBox(tauon=self)
 		self.pref_box                             = Over(tauon=self)
 		self.fader                                = Fader(tauon=self)
+		self.thread_manager: ThreadManager | None = None # Avoid NameError
+		self.thread_manager:        ThreadManager = ThreadManager(tauon=self)
+		self.style_overlay                        = StyleOverlay(tauon=self)
 		self.album_art_gen                        = AlbumArt(tauon=self)
 		self.tool_tip                             = ToolTip(tauon=self)
 		self.tool_tip2                            = ToolTip(tauon=self)
@@ -5395,8 +5396,6 @@ class Tauon:
 		self.QuickThumbnail                       = QuickThumbnail
 		self.thumb_tracks                         = ThumbTracks(tauon=self)
 		self.chunker                              = Chunker()
-		self.thread_manager: ThreadManager | None = None # Avoid NameError
-		self.thread_manager:        ThreadManager = ThreadManager(tauon=self)
 		self.stream_proxy                         = None
 		self.stream_proxy                         = StreamEnc(self)
 		self.level_train:       list[list[float]] = []
@@ -5431,7 +5430,6 @@ class Tauon:
 		self.spotc: player4.LibreSpot | None = None
 		self.librespot_p = None
 		self.MenuItem = MenuItem
-		self.tag_scan = tag_scan
 
 		self.gme_formats = bag.formats.GME_Formats
 
@@ -5457,6 +5455,437 @@ class Tauon:
 		self.tau               = TauService(self)
 
 		self.tls_context = bag.tls_context
+
+	def track_number_process(self, line: str) -> str:
+		line = str(line).split("/", 1)[0].lstrip("0")
+		if self.prefs.dd_index and len(line) == 1:
+			return "0" + line
+		return line
+
+	def tag_scan(self, nt: TrackClass) -> TrackClass | None:
+		"""This function takes a track object and scans metadata for it. (Filepath needs to be set)"""
+		if nt.is_embed_cue:
+			return nt
+		if nt.is_network or not nt.fullpath:
+			return None
+		try:
+			try:
+				nt.modified_time = os.path.getmtime(nt.fullpath)
+				nt.found = True
+			except FileNotFoundError:
+				logging.error("File not found when executing getmtime!")
+				nt.found = False
+				return nt
+			except Exception:
+				logging.exception("Unknown error executing getmtime!")
+				nt.found = False
+				return nt
+
+			nt.misc.clear()
+			nt.file_ext = os.path.splitext(os.path.basename(nt.fullpath))[1][1:].upper()
+
+			if nt.file_ext.lower() in self.bag.formats.GME_Formats and gme:
+				emu = ctypes.c_void_p()
+				track_info = ctypes.POINTER(GMETrackInfo)()
+				err = gme.gme_open_file(nt.fullpath.encode("utf-8"), ctypes.byref(emu), -1)
+				#logging.error(err)
+				if not err:
+					n = nt.subtrack
+					err = gme.gme_track_info(emu, byref(track_info), n)
+					#logging.error(err)
+					if not err:
+						nt.length = track_info.contents.play_length / 1000
+						nt.title = track_info.contents.song.decode("utf-8")
+						nt.artist = track_info.contents.author.decode("utf-8")
+						nt.album = track_info.contents.game.decode("utf-8")
+						nt.comment = track_info.contents.comment.decode("utf-8")
+						gme.gme_free_info(track_info)
+					gme.gme_delete(emu)
+
+					filepath = nt.fullpath  # this is the full file path
+					filename = nt.filename  # this is the name of the file
+
+					# Get the directory of the file
+					dir_path = os.path.dirname(filepath)
+
+					# Loop through all files in the directory to find any matching M3U
+					for file in os.listdir(dir_path):
+						if file.endswith(".m3u"):
+							with open(os.path.join(dir_path, file), encoding="utf-8", errors="replace") as f:
+								content = f.read()
+								if "�" in content:  # Check for replacement marker
+									with open(os.path.join(dir_path, file), encoding="windows-1252") as b:
+										content = b.read()
+								if "::" in content:
+									a, b = content.split("::")
+									if a == filename:
+										s = re.split(r"(?<!\\),", b)
+										try:
+											st = int(s[1])
+										except Exception:
+											logging.exception("Failed to assign st to int")
+											continue
+										if st == n:
+											nt.title = s[2].split(" - ")[0].replace("\\", "")
+											nt.artist = s[2].split(" - ")[1].replace("\\", "")
+											nt.album = s[2].split(" - ")[2].replace("\\", "")
+											nt.length = hms_to_seconds(s[3])
+											break
+				if not nt.title:
+					nt.title = "Track " + str(nt.subtrack + 1)
+
+			elif nt.file_ext in ("MOD", "IT", "XM", "S3M", "MPTM") and mpt:
+				with Path(nt.fullpath).open("rb") as file:
+					data = file.read()
+				MOD1 = MOD.from_address(
+					mpt.openmpt_module_create_from_memory(
+						ctypes.c_char_p(data), ctypes.c_size_t(len(data)), None, None, None))
+				nt.length = mpt.openmpt_module_get_duration_seconds(byref(MOD1))
+				nt.title = mpt.openmpt_module_get_metadata(byref(MOD1), ctypes.c_char_p(b"title")).decode()
+				nt.artist = mpt.openmpt_module_get_metadata(byref(MOD1), ctypes.c_char_p(b"artist")).decode()
+				nt.comment = mpt.openmpt_module_get_metadata(byref(MOD1), ctypes.c_char_p(b"message_raw")).decode()
+
+				mpt.openmpt_module_destroy(byref(MOD1))
+				del MOD1
+
+			elif nt.file_ext == "FLAC":
+				with Flac(nt.fullpath) as audio:
+					audio.read()
+
+					nt.length = audio.length
+					nt.title = audio.title
+					nt.artist = audio.artist
+					nt.album = audio.album
+					nt.composer = audio.composer
+					nt.date = audio.date
+					nt.samplerate = audio.sample_rate
+					nt.bit_depth = audio.bit_depth
+					nt.size = os.path.getsize(nt.fullpath)
+					nt.track_number = audio.track_number
+					nt.genre = audio.genre
+					nt.album_artist = audio.album_artist
+					nt.disc_number = audio.disc_number
+					nt.lyrics = audio.lyrics
+					if nt.length:
+						nt.bitrate = int(nt.size / nt.length * 8 / 1024)
+					nt.track_total = audio.track_total
+					nt.disc_total = audio.disc_total
+					nt.comment = audio.comment
+					nt.cue_sheet = audio.cue_sheet
+					nt.misc = audio.misc
+
+			elif nt.file_ext == "WAV":
+				with Wav(nt.fullpath) as audio:
+					try:
+						audio.read()
+
+						nt.samplerate = audio.sample_rate
+						nt.length = audio.length
+						nt.title = audio.title
+						nt.artist = audio.artist
+						nt.album = audio.album
+						nt.track_number = audio.track_number
+
+					except Exception:
+						logging.exception("Failed saving WAV file as a Track, will try again differently")
+						audio = mutagen.File(nt.fullpath)
+						nt.samplerate = audio.info.sample_rate
+						nt.bitrate = audio.info.bitrate // 1000
+						nt.length = audio.info.length
+						nt.size = os.path.getsize(nt.fullpath)
+					audio = mutagen.File(nt.fullpath)
+					if audio.tags and type(audio.tags) == mutagen.wave._WaveID3:
+						use_id3(audio.tags, nt)
+
+			elif nt.file_ext == "OPUS" or nt.file_ext == "OGG" or nt.file_ext == "OGA":
+
+				#logging.info("get opus")
+				with Opus(nt.fullpath) as audio:
+					audio.read()
+
+					#logging.info(audio.title)
+
+					nt.length = audio.length
+					nt.title = audio.title
+					nt.artist = audio.artist
+					nt.album = audio.album
+					nt.composer = audio.composer
+					nt.date = audio.date
+					nt.samplerate = audio.sample_rate
+					nt.size = os.path.getsize(nt.fullpath)
+					nt.track_number = audio.track_number
+					nt.genre = audio.genre
+					nt.album_artist = audio.album_artist
+					nt.bitrate = audio.bit_rate
+					nt.lyrics = audio.lyrics
+					nt.disc_number = audio.disc_number
+					nt.track_total = audio.track_total
+					nt.disc_total = audio.disc_total
+					nt.comment = audio.comment
+					nt.misc = audio.misc
+					if nt.bitrate == 0 and nt.length > 0:
+						nt.bitrate = int(nt.size / nt.length * 8 / 1024)
+
+			elif nt.file_ext == "APE":
+				with mutagen.File(nt.fullpath) as audio:
+					nt.length = audio.info.length
+					nt.bit_depth = audio.info.bits_per_sample
+					nt.samplerate = audio.info.sample_rate
+					nt.size = os.path.getsize(nt.fullpath)
+					if nt.length > 0:
+						nt.bitrate = int(nt.size / nt.length * 8 / 1024)
+
+					# # def getter(audio, key, type):
+					# #	 if
+					# t = audio.tags
+					# logging.info(t.keys())
+					# nt.size = os.path.getsize(nt.fullpath)
+					# nt.title = str(t.get("title", ""))
+					# nt.album = str(t.get("album", ""))
+					# nt.date = str(t.get("year", ""))
+					# nt.disc_number = str(t.get("discnumber", ""))
+					# nt.comment = str(t.get("comment", ""))
+					# nt.artist = str(t.get("artist", ""))
+					# nt.composer = str(t.get("composer", ""))
+					# nt.composer = str(t.get("composer", ""))
+
+				with Ape(nt.fullpath) as audio:
+					audio.read()
+
+					# logging.info(audio.title)
+
+					# nt.length = audio.length
+					nt.title = audio.title
+					nt.artist = audio.artist
+					nt.album = audio.album
+					nt.date = audio.date
+					nt.composer = audio.composer
+					# nt.bit_depth = audio.bit_depth
+					nt.track_number = audio.track_number
+					nt.genre = audio.genre
+					nt.album_artist = audio.album_artist
+					nt.disc_number = audio.disc_number
+					nt.lyrics = audio.lyrics
+					nt.track_total = audio.track_total
+					nt.disc_total = audio.disc_total
+					nt.comment = audio.comment
+					nt.misc = audio.misc
+
+			elif nt.file_ext == "WV" or nt.file_ext == "TTA":
+
+				with Ape(nt.fullpath) as audio:
+					audio.read()
+
+					# logging.info(audio.title)
+
+					nt.length = audio.length
+					nt.title = audio.title
+					nt.artist = audio.artist
+					nt.album = audio.album
+					nt.date = audio.date
+					nt.composer = audio.composer
+					nt.samplerate = audio.sample_rate
+					nt.bit_depth = audio.bit_depth
+					nt.size = os.path.getsize(nt.fullpath)
+					nt.track_number = audio.track_number
+					nt.genre = audio.genre
+					nt.album_artist = audio.album_artist
+					nt.disc_number = audio.disc_number
+					nt.lyrics = audio.lyrics
+					if nt.length > 0:
+						nt.bitrate = int(nt.size / nt.length * 8 / 1024)
+					nt.track_total = audio.track_total
+					nt.disc_total = audio.disc_total
+					nt.comment = audio.comment
+					nt.misc = audio.misc
+
+			else:
+				# Use MUTAGEN
+				try:
+					if nt.file_ext.lower() in self.bag.formats.VID_Formats:
+						scan_ffprobe(nt)
+						return nt
+
+					try:
+						audio = mutagen.File(nt.fullpath)
+					except Exception:
+						logging.exception("Mutagen scan failed, falling back to FFPROBE")
+						scan_ffprobe(nt)
+						return nt
+
+					nt.samplerate = audio.info.sample_rate
+					nt.bitrate = audio.info.bitrate // 1000
+					nt.length = audio.info.length
+					nt.size = os.path.getsize(nt.fullpath)
+
+					if not nt.length:
+						try:
+							startupinfo = None
+							if system == "Windows" or msys:
+								startupinfo = subprocess.STARTUPINFO()
+								startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+							result = subprocess.run([tauon.get_ffprobe(), "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", nt.fullpath], stdout=subprocess.PIPE, startupinfo=startupinfo, check=True)
+							nt.length = float(result.stdout.decode())
+						except Exception:
+							logging.exception("FFPROBE couldn't supply a duration")
+
+					if type(audio.tags) == mutagen.mp4.MP4Tags:
+						tags = audio.tags
+
+						def in_get(key, tags):
+							if key in tags:
+								return tags[key][0]
+							return ""
+
+						nt.title = in_get("\xa9nam", tags)
+						nt.album = in_get("\xa9alb", tags)
+						nt.artist = in_get("\xa9ART", tags)
+						nt.album_artist = in_get("aART", tags)
+						nt.composer = in_get("\xa9wrt", tags)
+						nt.date = in_get("\xa9day", tags)
+						nt.comment = in_get("\xa9cmt", tags)
+						nt.genre = in_get("\xa9gen", tags)
+						if "\xa9lyr" in tags:
+							nt.lyrics = in_get("\xa9lyr", tags)
+						nt.track_total = ""
+						nt.track_number = ""
+						t = in_get("trkn", tags)
+						if t:
+							nt.track_number = str(t[0])
+							if t[1]:
+								nt.track_total = str(t[1])
+
+						nt.disc_total = ""
+						nt.disc_number = ""
+						t = in_get("disk", tags)
+						if t:
+							nt.disc_number = str(t[0])
+							if t[1]:
+								nt.disc_total = str(t[1])
+
+						if "----:com.apple.iTunes:MusicBrainz Track Id" in tags:
+							nt.misc["musicbrainz_recordingid"] = in_get(
+								"----:com.apple.iTunes:MusicBrainz Track Id",
+								tags).decode()
+						if "----:com.apple.iTunes:MusicBrainz Release Track Id" in tags:
+							nt.misc["musicbrainz_trackid"] = in_get(
+								"----:com.apple.iTunes:MusicBrainz Release Track Id",
+								tags).decode()
+						if "----:com.apple.iTunes:MusicBrainz Album Id" in tags:
+							nt.misc["musicbrainz_albumid"] = in_get(
+								"----:com.apple.iTunes:MusicBrainz Album Id",
+								tags).decode()
+						if "----:com.apple.iTunes:MusicBrainz Release Group Id" in tags:
+							nt.misc["musicbrainz_releasegroupid"] = in_get(
+								"----:com.apple.iTunes:MusicBrainz Release Group Id",
+								tags).decode()
+						if "----:com.apple.iTunes:MusicBrainz Artist Id" in tags:
+							nt.misc["musicbrainz_artistids"] = [x.decode() for x in
+								tags.get("----:com.apple.iTunes:MusicBrainz Artist Id")]
+
+
+					elif type(audio.tags) == mutagen.id3.ID3:
+						use_id3(audio.tags, nt)
+
+
+				except Exception:
+					logging.exception("Failed loading file through Mutagen")
+					raise
+
+
+			# Parse any multiple artists into list
+			artists = nt.artist.split(";")
+			if len(artists) > 1:
+				for a in artists:
+					a = a.strip()
+					if a:
+						if "artists" not in nt.misc:
+							nt.misc["artists"] = []
+						if a not in nt.misc["artists"]:
+							nt.misc["artists"].append(a)
+
+
+		except Exception:
+			try:
+				if Exception is UnicodeDecodeError:
+					logging.exception("Unicode decode error on file:", nt.fullpath, "\n")
+				else:
+					logging.exception("Error: Tag read failed on file:", nt.fullpath, "\n")
+			except Exception:
+				logging.exception("Error printing error. Non utf8 not allowed:", nt.fullpath.encode("utf-8", "surrogateescape").decode("utf-8", "replace"), "\n")
+			return nt
+
+		return nt
+
+	def notify_song(self, notify_of_end: bool = False, delay: float = 0.0) -> None:
+		if not self.bag.de_notify_support:
+			return
+
+		if notify_of_end and self.prefs.end_setting != "stop":
+			return
+
+		if self.prefs.show_notifications and self.pctl.playing_object() is not None and not window_is_focused(self.t_window):
+			if self.prefs.stop_notifications_mini_mode and self.gui.mode == 3:
+				return
+
+			track = self.pctl.playing_object()
+
+			if not track or not (track.title or track.artist or track.album or track.filename):
+				return  # only display if we have at least one piece of metadata avaliable
+
+			i_path = ""
+			try:
+				if not notify_of_end:
+					i_path = self.thumb_tracks.path(track)
+			except Exception:
+				logging.exception(track.fullpath.encode("utf-8", "replace").decode("utf-8"))
+				logging.error("Thumbnail error")
+
+			top_line = track.title
+
+			if self.prefs.notify_include_album:
+				bottom_line = (track.artist + " | " + track.album).strip("| ")
+			else:
+				bottom_line = track.artist
+
+			if not track.title:
+				a, t = filename_to_metadata(clean_string(track.filename))
+				if not track.artist:
+					bottom_line = a
+				top_line = t
+
+			self.gui.notify_main_id = uid_gen()
+			id = self.gui.notify_main_id
+
+			if notify_of_end:
+				bottom_line = "Tauon Music Box"
+				top_line = (_("End of playlist"))
+				id = None
+
+			song_notification.update(top_line, bottom_line, i_path)
+
+			shoot_dl = threading.Thread(target=notify_song_fire, args=([song_notification, delay, id]))
+			shoot_dl.daemon = True
+			shoot_dl.start()
+
+	def test_auto_lyrics(self, track_object: TrackClass) -> None:
+		if not track_object:
+			return
+
+		if self.prefs.auto_lyrics and not track_object.lyrics and track_object.index not in self.prefs.auto_lyrics_checked:
+			if self.lyrics_check_timer.get() > 5 and self.pctl.playing_time > 1:
+				result = get_lyric_wiki_silent(track_object)
+				if result == "later":
+					pass
+				else:
+					self.lyrics_check_timer.set()
+					self.prefs.auto_lyrics_checked.append(track_object.index)
+
+	def hit_discord(self) -> None:
+		if self.prefs.discord_enable and self.prefs.discord_allow and not self.prefs.discord_active:
+			discord_t = threading.Thread(target=discord_loop)
+			discord_t.daemon = True
+			discord_t.start()
 
 	def love(self, set: bool = True, track_id: int | None = None, no_delay: bool = False, notify: bool = False, sync: bool = True) -> bool | None:
 		if len(self.pctl.track_queue) < 1:
@@ -5587,7 +6016,7 @@ class Tauon:
 				dash = True
 
 			if n_track.title:
-				line = track_number_process(n_track.track_number)
+				line = self.track_number_process(n_track.track_number)
 				indexLine = line
 
 				if self.prefs.use_absolute_track_index and self.pctl.multi_playlist[self.pctl.active_playlist_viewing].hide_title:
@@ -9799,6 +10228,7 @@ class AlbumArt:
 		self.system               = tauon.system
 		self.gui                  = tauon.gui
 		self.prefs                = tauon.prefs
+		self.style_overlay        = tauon.style_overlay
 		self.colours              = tauon.bag.colours
 		self.ddt                  = tauon.bag.ddt
 		self.renderer             = tauon.bag.renderer
@@ -9964,7 +10394,6 @@ class AlbumArt:
 		if self.prefs.zoom_art:
 			temp_dest.w, temp_dest.h = fit_box((unit.original_size[0], unit.original_size[1]), box)
 		else:
-
 			# Constrain image to given box
 			if temp_dest.w > bw:
 				temp_dest.w = bw
@@ -9985,7 +10414,7 @@ class AlbumArt:
 
 		# render the image
 		sdl3.SDL_RenderTexture(renderer, unit.texture, None, temp_dest)
-		style_overlay.hole_punches.append(temp_dest)
+		self.style_overlay.hole_punches.append(temp_dest)
 
 		self.gui.art_drawn_rect = (temp_dest.x, temp_dest.y, temp_dest.w, temp_dest.h)
 
@@ -10777,7 +11206,7 @@ class AlbumArt:
 		rect.x = round(int((unit.request_size[0] - unit.actual_size[0]) / 2) + location[0])
 		rect.y = round(int((unit.request_size[1] - unit.actual_size[1]) / 2) + location[1])
 
-		style_overlay.hole_punches.append(rect)
+		tauon.style_overlay.hole_punches.append(rect)
 
 		sdl3.SDL_RenderTexture(self.renderer, unit.texture, None, rect)
 
@@ -10804,8 +11233,11 @@ class AlbumArt:
 
 class StyleOverlay:
 
-	def __init__(self):
-
+	def __init__(self, tauon: Tauon) -> None:
+		self.gui            = tauon.gui
+		self.pctl           = tauon.pctl
+		self.prefs          = tauon.prefs
+		self.thread_manager = tauon.thread_manager
 		self.min_on_timer = Timer()
 		self.fade_on_timer = Timer(0)
 		self.fade_off_timer = Timer()
@@ -10836,14 +11268,14 @@ class StyleOverlay:
 
 	def worker(self) -> None:
 		if self.stage == 0:
-			if (gui.mode == 3 and prefs.mini_mode_mode == 5):
+			if (self.gui.mode == 3 and self.prefs.mini_mode_mode == 5):
 				pass
-			elif prefs.bg_showcase_only and not gui.combo_mode:
+			elif self.prefs.bg_showcase_only and not self.gui.combo_mode:
 				return
 
-			if pctl.playing_ready() and self.min_on_timer.get() > 0:
+			if self.pctl.playing_ready() and self.min_on_timer.get() > 0:
 
-				track = pctl.playing_object()
+				track = self.pctl.playing_object()
 
 				self.window_size = copy.copy(window_size)
 				self.parent_path = track.parent_folder_path
@@ -10868,11 +11300,10 @@ class StyleOverlay:
 					return
 
 				self.stage = 1
-				gui.update += 1
+				self.gui.update += 1
 				return
 
-	def flush(self):
-
+	def flush(self) -> None:
 		if self.a_texture is not None:
 			sdl3.SDL_DestroyTexture(self.a_texture)
 			self.a_texture = None
@@ -10882,13 +11313,12 @@ class StyleOverlay:
 		self.min_on_timer.force_set(-0.2)
 		self.parent_path = "None"
 		self.stage = 0
-		tauon.thread_manager.ready("worker")
-		gui.style_worker_timer.set()
-		gui.delay_frame(0.25)
-		gui.update += 1
+		self.thread_manager.ready("worker")
+		self.gui.style_worker_timer.set()
+		self.gui.delay_frame(0.25)
+		self.gui.update += 1
 
 	def display(self) -> None:
-
 		if self.min_on_timer.get() < 0:
 			return
 
@@ -10925,7 +11355,7 @@ class StyleOverlay:
 			self.stage = 2
 			self.radio_meta = None
 
-			gui.update += 1
+			self.gui.update += 1
 
 		if self.stage == 2:
 			track = pctl.playing_object()
@@ -13522,7 +13952,7 @@ class Over:
 					show_message(_("Missing dependency python-pypresence"))
 					prefs.discord_enable = False
 				else:
-					hit_discord()
+					tauon.hit_discord()
 
 			if old and not prefs.discord_enable:
 				if prefs.discord_active:
@@ -14265,7 +14695,7 @@ class Over:
 							prefs.bg_flips.add(artist)
 						else:
 							prefs.bg_flips.remove(artist)
-					style_overlay.flush()
+					tauon.style_overlay.flush()
 					show_message(_("OK"), mode="done")
 
 		# if self.account_view == 3:
@@ -18371,11 +18801,11 @@ class MiniMode3:
 
 		ddt.rect((0, 0, w, h), bg)
 
-		style_overlay.display()
+		tauon.style_overlay.display()
 
 		transit = False
 		#ddt.text_background_colour = list(gui.center_blur_pixel) + [255,] #bg
-		if style_overlay.fade_on_timer.get() < 0.4 or style_overlay.stage != 2:
+		if tauon.style_overlay.fade_on_timer.get() < 0.4 or tauon.style_overlay.stage != 2:
 			ddt.alpha_bg = True
 			transit = True
 
@@ -18445,19 +18875,19 @@ class MiniMode3:
 			key = None
 			if not line1 and not line2:
 				if not ddt.alpha_bg:
-					key = (track.filename, 214, style_overlay.current_track_id)
+					key = (track.filename, 214, tauon.style_overlay.current_track_id)
 				ddt.text(
 					(w // 2, y1 + 18 * gui.scale, 2), track.filename, line1c, 214,
 					window_size[0] - 30 * gui.scale, real_bg=not transit, key=key)
 			else:
 
 				if not ddt.alpha_bg:
-					key = (line1, 515, style_overlay.current_track_id)
+					key = (line1, 515, tauon.style_overlay.current_track_id)
 				ddt.text(
 					(w // 2, y1 + 5 * gui.scale, 2), line1, line2c, 515,
 					window_size[0] - 30 * gui.scale, real_bg=not transit, key=key)
 				if not ddt.alpha_bg:
-					key = (line2, 415, style_overlay.current_track_id)
+					key = (line2, 415, tauon.style_overlay.current_track_id)
 				ddt.text(
 					(w // 2, y1 + 31 * gui.scale, 2), line2, line1c, 415,
 					window_size[0] - 30 * gui.scale, real_bg=not transit, key=key)
@@ -19532,7 +19962,7 @@ class StandardPlaylist:
 							if prefs.use_absolute_track_index and pctl.multi_playlist[pctl.active_playlist_viewing].hide_title:
 								text = str(p_track)
 							else:
-								text = track_number_process(n_track.track_number)
+								text = tauon.track_number_process(n_track.track_number)
 
 							colour = colours.index_text
 							norm_colour = colour
@@ -19853,8 +20283,10 @@ class ArtBox:
 
 class ScrollBox:
 
-	def __init__(self):
-
+	def __init__(self, tauon: Tauon):
+		self.gui      = tauon.gui
+		self.inp      = tauon.inp
+		self.t_window = tauon.t_window
 		self.held = False
 		self.slide_hold = False
 		self.source_click_y = 0
@@ -19902,7 +20334,6 @@ class ScrollBox:
 		fx = x - extend_field
 
 		if tauon.coll((fx, y, fw, h)):
-
 			if inp.mouse_down:
 				gui.update += 1
 
@@ -19968,7 +20399,7 @@ class ScrollBox:
 		if (self.held and inp.mouse_up) or not inp.mouse_down:
 			self.held = False
 
-		if self.held and not window_is_focused():
+		if self.held and not window_is_focused(self.t_window):
 			self.held = False
 
 		if self.held:
@@ -20020,7 +20451,7 @@ class RadioBox:
 		self.center = False
 
 		self.scroll_position = 0
-		self.scroll = ScrollBox()
+		self.scroll = ScrollBox(tauon=tauon)
 
 		self.dummy_track = TrackClass()
 		self.dummy_track.index = -2
@@ -20202,7 +20633,7 @@ class RadioBox:
 		pctl.decode_time = 0
 		pctl.playing_length = 0
 		tauon.thread_manager.ready_playback()
-		hit_discord()
+		tauon.hit_discord()
 
 		if tauon.update_play_lock is not None:
 			tauon.update_play_lock()
@@ -21829,7 +22260,7 @@ class ArtistList:
 
 			for r in subtract_rect(tab_rect, rect):
 				r = sdl3.SDL_FRect(r[0], r[1], r[2], r[3])
-				style_overlay.hole_punches.append(r)
+				tauon.style_overlay.hole_punches.append(r)
 
 			ddt.rect(tab_rect, back_colour_2)
 			bg = back_colour_2
@@ -21882,7 +22313,7 @@ class ArtistList:
 					if (rect.y + rect.h) > window_size[1] - gui.panelBY:
 						diff = (rect.y + rect.h) - (window_size[1] - gui.panelBY)
 						rect.h -= round(diff)
-					style_overlay.hole_punches.append(rect)
+					tauon.style_overlay.hole_punches.append(rect)
 		if not drawn:
 			track = self.sample_tracks.get(artist)
 			if track:
@@ -23440,6 +23871,10 @@ class MetaBox:
 
 	def __init__(self, tauon: Tauon):
 		self.tauon         = tauon
+		self.gui           = tauon.gui
+		self.pctl          = tauon.pctl
+		self.fonts         = tauon.bag.fonts
+		self.prefs         = tauon.prefs
 		self.showcase_menu = tauon.showcase_menu
 		self.ddt           = tauon.bag.ddt
 		self.colours       = tauon.bag.colours
@@ -23594,41 +24029,40 @@ class MetaBox:
 			return
 
 		# Test for show lyric menu on right ckick
-		if tauon.coll((x + 10, y, w - 10, h)):
-			if inp.right_click:  # and 3 > pctl.playing_state > 0:
-				gui.force_showcase_index = -1
+		if self.tauon.coll((x + 10, y, w - 10, h)):
+			if self.inp.right_click:  # and 3 > pctl.playing_state > 0:
+				self.gui.force_showcase_index = -1
 				self.showcase_menu.activate(track)
 
-		if pctl.playing_state == 0:
-			if not prefs.meta_persists_stop and not prefs.meta_shows_selected and not prefs.meta_shows_selected_always:
+		if self.pctl.playing_state == 0:
+			if not self.prefs.meta_persists_stop and not self.prefs.meta_shows_selected and not self.prefs.meta_shows_selected_always:
 				return
 
 		if h < 15:
 			return
 
 		# Check for lyrics if auto setting
-		test_auto_lyrics(track)
+		self.tauon.test_auto_lyrics(track)
 
 		# # Draw lyrics if avaliable
 		# if prefs.show_lyrics_side and pctl.track_queue \
-		#             and track.lyrics != "" and h > 45 * gui.scale and w > 200 * gui.scale:
+		# and track.lyrics != "" and h > 45 * gui.scale and w > 200 * gui.scale:
 		#
-		#     self.lyrics(x, y, w, h, track)
+		# 	self.lyrics(x, y, w, h, track)
 
 		# Draw standard metadata
-		if len(pctl.track_queue) > 0:
-
-			if pctl.playing_state == 0:
-				if not prefs.meta_persists_stop and not prefs.meta_shows_selected and not prefs.meta_shows_selected_always:
+		if len(self.pctl.track_queue) > 0:
+			if self.pctl.playing_state == 0:
+				if not self.prefs.meta_persists_stop and not self.prefs.meta_shows_selected and not self.prefs.meta_shows_selected_always:
 					return
 
-			self.ddt.text_background_colour = colours.side_panel_background
+			self.ddt.text_background_colour = self.colours.side_panel_background
 
-			if tauon.coll((x + 10, y, w - 10, h)):
+			if self.tauon.coll((x + 10, y, w - 10, h)):
 				# Click area to jump to current track
-				if inp.mouse_click:
-					pctl.show_current()
-					gui.update += 1
+				if self.inp.mouse_click:
+					self.pctl.show_current()
+					self.gui.update += 1
 
 			title = ""
 			album = ""
@@ -23637,28 +24071,27 @@ class MetaBox:
 			date = ""
 			genre = ""
 
-			margin = x + 10 * gui.scale
-			if colours.lm:
-				margin += 2 * gui.scale
+			margin = x + 10 * self.gui.scale
+			if self.colours.lm:
+				margin += 2 * self.gui.scale
 
-			text_width = w - 25 * gui.scale
+			text_width = w - 25 * self.gui.scale
 			tr = None
 
 			# if pctl.playing_state < 3:
 
-			if pctl.playing_state == 0 and prefs.meta_persists_stop:
-				tr = pctl.master_library[pctl.track_queue[pctl.queue_step]]
-			if pctl.playing_state == 0 and prefs.meta_shows_selected:
+			if self.pctl.playing_state == 0 and self.prefs.meta_persists_stop:
+				tr = self.pctl.master_library[self.pctl.track_queue[self.pctl.queue_step]]
+			if self.pctl.playing_state == 0 and self.prefs.meta_shows_selected:
+				if -1 < self.pctl.selected_in_playlist < len(self.pctl.multi_playlist[self.pctl.active_playlist_viewing].playlist_ids):
+					tr = self.pctl.get_track(self.pctl.multi_playlist[self.pctl.active_playlist_viewing].playlist_ids[self.pctl.selected_in_playlist])
 
-				if -1 < pctl.selected_in_playlist < len(pctl.multi_playlist[pctl.active_playlist_viewing].playlist_ids):
-					tr = pctl.get_track(pctl.multi_playlist[pctl.active_playlist_viewing].playlist_ids[pctl.selected_in_playlist])
-
-			if prefs.meta_shows_selected_always and pctl.playing_state != 3:
-				if -1 < pctl.selected_in_playlist < len(pctl.multi_playlist[pctl.active_playlist_viewing].playlist_ids):
-					tr = pctl.get_track(pctl.multi_playlist[pctl.active_playlist_viewing].playlist_ids[pctl.selected_in_playlist])
+			if self.prefs.meta_shows_selected_always and self.pctl.playing_state != 3:
+				if -1 < self.pctl.selected_in_playlist < len(self.pctl.multi_playlist[pctl.active_playlist_viewing].playlist_ids):
+					tr = self.pctl.get_track(self.pctl.multi_playlist[self.pctl.active_playlist_viewing].playlist_ids[self.pctl.selected_in_playlist])
 
 			if tr is None:
-				tr = pctl.playing_object()
+				tr = self.pctl.playing_object()
 			if tr is None:
 				return
 
@@ -23676,32 +24109,31 @@ class MetaBox:
 			genre = tr.genre
 
 			if not title and not artist:
-				title = pctl.tag_meta
+				title = self.pctl.tag_meta
 
-			if h > 58 * gui.scale:
-				block_y = y + 7 * gui.scale
+			if h > 58 * self.gui.scale:
+				block_y = y + 7 * self.gui.scale
 
-				if not prefs.show_side_art:
-					block_y += 3 * gui.scale
+				if not self.prefs.show_side_art:
+					block_y += 3 * self.gui.scale
 
 				if title != "":
 					self.ddt.text(
-						(margin, block_y + 2 * gui.scale), title, colours.side_bar_line1, fonts.side_panel_line1,
+						(margin, block_y + 2 * self.gui.scale), title, self.colours.side_bar_line1, self.fonts.side_panel_line1,
 						max_w=text_width)
 				if artist != "":
 					self.ddt.text(
-						(margin, block_y + 23 * gui.scale), artist, colours.side_bar_line2, fonts.side_panel_line2,
+						(margin, block_y + 23 * self.gui.scale), artist, self.colours.side_bar_line2, self.fonts.side_panel_line2,
 						max_w=text_width)
 
-				gui.showed_title = True
+				self.gui.showed_title = True
 
-				if h > 140 * gui.scale:
-
-					block_y = y + 80 * gui.scale
+				if h > 140 * self.gui.scale:
+					block_y = y + 80 * self.gui.scale
 					if artist != "":
-						ddt.text(
-							(margin, block_y), album, colours.side_bar_line2,
-							fonts.side_panel_line2, max_w=text_width)
+						self.ddt.text(
+							(margin, block_y), album, self.colours.side_bar_line2,
+							self.fonts.side_panel_line2, max_w=text_width)
 
 					if not genre == date == "":
 						line = date
@@ -23711,8 +24143,8 @@ class MetaBox:
 							line += genre
 
 						self.ddt.text(
-							(margin, block_y + 20 * gui.scale), line, colours.side_bar_line2,
-							fonts.side_panel_line2, max_w=text_width)
+							(margin, block_y + 20 * self.gui.scale), line, self.colours.side_bar_line2,
+							self.fonts.side_panel_line2, max_w=text_width)
 
 					if ext != "":
 						if ext == "SPTY":
@@ -23720,18 +24152,18 @@ class MetaBox:
 						if ext == "RADIO":
 							ext = radiobox.playing_title
 						sp = self.ddt.text(
-							(margin, block_y + 40 * gui.scale), ext, colours.side_bar_line2,
-							fonts.side_panel_line2, max_w=text_width)
+							(margin, block_y + 40 * self.gui.scale), ext, self.colours.side_bar_line2,
+							self.fonts.side_panel_line2, max_w=text_width)
 
 						if tr and tr.lyrics:
 							if draw_internel_link(
-								margin + sp + 6 * gui.scale, block_y + 40 * gui.scale, "Lyrics", colours.side_bar_line2, fonts.side_panel_line2):
+								margin + sp + 6 * self.gui.scale, block_y + 40 * self.gui.scale, "Lyrics", self.colours.side_bar_line2, self.fonts.side_panel_line2):
 								prefs.show_lyrics_showcase = True
 								enter_showcase_view(track_id=tr.index)
 
 class PictureRender:
 
-	def __init__(self):
+	def __init__(self) -> None:
 		self.show = False
 		self.path = ""
 
@@ -23786,7 +24218,7 @@ class PictureRender:
 			self.srect.x = round(x)
 			self.srect.y = round(y)
 			sdl3.SDL_RenderTexture(renderer, self.texture, None, self.srect)
-			style_overlay.hole_punches.append(self.srect)
+			tauon.style_overlay.hole_punches.append(self.srect)
 
 class ArtistInfoBox:
 
@@ -24530,6 +24962,7 @@ class Showcase:
 	def __init__(self, tauon: Tauon):
 		self.showcase_menu = tauon.showcase_menu
 		self.gui           = tauon.gui
+		self.ddt           = tauon.ddt
 		self.colours       = tauon.bag.colours
 		self.lastfm_artist = None
 		self.artist_mode = False
@@ -24578,7 +25011,7 @@ class Showcase:
 		ddt.rect((0, gui.panelY, window_size[0], window_size[1] - gui.panelY), self.colours.playlist_panel_background)
 
 		if prefs.bg_showcase_only and prefs.art_bg:
-			style_overlay.display()
+			tauon.style_overlay.display()
 
 			# Draw textured background
 			if not light_mode and not self.colours.lm and prefs.showcase_overlay_texture:
@@ -24624,9 +25057,7 @@ class Showcase:
 
 				y = int(window_size[1] / 2) - 60 - gui.scale
 				ddt.text((x, y, 2), pctl.tag_meta, self.colours.side_bar_line1, 216, w)
-
 		else:
-
 			if len(pctl.track_queue) < 1:
 				ddt.alpha_bg = False
 				return
@@ -24663,7 +25094,7 @@ class Showcase:
 					box + round(4 * gui.scale)), [60, 60, 60, 135])
 				ddt.rect((x, y, box, box), self.colours.playlist_panel_background)
 				rect = sdl3.SDL_FRect(round(x), round(y), round(box), round(box))
-				style_overlay.hole_punches.append(rect)
+				tauon.style_overlay.hole_punches.append(rect)
 
 				# Draw album art in box
 				tauon.album_art_gen.display(track, (x, y), (box, box))
@@ -24677,7 +25108,7 @@ class Showcase:
 						inp.right_click = False
 
 			# Check for lyrics if auto setting
-			test_auto_lyrics(track)
+			tauon.test_auto_lyrics(track)
 
 			gui.draw_vis4_top = False
 
@@ -24694,7 +25125,7 @@ class Showcase:
 
 			timed_ready = False
 			if True and prefs.show_lyrics_showcase:
-				timed_ready = timed_lyrics_ren.generate(track)
+				timed_ready = tauon.timed_lyrics_ren.generate(track)
 
 			if timed_ready and track.lyrics:
 
@@ -24720,10 +25151,8 @@ class Showcase:
 
 			if True and prefs.show_lyrics_showcase and timed_ready:
 				w = window_size[0] - (x + box) - round(30 * gui.scale)
-				timed_lyrics_ren.render(track.index, gcx, y, w=w)
-
+				tauon.timed_lyrics_ren.render(track.index, gcx, y, w=w)
 			elif track.lyrics == "" or not prefs.show_lyrics_showcase:
-
 				w = window_size[0] - (x + box) - round(30 * gui.scale)
 				x = int(x + box + (window_size[0] - x - box) / 2)
 
@@ -26071,12 +26500,6 @@ def pumper(bag: Bag):
 		time.sleep(0.005)
 		sdl3.SDL_PumpEvents()
 
-def track_number_process(line: str) -> str:
-	line = str(line).split("/", 1)[0].lstrip("0")
-	if prefs.dd_index and len(line) == 1:
-		return "0" + line
-	return line
-
 def save_prefs(bag: Bag, cf: Config):
 	prefs = bag.prefs
 	cf.update_value("sync-bypass-transcode", prefs.bypass_transcode)
@@ -26947,363 +27370,6 @@ def scan_ffprobe(nt: TrackClass):
 	except Exception:
 		logging.exception("FFPROBE couldn't supply a track")
 
-def tag_scan(nt: TrackClass) -> TrackClass | None:
-	"""This function takes a track object and scans metadata for it. (Filepath needs to be set)"""
-	if nt.is_embed_cue:
-		return nt
-	if nt.is_network or not nt.fullpath:
-		return None
-	try:
-		try:
-			nt.modified_time = os.path.getmtime(nt.fullpath)
-			nt.found = True
-		except FileNotFoundError:
-			logging.error("File not found when executing getmtime!")
-			nt.found = False
-			return nt
-		except Exception:
-			logging.exception("Unknown error executing getmtime!")
-			nt.found = False
-			return nt
-
-		nt.misc.clear()
-
-		nt.file_ext = os.path.splitext(os.path.basename(nt.fullpath))[1][1:].upper()
-
-		if nt.file_ext.lower() in bag.formats.GME_Formats and gme:
-
-			emu = ctypes.c_void_p()
-			track_info = ctypes.POINTER(GMETrackInfo)()
-			err = gme.gme_open_file(nt.fullpath.encode("utf-8"), ctypes.byref(emu), -1)
-			#logging.error(err)
-			if not err:
-				n = nt.subtrack
-				err = gme.gme_track_info(emu, byref(track_info), n)
-				#logging.error(err)
-				if not err:
-					nt.length = track_info.contents.play_length / 1000
-					nt.title = track_info.contents.song.decode("utf-8")
-					nt.artist = track_info.contents.author.decode("utf-8")
-					nt.album = track_info.contents.game.decode("utf-8")
-					nt.comment = track_info.contents.comment.decode("utf-8")
-					gme.gme_free_info(track_info)
-				gme.gme_delete(emu)
-
-				filepath = nt.fullpath  # this is the full file path
-				filename = nt.filename  # this is the name of the file
-
-				# Get the directory of the file
-				dir_path = os.path.dirname(filepath)
-
-				# Loop through all files in the directory to find any matching M3U
-				for file in os.listdir(dir_path):
-					if file.endswith(".m3u"):
-						with open(os.path.join(dir_path, file), encoding="utf-8", errors="replace") as f:
-							content = f.read()
-							if "�" in content:  # Check for replacement marker
-								with open(os.path.join(dir_path, file), encoding="windows-1252") as b:
-									content = b.read()
-							if "::" in content:
-								a, b = content.split("::")
-								if a == filename:
-									s = re.split(r"(?<!\\),", b)
-									try:
-										st = int(s[1])
-									except Exception:
-										logging.exception("Failed to assign st to int")
-										continue
-									if st == n:
-										nt.title = s[2].split(" - ")[0].replace("\\", "")
-										nt.artist = s[2].split(" - ")[1].replace("\\", "")
-										nt.album = s[2].split(" - ")[2].replace("\\", "")
-										nt.length = hms_to_seconds(s[3])
-										break
-			if not nt.title:
-				nt.title = "Track " + str(nt.subtrack + 1)
-
-		elif nt.file_ext in ("MOD", "IT", "XM", "S3M", "MPTM") and mpt:
-			with Path(nt.fullpath).open("rb") as file:
-				data = file.read()
-			MOD1 = MOD.from_address(
-				mpt.openmpt_module_create_from_memory(
-					ctypes.c_char_p(data), ctypes.c_size_t(len(data)), None, None, None))
-			nt.length = mpt.openmpt_module_get_duration_seconds(byref(MOD1))
-			nt.title = mpt.openmpt_module_get_metadata(byref(MOD1), ctypes.c_char_p(b"title")).decode()
-			nt.artist = mpt.openmpt_module_get_metadata(byref(MOD1), ctypes.c_char_p(b"artist")).decode()
-			nt.comment = mpt.openmpt_module_get_metadata(byref(MOD1), ctypes.c_char_p(b"message_raw")).decode()
-
-			mpt.openmpt_module_destroy(byref(MOD1))
-			del MOD1
-
-		elif nt.file_ext == "FLAC":
-			with Flac(nt.fullpath) as audio:
-				audio.read()
-
-				nt.length = audio.length
-				nt.title = audio.title
-				nt.artist = audio.artist
-				nt.album = audio.album
-				nt.composer = audio.composer
-				nt.date = audio.date
-				nt.samplerate = audio.sample_rate
-				nt.bit_depth = audio.bit_depth
-				nt.size = os.path.getsize(nt.fullpath)
-				nt.track_number = audio.track_number
-				nt.genre = audio.genre
-				nt.album_artist = audio.album_artist
-				nt.disc_number = audio.disc_number
-				nt.lyrics = audio.lyrics
-				if nt.length:
-					nt.bitrate = int(nt.size / nt.length * 8 / 1024)
-				nt.track_total = audio.track_total
-				nt.disc_total = audio.disc_total
-				nt.comment = audio.comment
-				nt.cue_sheet = audio.cue_sheet
-				nt.misc = audio.misc
-
-		elif nt.file_ext == "WAV":
-			with Wav(nt.fullpath) as audio:
-				try:
-					audio.read()
-
-					nt.samplerate = audio.sample_rate
-					nt.length = audio.length
-					nt.title = audio.title
-					nt.artist = audio.artist
-					nt.album = audio.album
-					nt.track_number = audio.track_number
-
-				except Exception:
-					logging.exception("Failed saving WAV file as a Track, will try again differently")
-					audio = mutagen.File(nt.fullpath)
-					nt.samplerate = audio.info.sample_rate
-					nt.bitrate = audio.info.bitrate // 1000
-					nt.length = audio.info.length
-					nt.size = os.path.getsize(nt.fullpath)
-				audio = mutagen.File(nt.fullpath)
-				if audio.tags and type(audio.tags) == mutagen.wave._WaveID3:
-					use_id3(audio.tags, nt)
-
-		elif nt.file_ext == "OPUS" or nt.file_ext == "OGG" or nt.file_ext == "OGA":
-
-			#logging.info("get opus")
-			with Opus(nt.fullpath) as audio:
-				audio.read()
-
-				#logging.info(audio.title)
-
-				nt.length = audio.length
-				nt.title = audio.title
-				nt.artist = audio.artist
-				nt.album = audio.album
-				nt.composer = audio.composer
-				nt.date = audio.date
-				nt.samplerate = audio.sample_rate
-				nt.size = os.path.getsize(nt.fullpath)
-				nt.track_number = audio.track_number
-				nt.genre = audio.genre
-				nt.album_artist = audio.album_artist
-				nt.bitrate = audio.bit_rate
-				nt.lyrics = audio.lyrics
-				nt.disc_number = audio.disc_number
-				nt.track_total = audio.track_total
-				nt.disc_total = audio.disc_total
-				nt.comment = audio.comment
-				nt.misc = audio.misc
-				if nt.bitrate == 0 and nt.length > 0:
-					nt.bitrate = int(nt.size / nt.length * 8 / 1024)
-
-		elif nt.file_ext == "APE":
-			with mutagen.File(nt.fullpath) as audio:
-				nt.length = audio.info.length
-				nt.bit_depth = audio.info.bits_per_sample
-				nt.samplerate = audio.info.sample_rate
-				nt.size = os.path.getsize(nt.fullpath)
-				if nt.length > 0:
-					nt.bitrate = int(nt.size / nt.length * 8 / 1024)
-
-				# # def getter(audio, key, type):
-				# #	 if
-				# t = audio.tags
-				# logging.info(t.keys())
-				# nt.size = os.path.getsize(nt.fullpath)
-				# nt.title = str(t.get("title", ""))
-				# nt.album = str(t.get("album", ""))
-				# nt.date = str(t.get("year", ""))
-				# nt.disc_number = str(t.get("discnumber", ""))
-				# nt.comment = str(t.get("comment", ""))
-				# nt.artist = str(t.get("artist", ""))
-				# nt.composer = str(t.get("composer", ""))
-				# nt.composer = str(t.get("composer", ""))
-
-			with Ape(nt.fullpath) as audio:
-				audio.read()
-
-				# logging.info(audio.title)
-
-				# nt.length = audio.length
-				nt.title = audio.title
-				nt.artist = audio.artist
-				nt.album = audio.album
-				nt.date = audio.date
-				nt.composer = audio.composer
-				# nt.bit_depth = audio.bit_depth
-				nt.track_number = audio.track_number
-				nt.genre = audio.genre
-				nt.album_artist = audio.album_artist
-				nt.disc_number = audio.disc_number
-				nt.lyrics = audio.lyrics
-				nt.track_total = audio.track_total
-				nt.disc_total = audio.disc_total
-				nt.comment = audio.comment
-				nt.misc = audio.misc
-
-		elif nt.file_ext == "WV" or nt.file_ext == "TTA":
-
-			with Ape(nt.fullpath) as audio:
-				audio.read()
-
-				# logging.info(audio.title)
-
-				nt.length = audio.length
-				nt.title = audio.title
-				nt.artist = audio.artist
-				nt.album = audio.album
-				nt.date = audio.date
-				nt.composer = audio.composer
-				nt.samplerate = audio.sample_rate
-				nt.bit_depth = audio.bit_depth
-				nt.size = os.path.getsize(nt.fullpath)
-				nt.track_number = audio.track_number
-				nt.genre = audio.genre
-				nt.album_artist = audio.album_artist
-				nt.disc_number = audio.disc_number
-				nt.lyrics = audio.lyrics
-				if nt.length > 0:
-					nt.bitrate = int(nt.size / nt.length * 8 / 1024)
-				nt.track_total = audio.track_total
-				nt.disc_total = audio.disc_total
-				nt.comment = audio.comment
-				nt.misc = audio.misc
-
-		else:
-			# Use MUTAGEN
-			try:
-				if nt.file_ext.lower() in bag.formats.VID_Formats:
-					scan_ffprobe(nt)
-					return nt
-
-				try:
-					audio = mutagen.File(nt.fullpath)
-				except Exception:
-					logging.exception("Mutagen scan failed, falling back to FFPROBE")
-					scan_ffprobe(nt)
-					return nt
-
-				nt.samplerate = audio.info.sample_rate
-				nt.bitrate = audio.info.bitrate // 1000
-				nt.length = audio.info.length
-				nt.size = os.path.getsize(nt.fullpath)
-
-				if not nt.length:
-					try:
-						startupinfo = None
-						if system == "Windows" or msys:
-							startupinfo = subprocess.STARTUPINFO()
-							startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-						result = subprocess.run([tauon.get_ffprobe(), "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", nt.fullpath], stdout=subprocess.PIPE, startupinfo=startupinfo, check=True)
-						nt.length = float(result.stdout.decode())
-					except Exception:
-						logging.exception("FFPROBE couldn't supply a duration")
-
-				if type(audio.tags) == mutagen.mp4.MP4Tags:
-					tags = audio.tags
-
-					def in_get(key, tags):
-						if key in tags:
-							return tags[key][0]
-						return ""
-
-					nt.title = in_get("\xa9nam", tags)
-					nt.album = in_get("\xa9alb", tags)
-					nt.artist = in_get("\xa9ART", tags)
-					nt.album_artist = in_get("aART", tags)
-					nt.composer = in_get("\xa9wrt", tags)
-					nt.date = in_get("\xa9day", tags)
-					nt.comment = in_get("\xa9cmt", tags)
-					nt.genre = in_get("\xa9gen", tags)
-					if "\xa9lyr" in tags:
-						nt.lyrics = in_get("\xa9lyr", tags)
-					nt.track_total = ""
-					nt.track_number = ""
-					t = in_get("trkn", tags)
-					if t:
-						nt.track_number = str(t[0])
-						if t[1]:
-							nt.track_total = str(t[1])
-
-					nt.disc_total = ""
-					nt.disc_number = ""
-					t = in_get("disk", tags)
-					if t:
-						nt.disc_number = str(t[0])
-						if t[1]:
-							nt.disc_total = str(t[1])
-
-					if "----:com.apple.iTunes:MusicBrainz Track Id" in tags:
-						nt.misc["musicbrainz_recordingid"] = in_get(
-							"----:com.apple.iTunes:MusicBrainz Track Id",
-							tags).decode()
-					if "----:com.apple.iTunes:MusicBrainz Release Track Id" in tags:
-						nt.misc["musicbrainz_trackid"] = in_get(
-							"----:com.apple.iTunes:MusicBrainz Release Track Id",
-							tags).decode()
-					if "----:com.apple.iTunes:MusicBrainz Album Id" in tags:
-						nt.misc["musicbrainz_albumid"] = in_get(
-							"----:com.apple.iTunes:MusicBrainz Album Id",
-							tags).decode()
-					if "----:com.apple.iTunes:MusicBrainz Release Group Id" in tags:
-						nt.misc["musicbrainz_releasegroupid"] = in_get(
-							"----:com.apple.iTunes:MusicBrainz Release Group Id",
-							tags).decode()
-					if "----:com.apple.iTunes:MusicBrainz Artist Id" in tags:
-						nt.misc["musicbrainz_artistids"] = [x.decode() for x in
-							tags.get("----:com.apple.iTunes:MusicBrainz Artist Id")]
-
-
-				elif type(audio.tags) == mutagen.id3.ID3:
-					use_id3(audio.tags, nt)
-
-
-			except Exception:
-				logging.exception("Failed loading file through Mutagen")
-				raise
-
-
-		# Parse any multiple artists into list
-		artists = nt.artist.split(";")
-		if len(artists) > 1:
-			for a in artists:
-				a = a.strip()
-				if a:
-					if "artists" not in nt.misc:
-						nt.misc["artists"] = []
-					if a not in nt.misc["artists"]:
-						nt.misc["artists"].append(a)
-
-
-	except Exception:
-		try:
-			if Exception is UnicodeDecodeError:
-				logging.exception("Unicode decode error on file:", nt.fullpath, "\n")
-			else:
-				logging.exception("Error: Tag read failed on file:", nt.fullpath, "\n")
-		except Exception:
-			logging.exception("Error printing error. Non utf8 not allowed:", nt.fullpath.encode("utf-8", "surrogateescape").decode("utf-8", "replace"), "\n")
-		return nt
-
-	return nt
-
 def get_radio_art() -> None:
 	if radiobox.loaded_url in radiobox.websocket_source_urls:
 		return
@@ -27325,9 +27391,7 @@ def get_radio_art() -> None:
 					pctl.radio_image_bin.seek(0)
 					radiobox.dummy_track.art_url_key = "ok"
 			pctl.update_tag_history()
-
 	elif "gensokyoradio.net" in radiobox.loaded_url:
-
 		response = requests.get("https://gensokyoradio.net/api/station/playing/", timeout=10)
 
 		if response.status_code == 200:
@@ -27459,7 +27523,7 @@ def open_encode_out() -> None:
 def g_open_encode_out(a, b, c) -> None:
 	open_encode_out()
 
-def notify_song_fire(notification, delay, id) -> None:
+def notify_song_fire(notification, delay: float, id) -> None:
 	time.sleep(delay)
 	notification.show()
 	if id is None:
@@ -27468,57 +27532,6 @@ def notify_song_fire(notification, delay, id) -> None:
 	time.sleep(8)
 	if id == gui.notify_main_id:
 		notification.close()
-
-def notify_song(notify_of_end: bool = False, delay: float = 0.0) -> None:
-	if not bag.de_notify_support:
-		return
-
-	if notify_of_end and prefs.end_setting != "stop":
-		return
-
-	if prefs.show_notifications and pctl.playing_object() is not None and not window_is_focused():
-		if prefs.stop_notifications_mini_mode and gui.mode == 3:
-			return
-
-		track = pctl.playing_object()
-
-		if not track or not (track.title or track.artist or track.album or track.filename):
-			return  # only display if we have at least one piece of metadata avaliable
-
-		i_path = ""
-		try:
-			if not notify_of_end:
-				i_path = tauon.thumb_tracks.path(track)
-		except Exception:
-			logging.exception(track.fullpath.encode("utf-8", "replace").decode("utf-8"))
-			logging.error("Thumbnail error")
-
-		top_line = track.title
-
-		if prefs.notify_include_album:
-			bottom_line = (track.artist + " | " + track.album).strip("| ")
-		else:
-			bottom_line = track.artist
-
-		if not track.title:
-			a, t = filename_to_metadata(clean_string(track.filename))
-			if not track.artist:
-				bottom_line = a
-			top_line = t
-
-		gui.notify_main_id = uid_gen()
-		id = gui.notify_main_id
-
-		if notify_of_end:
-			bottom_line = "Tauon Music Box"
-			top_line = (_("End of playlist"))
-			id = None
-
-		song_notification.update(top_line, bottom_line, i_path)
-
-		shoot_dl = threading.Thread(target=notify_song_fire, args=([song_notification, delay, id]))
-		shoot_dl.daemon = True
-		shoot_dl.start()
 
 def get_backend_time(path):
 	pctl.time_to_get = path
@@ -28320,7 +28333,7 @@ def load_m3u(path: str) -> None:
 					nt = TrackClass()
 					nt.index = pctl.master_count
 					set_path(nt, line)
-					nt = tag_scan(nt)
+					nt = tauon.tag_scan(nt)
 					pctl.master_library[pctl.master_count] = nt
 					playlist.append(pctl.master_count)
 					pctl.master_count += 1
@@ -28556,7 +28569,7 @@ def load_xspf(path: str) -> None:
 				nt.album = track["album"]
 			nt.is_cue = False
 			if nt.found:
-				nt = tag_scan(nt)
+				nt = tauon.tag_scan(nt)
 
 			pctl.master_library[pctl.master_count] = nt
 			playlist.append(pctl.master_count)
@@ -29163,7 +29176,7 @@ def toggle_lyrics_deco(track_object: TrackClass):
 			line = _("Hide Lyrics")
 		else:
 			line = _("Show Lyrics")
-		if not track_object or (track_object.lyrics == "" and not timed_lyrics_ren.generate(track_object)):
+		if not track_object or (track_object.lyrics == "" and not tauon.timed_lyrics_ren.generate(track_object)):
 			colour = colours.menu_text_disabled
 		return [colour, colours.menu_background, line]
 
@@ -29173,7 +29186,7 @@ def toggle_lyrics_deco(track_object: TrackClass):
 			line = _("Hide Lyrics")
 		else:
 			line = _("Show Lyrics")
-		if (track_object.lyrics == "" and not timed_lyrics_ren.generate(track_object)):
+		if (track_object.lyrics == "" and not tauon.timed_lyrics_ren.generate(track_object)):
 			colour = colours.menu_text_disabled
 		return [colour, colours.menu_background, line]
 
@@ -29181,7 +29194,7 @@ def toggle_lyrics_deco(track_object: TrackClass):
 		line = _("Hide Lyrics")
 	else:
 		line = _("Show Lyrics")
-	if (track_object.lyrics == "" and not timed_lyrics_ren.generate(track_object)):
+	if (track_object.lyrics == "" and not tauon.timed_lyrics_ren.generate(track_object)):
 		colour = colours.menu_text_disabled
 	return [colour, colours.menu_background, line]
 
@@ -29191,7 +29204,7 @@ def toggle_lyrics(track_object: TrackClass):
 
 	if gui.combo_mode:
 		prefs.show_lyrics_showcase ^= True
-		if prefs.show_lyrics_showcase and track_object.lyrics == "" and timed_lyrics_ren.generate(track_object):
+		if prefs.show_lyrics_showcase and track_object.lyrics == "" and tauon.timed_lyrics_ren.generate(track_object):
 			prefs.prefer_synced_lyrics = True
 		# if prefs.show_lyrics_showcase and track_object.lyrics == "":
 		#	 show_message("No lyrics for this track")
@@ -29203,7 +29216,7 @@ def toggle_lyrics(track_object: TrackClass):
 		#	 return
 
 		prefs.show_lyrics_side ^= True
-		if prefs.show_lyrics_side and track_object.lyrics == "" and timed_lyrics_ren.generate(track_object):
+		if prefs.show_lyrics_side and track_object.lyrics == "" and tauon.timed_lyrics_ren.generate(track_object):
 			prefs.prefer_synced_lyrics = True
 		# if prefs.show_lyrics_side and track_object.lyrics == "":
 		#	 show_message("No lyrics for this track")
@@ -29309,19 +29322,6 @@ def get_lyric_wiki_silent(track_object: TrackClass):
 
 	logging.info("..Done")
 
-def test_auto_lyrics(track_object: TrackClass):
-	if not track_object:
-		return
-
-	if prefs.auto_lyrics and not track_object.lyrics and track_object.index not in prefs.auto_lyrics_checked:
-		if tauon.lyrics_check_timer.get() > 5 and pctl.playing_time > 1:
-			result = get_lyric_wiki_silent(track_object)
-			if result == "later":
-				pass
-			else:
-				tauon.lyrics_check_timer.set()
-				prefs.auto_lyrics_checked.append(track_object.index)
-
 def get_bio(track_object: TrackClass):
 	if track_object.artist != "":
 		lastfm.get_bio(track_object.artist)
@@ -29342,13 +29342,13 @@ def toggle_synced_lyrics_deco(track):
 		text = _("Show static lyrics")
 	else:
 		text = _("Show synced lyrics")
-	if timed_lyrics_ren.generate(track) and track.lyrics:
+	if tauon.timed_lyrics_ren.generate(track) and track.lyrics:
 		line_colour = colours.menu_text
 	else:
 		line_colour = colours.menu_text_disabled
 		if not track.lyrics:
 			text = _("Show static lyrics")
-		if not timed_lyrics_ren.generate(track):
+		if not tauon.timed_lyrics_ren.generate(track):
 			text = _("Show synced lyrics")
 
 	return [line_colour, colours.menu_background, text]
@@ -33335,7 +33335,6 @@ def reload_metadata(input, keep_star: bool = True) -> None:
 
 	if isinstance(input, list):
 		todo = input
-
 	else:
 		for k in pctl.default_playlist:
 			if pctl.master_library[input].parent_folder_path == pctl.master_library[k].parent_folder_path:
@@ -33346,7 +33345,6 @@ def reload_metadata(input, keep_star: bool = True) -> None:
 			del todo[i]
 
 	for track in todo:
-
 		search_string_cache.pop(track.index, None)
 		search_dia_string_cache.pop(track.index, None)
 
@@ -33358,7 +33356,7 @@ def reload_metadata(input, keep_star: bool = True) -> None:
 			#     star = star_store.full_get(track.index)
 			#     star_store.remove(track.index)
 
-			pctl.master_library[track.index] = tag_scan(track)
+			pctl.master_library[track.index] = tauon.tag_scan(track)
 
 			# if keep_star:
 			#     if star is not None and (star[0] > 0 or star[1] or star[2] > 0):
@@ -35344,12 +35342,6 @@ def discord_loop() -> None:
 			loop.close()
 		prefs.discord_active = False
 
-def hit_discord() -> None:
-	if prefs.discord_enable and prefs.discord_allow and not prefs.discord_active:
-		discord_t = threading.Thread(target=discord_loop)
-		discord_t.daemon = True
-		discord_t.start()
-
 def open_donate_link() -> None:
 	webbrowser.open("https://github.com/sponsors/Taiko2k", new=2, autoraise=True)
 
@@ -35357,7 +35349,7 @@ def stop_quick_add() -> None:
 	pctl.quick_add_target = None
 
 def show_stop_quick_add(_: int, tauon: Tauon) -> bool:
-	return tauon. pctl.quick_add_target is not None
+	return tauon.pctl.quick_add_target is not None
 
 def view_tracks(tauon: Tauon) -> None:
 	# if gui.show_playlist is False:
@@ -35808,7 +35800,7 @@ def worker4(tauon: Tauon) -> None:
 	gui.style_worker_timer.set()
 	while True:
 		if prefs.art_bg or (gui.mode == 3 and prefs.mini_mode_mode == 5):
-			style_overlay.worker()
+			tauon.style_overlay.worker()
 
 		time.sleep(0.01)
 		if pctl.playing_state > 0 and pctl.playing_time < 5:
@@ -36429,11 +36421,10 @@ def worker1(tauon: Tauon) -> None:
 				cds.append(cd)
 
 			for cdn, cd in enumerate(cds):
-
 				last_end = None
 				end_track = TrackClass()
 				end_track.fullpath = cd[-1].fullpath
-				tag_scan(end_track)
+				tauon.tag_scan(end_track)
 
 				# Remove target track if already imported
 				for i in reversed(range(len(added))):
@@ -36442,7 +36433,6 @@ def worker1(tauon: Tauon) -> None:
 
 				# Update with proper length
 				for track in reversed(cd):
-
 					if last_end == None:
 						last_end = end_track.length
 
@@ -36668,16 +36658,16 @@ def worker1(tauon: Tauon) -> None:
 			added.append(pctl.master_count)
 
 			if prefs.auto_sort or force_scan:
-				tag_scan(nt)
+				tauon.tag_scan(nt)
 			else:
 				tauon.after_scan.append(nt)
 				tauon.thread_manager.ready("worker")
 
 			pctl.master_count += 1
 
-		# nt = tag_scan(nt)
+		# nt = tauon.tag_scan(nt)
 		if nt.cue_sheet != "":
-			tag_scan(nt)
+			tauon.tag_scan(nt)
 			cue_scan(nt.cue_sheet, nt)
 			del nt
 		elif nt.file_ext.lower() in bag.formats.GME_Formats and gme:
@@ -36804,7 +36794,7 @@ def worker1(tauon: Tauon) -> None:
 				if i > 123:
 					break
 
-				tag_scan(tauon.after_scan[0])
+				tauon.tag_scan(tauon.after_scan[0])
 
 				gui.update = 2
 				gui.pl_update = 1
@@ -37079,7 +37069,7 @@ def worker1(tauon: Tauon) -> None:
 				track = tauon.to_scan[0]
 				star = star_store.full_get(track)
 				star_store.remove(track)
-				pctl.master_library[track] = tag_scan(pctl.master_library[track])
+				pctl.master_library[track] = tauon.tag_scan(pctl.master_library[track])
 				star_store.merge(track, star)
 				lastfm.sync_pull_love(pctl.master_library[track])
 				del tauon.to_scan[0]
@@ -37476,7 +37466,7 @@ def set_mini_mode():
 		size = (330, 80)
 	if prefs.mini_mode_mode == 5:
 		size = (350, 545)
-		style_overlay.flush()
+		tauon.style_overlay.flush()
 		tauon.thread_manager.ready("style")
 
 	if logical_size == window_size:
@@ -40462,7 +40452,6 @@ def main(holder: Holder) -> None:
 	# 2 - render first
 	# 3 - preparing 2nd
 
-	style_overlay = StyleOverlay()
 	click_time = time.time()
 	scroll_hold = False
 	scroll_point = 0
@@ -41339,14 +41328,14 @@ def main(holder: Holder) -> None:
 
 	playlist_render = StandardPlaylist(tauon=tauon, pl_bg=pl_bg)
 	art_box = ArtBox(tauon=tauon)
-	mini_lyrics_scroll = ScrollBox()
-	playlist_panel_scroll = ScrollBox()
-	artist_info_scroll = ScrollBox()
-	device_scroll = ScrollBox()
-	artist_list_scroll = ScrollBox()
-	gallery_scroll = ScrollBox()
-	tree_view_scroll = ScrollBox()
-	radio_view_scroll = ScrollBox()
+	mini_lyrics_scroll    = ScrollBox(tauon=tauon)
+	playlist_panel_scroll = ScrollBox(tauon=tauon)
+	artist_info_scroll    = ScrollBox(tauon=tauon)
+	device_scroll         = ScrollBox(tauon=tauon)
+	artist_list_scroll    = ScrollBox(tauon=tauon)
+	gallery_scroll        = ScrollBox(tauon=tauon)
+	tree_view_scroll      = ScrollBox(tauon=tauon)
+	radio_view_scroll     = ScrollBox(tauon=tauon)
 
 	meta_box = MetaBox(tauon=tauon)
 	artist_picture_render = PictureRender()
@@ -43063,7 +43052,7 @@ def main(holder: Holder) -> None:
 			if gui.clear_image_cache_next:
 				gui.clear_image_cache_next -= 1
 				album_art_gen.clear_cache()
-				style_overlay.radio_meta = None
+				tauon.style_overlay.radio_meta = None
 				if prefs.art_bg:
 					tauon.thread_manager.ready("style")
 
@@ -43779,14 +43768,14 @@ def main(holder: Holder) -> None:
 											rect.h -= diff
 
 										if rect.h > 0:
-											style_overlay.hole_punches.append(rect)
+											tauon.style_overlay.hole_punches.append(rect)
 
 									# # Drag over highlight
 									# if inp.quick_drag and gui.playlist_hold and inp.mouse_down:
-									#     rect = (x, y, bag.album_mode_art_size, bag.album_mode_art_size + extend * gui.scale)
-									#     m_in = tauon.coll(rect) and gui.panelY < inp.mouse_position[1] < window_size[1] - gui.panelBY
-									#     if m_in:
-									#         ddt.rect_a((x, y), (bag.album_mode_art_size, bag.album_mode_art_size), [120, 10, 255, 100], True)
+									# 	rect = (x, y, bag.album_mode_art_size, bag.album_mode_art_size + extend * gui.scale)
+									# 	m_in = tauon.coll(rect) and gui.panelY < inp.mouse_position[1] < window_size[1] - gui.panelBY
+									# 	if m_in:
+									# 		ddt.rect_a((x, y), (bag.album_mode_art_size, bag.album_mode_art_size), [120, 10, 255, 100], True)
 
 									if gui.gallery_show_text:
 										c_index = pctl.default_playlist[album_dex[album_on]]
@@ -44441,19 +44430,14 @@ def main(holder: Holder) -> None:
 								window_size[1] - gui.panelY - gui.panelBY)):
 
 								if (target_track and target_track.lyrics and prefs.show_lyrics_side) or \
-										(
-												prefs.show_lyrics_side and prefs.prefer_synced_lyrics and target_track is not None and timed_lyrics_ren.generate(
+										(prefs.show_lyrics_side and prefs.prefer_synced_lyrics and target_track is not None and tauon.timed_lyrics_ren.generate(
 											target_track)):
-
 									prefs.show_lyrics_side ^= True
 									prefs.side_panel_layout = 1
 								else:
-
 									if prefs.side_panel_layout == 0:
-
 										if (target_track and target_track.lyrics and not prefs.show_lyrics_side) or \
-												(
-														prefs.prefer_synced_lyrics and target_track is not None and timed_lyrics_ren.generate(
+												(prefs.prefer_synced_lyrics and target_track is not None and tauon.timed_lyrics_ren.generate(
 													target_track)):
 											prefs.show_lyrics_side = True
 											prefs.side_panel_layout = 1
@@ -44462,29 +44446,28 @@ def main(holder: Holder) -> None:
 									else:
 										prefs.side_panel_layout = 0
 
-						if prefs.show_lyrics_side and prefs.prefer_synced_lyrics and target_track is not None and timed_lyrics_ren.generate(
+						if prefs.show_lyrics_side and prefs.prefer_synced_lyrics and target_track is not None and tauon.timed_lyrics_ren.generate(
 								target_track):
-
 							if prefs.show_side_lyrics_art_panel:
 								l_panel_h = round(200 * gui.scale)
 								l_panel_y = window_size[1] - (gui.panelBY + l_panel_h)
 								gui.showing_l_panel = True
 
 								if not prefs.lyric_metadata_panel_top:
-									timed_lyrics_ren.render(
+									tauon.timed_lyrics_ren.render(
 										target_track.index, (window_size[0] - gui.rspw) + 9 * gui.scale,
 										gui.panelY + 25 * gui.scale, side_panel=True, w=gui.rspw,
 										h=window_size[1] - gui.panelY - gui.panelBY - l_panel_h)
 									meta_box.l_panel(window_size[0] - gui.rspw, l_panel_y, gui.rspw, l_panel_h, target_track)
 								else:
-									timed_lyrics_ren.render(
+									tauon.timed_lyrics_ren.render(
 										target_track.index, (window_size[0] - gui.rspw) + 9 * gui.scale,
 										gui.panelY + 25 * gui.scale + l_panel_h, side_panel=True,
 										w=gui.rspw,
 										h=window_size[1] - gui.panelY - gui.panelBY - l_panel_h)
 									meta_box.l_panel(window_size[0] - gui.rspw, gui.panelY, gui.rspw, l_panel_h, target_track)
 							else:
-								timed_lyrics_ren.render(
+								tauon.timed_lyrics_ren.render(
 									target_track.index, (window_size[0] - gui.rspw) + 9 * gui.scale,
 									gui.panelY + 25 * gui.scale, side_panel=True, w=gui.rspw,
 									h=window_size[1] - gui.panelY - gui.panelBY)
@@ -44492,9 +44475,7 @@ def main(holder: Holder) -> None:
 								if inp.right_click and tauon.coll(
 									(window_size[0] - gui.rspw, gui.panelY + 25 * gui.scale, gui.rspw, window_size[1] - (gui.panelBY + gui.panelY))):
 									center_info_menu.activate(target_track)
-
 						elif prefs.show_lyrics_side and target_track is not None and target_track.lyrics != "" and gui.rspw > 192 * gui.scale:
-
 							if prefs.show_side_lyrics_art_panel:
 								l_panel_h = round(200 * gui.scale)
 								l_panel_y = window_size[1] - (gui.panelBY + l_panel_h)
@@ -44546,7 +44527,7 @@ def main(holder: Holder) -> None:
 							w = gui.rspw
 
 							ddt.rect((x, y, w, h), colours.side_panel_background)
-							test_auto_lyrics(target_track)
+							tauon.test_auto_lyrics(target_track)
 							# Draw lyrics if avaliable
 							if prefs.show_lyrics_side and target_track and target_track.lyrics != "":  # and not prefs.show_side_art:
 								# meta_box.lyrics(x, y, w, h, target_track)
@@ -44896,14 +44877,14 @@ def main(holder: Holder) -> None:
 					tauon.bottom_bar1.render()
 
 				if prefs.art_bg and not prefs.bg_showcase_only:
-					style_overlay.display()
+					tauon.style_overlay.display()
 					# if inp.key_shift_down:
 					#     ddt.rect_r(gui.seek_bar_rect,
 					#                alpha_mod([150, 150, 150 ,255], 20), True)
 					#     ddt.rect_r(gui.volume_bar_rect,
 					#                alpha_mod(colours.volume_bar_fill, 100), True)
 
-				style_overlay.hole_punches.clear()
+				tauon.style_overlay.hole_punches.clear()
 
 				if gui.set_mode:
 					if rename_track_box.active is False \
