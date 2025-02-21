@@ -1273,7 +1273,6 @@ class ColoursClass:
 			self.column_grip = [255, 255, 255, 20]
 
 	def light_mode(self):
-
 		self.lm = True
 		self.star_line_playing = [255, 255, 255, 255]
 		self.sys_tab_bg = self.grey(25)
@@ -5363,6 +5362,7 @@ class Tauon:
 		self.stats_gen                            = GStats(tauon=self)
 		self.deco                                 = Deco(tauon=self)
 		self.bottom_bar1                          = BottomBarType1(tauon=self)
+		self.bottom_bar_ao1                       = BottomBarType_ao1(tauon=self)
 		self.top_panel                            = TopPanel(tauon=self)
 		self.playlist_box                         = PlaylistBox(tauon=self)
 		self.radio_view                           = RadioView(tauon=self)
@@ -18039,9 +18039,10 @@ class BottomBarType1:
 				# ddt.rect_a((x + round(50 * gui.scale) - w, y + w), (w, round(4 * gui.scale)), rpbc, True)
 
 class BottomBarType_ao1:
-	def __init__(self, bag: Bag, gui: GuiVar):
-		self.window_size = bag.window_size
-		self.gui = gui
+	def __init__(self, tauon: Tauon) -> None:
+		self.window_size = tauon.bag.window_size
+		self.ddt = tauon.ddt
+		self.gui = tauon.gui
 
 		self.mode = 0
 		self.seek_time = 0
@@ -18058,9 +18059,9 @@ class BottomBarType_ao1:
 		self.volume_bar_size = [135 * self.gui.scale, 14 * self.gui.scale]
 		self.volume_bar_position = [0, 45 * self.gui.scale]
 
-		self.play_button    = asset_loader(bag, bag.loaded_asset_dc, "play.png", True)
-		self.forward_button = asset_loader(bag, bag.loaded_asset_dc, "ff.png", True)
-		self.back_button    = asset_loader(bag, bag.loaded_asset_dc, "bb.png", True)
+		self.play_button    = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "play.png", True)
+		self.forward_button = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "ff.png", True)
+		self.back_button    = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "bb.png", True)
 
 		self.scrob_stick = 0
 
@@ -18088,7 +18089,7 @@ class BottomBarType_ao1:
 		global clicked
 
 		sdl3.SDL_SetRenderDrawBlendMode(renderer, sdl3.SDL_BLENDMODE_NONE)
-		ddt.rect_a((0, self.window_size[1] - self.gui.panelBY), (self.window_size[0], self.gui.panelBY), colours.bottom_panel_colour)
+		self.ddt.rect_a((0, self.window_size[1] - self.gui.panelBY), (self.window_size[0], self.gui.panelBY), colours.bottom_panel_colour)
 		sdl3.SDL_SetRenderDrawBlendMode(renderer, sdl3.SDL_BLENDMODE_BLEND)
 
 		right_offset = 0
@@ -24891,7 +24892,7 @@ class RadioView:
 					hit = True
 				colour = rgb_add_hls(colour, l=0.3)
 
-			bottom_bar1.play_button.render(x + (w - round(30 * gui.scale)), yy + round(23 * gui.scale), colour)
+			tauon.bottom_bar1.play_button.render(x + (w - round(30 * gui.scale)), yy + round(23 * gui.scale), colour)
 
 			extra_rect = (
 				x + (w - round(82 * gui.scale)), yy + round(8 * gui.scale), h - round(15 * gui.scale),
@@ -24909,7 +24910,7 @@ class RadioView:
 
 			self.menu_icon.render(x + (w - round(75 * gui.scale)), yy + round(26 * gui.scale), colour)
 
-			# bottom_bar1.play_button.render(x + (w - round(30 * gui.scale)), yy + round(23 * gui.scale), colour)
+			# tauon.bottom_bar1.play_button.render(x + (w - round(30 * gui.scale)), yy + round(23 * gui.scale), colour)
 			if inp.mouse_up and self.drag and tauon.coll(rect):
 				if radiobox.active and tauon.coll((radiobox.x, radiobox.y, radiobox.w, radiobox.h)):
 					pass
@@ -38069,8 +38070,8 @@ def reload_scale(bag: Bag):
 		item.reload()
 	for menu in Menu.instances:
 		menu.rescale()
-	bottom_bar1.__init__()
-	bottom_bar_ao1.__init__()
+	tauon.bottom_bar1.__init__()
+	tauon.bottom_bar_ao1.__init__()
 	tauon.top_panel.__init__()
 	tauon.view_box.__init__(reload=True)
 	tauon.queue_box.recalc()
@@ -41326,7 +41327,6 @@ def main(holder: Holder) -> None:
 
 	pref_box = tauon.pref_box
 
-	bottom_bar_ao1 = BottomBarType_ao1(bag=bag, gui=gui)
 	mini_mode = MiniMode(bag=bag, gui=gui)
 	mini_mode = MiniMode(bag=bag, gui=gui)
 	mini_mode2 = MiniMode2(bag=bag, gui=gui)
@@ -44886,7 +44886,7 @@ def main(holder: Holder) -> None:
 				ddt.text_background_colour = colours.bottom_panel_colour
 
 				if prefs.shuffle_lock:
-					bottom_bar_ao1.render()
+					tauon.bottom_bar_ao1.render()
 				else:
 					tauon.bottom_bar1.render()
 
@@ -46453,7 +46453,7 @@ def main(holder: Holder) -> None:
 		if (pctl.playing_state == 1 or pctl.playing_state == 3) and gui.lowered is False:
 			if int(pctl.playing_time) != int(pctl.last_playing_time):
 				pctl.last_playing_time = pctl.playing_time
-				bottom_bar1.seek_time = pctl.playing_time
+				tauon.bottom_bar1.seek_time = pctl.playing_time
 				if not prefs.power_save or window_is_focused(tauon.t_window):
 					gui.update = 1
 
