@@ -951,6 +951,9 @@ class Input:
 		self.media_key = ""
 		self.input_text = ""
 
+	def test_shift(self, _) -> bool:
+		return self.key_shift_down or self.key_shiftr_down
+
 	def m_key_play(self) -> None:
 		self.media_key = "Play"
 		self.gui.update += 1
@@ -1549,6 +1552,42 @@ class PlayerCtl:
 		self.spot_playing = False
 
 		self.buffering_percent = 0
+
+	# def re_import(pl: int) -> None:
+	#
+	#	 path = pctl.multi_playlist[pl].last_folder
+	#	 if path == "":
+	#		 return
+	#	 for i in reversed(range(len(pctl.multi_playlist[pl].playlist_ids))):
+	#		 if path.replace('\\', '/') in pctl.master_library[pctl.multi_playlist[pl].playlist_ids[i]].parent_folder_path:
+	#			 del pctl.multi_playlist[pl].playlist_ids[i]
+	#
+	#	 load_order = LoadClass()
+	#	 load_order.replace_stem = True
+	#	 load_order.target = path
+	#	 load_order.playlist = pctl.multi_playlist[pl].uuid_int
+	#	 tauon.load_orders.append(copy.deepcopy(load_order))
+
+	def re_import2(self, pl: int) -> None:
+		paths = self.multi_playlist[pl].last_folder
+
+		reduce_paths(paths)
+
+		for path in paths:
+			if os.path.isdir(path):
+				load_order = LoadClass()
+				load_order.replace_stem = True
+				load_order.target = path
+				load_order.notify = True
+				load_order.playlist = self.multi_playlist[pl].uuid_int
+				self.tauon.load_orders.append(copy.deepcopy(load_order))
+
+		if paths:
+			show_message(_("Rescanning folders..."), mode="info")
+
+	def rescan_all_folders(self) -> None:
+		for i, p in enumerate(self.multi_playlist):
+			self.re_import2(i)
 
 	def switch_playlist(self, number: int, cycle: bool = False, quiet: bool = False) -> None:
 		# Close any active menus
@@ -4454,7 +4493,7 @@ class Menu:
 		Menu.instances.append(self)
 
 	@staticmethod
-	def deco(_=_, tauon: Tauon | None = None):
+	def deco(_=_, tauon: Tauon | None = None) -> list[list[int] | None]:
 		colours = tauon.bag.colours
 		return [colours.menu_text, colours.menu_background, None]
 
@@ -4721,7 +4760,7 @@ class Menu:
 						if tauon.view_box.active:
 							sub_pos[0] -= tauon.view_box.w
 
-					fx = self.deco()
+					fx = self.deco(tauon=self.tauon)
 
 					minY = self.window_size[1] - self.h * len(self.subs[self.sub_active]) - 15 * gui.scale
 					sub_pos[1] = min(sub_pos[1], minY)
@@ -4741,9 +4780,9 @@ class Menu:
 						# Get item colours
 						if self.subs[self.sub_active][w].render_func is not None:
 							if self.subs[self.sub_active][w].pass_ref_deco:
-								fx = self.subs[self.sub_active][w].render_func(self.reference)
+								fx = self.subs[self.sub_active][w].render_func(self.reference, tauon=self.tauon)
 							else:
-								fx = self.subs[self.sub_active][w].render_func()
+								fx = self.subs[self.sub_active][w].render_func(tauon=self.tauon)
 
 						# Item background
 						ddt.rect_a((sub_pos[0], sub_pos[1] + w * self.h), (sub_w, self.h), fx[1])
@@ -5716,7 +5755,7 @@ class Tauon:
 		self.prefs.show_notifications ^= True
 
 		if self.prefs.show_notifications:
-			if not de_notify_support:
+			if not bag.de_notify_support:
 				show_message(_("Notifications for this DE not supported"), "", mode="warning")
 		return None
 
@@ -21988,6 +22027,7 @@ class QueueBox:
 		self.pctl       = pctl
 		self.queue_menu = tauon.queue_menu
 		self.gui        = tauon.gui
+		self.inp        = tauon.inp
 		self.dragging = None
 		self.fq = []
 		self.drag_start_y = 0
@@ -22014,7 +22054,7 @@ class QueueBox:
 		self.tab_h = 34 * self.gui.scale
 
 	def except_for_this_show_test(self, _):
-		return self.queue_remove_show(_) and test_shift(_)
+		return self.queue_remove_show(_) and self.inp.test_shift(_)
 
 	def make_as_playlist(self):
 		if self.pctl.force_queue:
@@ -24834,6 +24874,7 @@ class Bag:
 	draw_min_button:        bool
 	draw_max_button:        bool
 	last_fm_enable:         bool
+	de_notify_support:      bool
 	desktop:                str | None
 	system:                 str
 	launch_prefix:          str
@@ -26599,7 +26640,7 @@ def notify_song_fire(notification, delay, id) -> None:
 		notification.close()
 
 def notify_song(notify_of_end: bool = False, delay: float = 0.0) -> None:
-	if not de_notify_support:
+	if not bag.de_notify_support:
 		return
 
 	if notify_of_end and prefs.end_setting != "stop":
@@ -28170,9 +28211,6 @@ def flush_artist_bio(artist):
 	tauon.artist_info_box.text = ""
 	tauon.artist_info_box.artist_on = None
 
-def test_shift(_):
-	return inp.key_shift_down or inp.key_shiftr_down
-
 def test_artist_dl(_):
 	return not prefs.auto_dl_artist_data
 
@@ -29613,42 +29651,6 @@ def rescan_tags(tauon: Tauon, pl: int) -> None:
 		if tauon.pctl.master_library[track].is_cue is False:
 			tauon.to_scan.append(track)
 	tauon.thread_manager.ready("worker")
-
-# def re_import(pl: int) -> None:
-#
-#	 path = pctl.multi_playlist[pl].last_folder
-#	 if path == "":
-#		 return
-#	 for i in reversed(range(len(pctl.multi_playlist[pl].playlist_ids))):
-#		 if path.replace('\\', '/') in pctl.master_library[pctl.multi_playlist[pl].playlist_ids[i]].parent_folder_path:
-#			 del pctl.multi_playlist[pl].playlist_ids[i]
-#
-#	 load_order = LoadClass()
-#	 load_order.replace_stem = True
-#	 load_order.target = path
-#	 load_order.playlist = pctl.multi_playlist[pl].uuid_int
-#	 tauon.load_orders.append(copy.deepcopy(load_order))
-
-def re_import2(pl: int) -> None:
-	paths = pctl.multi_playlist[pl].last_folder
-
-	reduce_paths(paths)
-
-	for path in paths:
-		if os.path.isdir(path):
-			load_order = LoadClass()
-			load_order.replace_stem = True
-			load_order.target = path
-			load_order.notify = True
-			load_order.playlist = pctl.multi_playlist[pl].uuid_int
-			tauon.load_orders.append(copy.deepcopy(load_order))
-
-	if paths:
-		show_message(_("Rescanning folders..."), mode="info")
-
-def rescan_all_folders(pctl: PlayerCtl) -> None:
-	for i, p in enumerate(pctl.multi_playlist):
-		re_import2(i)
 
 def append_playlist(tauon: Tauon, index: int) -> None:
 	tauon.pctl.multi_playlist[index].playlist_ids += tauon.pctl.cargo
@@ -36519,7 +36521,7 @@ def worker1(tauon: Tauon) -> None:
 					if not gui.sync_progress:
 						if not gui.message_box:
 							show_message(_("Encoding complete."), line, mode="done")
-						if system == "Linux" and de_notify_support:
+						if system == "Linux" and bag.de_notify_support:
 							g_tc_notify.show()
 
 		if tauon.to_scan:
@@ -38927,8 +38929,6 @@ def main(holder: Holder) -> None:
 
 	# Detect what desktop environment we are in to enable specific features
 	desktop = os.environ.get("XDG_CURRENT_DESKTOP")
-	# de_notify_support = desktop == 'GNOME' or desktop == 'KDE'
-	de_notify_support = False
 	draw_min_button = True
 	draw_max_button = True
 	left_window_control = False
@@ -39317,6 +39317,8 @@ def main(holder: Holder) -> None:
 		#sdl_syswminfo=sss,
 		system=system,
 		pump=True,
+		# de_notify_support = desktop == 'GNOME' or desktop == 'KDE'
+		de_notify_support=False,
 		draw_min_button=draw_min_button,
 		draw_max_button=draw_max_button,
 		smtc=smtc,
@@ -40057,11 +40059,11 @@ def main(holder: Holder) -> None:
 				g_open_encode_out,
 				None,
 			)
-			de_notify_support = True
+			bag.de_notify_support = True
 		except Exception:
 			logging.exception("Failed init notifications")
 
-		if de_notify_support:
+		if bag.de_notify_support:
 			song_notification = Notify.Notification.new("Next track notification")
 			value = GLib.Variant("s", t_id)
 			song_notification.set_hint("desktop-entry", value)
@@ -40685,7 +40687,7 @@ def main(holder: Holder) -> None:
 	lock_icon.yoff = -1
 
 	tab_menu.add(MenuItem(_("Lock"), lock_playlist_toggle, pl_lock_deco,
-		pass_ref=True, pass_ref_deco=True, icon=lock_icon, show_test=test_shift))
+		pass_ref=True, pass_ref_deco=True, icon=lock_icon, show_test=inp.test_shift))
 
 	# Clear playlist
 	tab_menu.add(MenuItem(_("Clear"), clear_playlist, pass_ref=True, disable_test=test_pl_tab_locked, pass_ref_deco=True))
@@ -40767,7 +40769,7 @@ def main(holder: Holder) -> None:
 
 	tab_menu.br()
 
-	tab_menu.add(MenuItem(_("Rescan Folder"), re_import2, rescan_deco, pass_ref=True, pass_ref_deco=True))
+	tab_menu.add(MenuItem(_("Rescan Folder"), pctl.re_import2, rescan_deco, pass_ref=True, pass_ref_deco=True))
 
 	tab_menu.add(MenuItem(_("Paste"), tauon.s_append, paste_deco, pass_ref=True))
 	tab_menu.add(MenuItem(_("Append Playing"), append_current_playing, append_deco, pass_ref=True))
@@ -40896,7 +40898,7 @@ def main(holder: Holder) -> None:
 
 	track_menu.add(MenuItem(_("Add to Queue"), add_to_queue, pass_ref=True, hint="MB3"))
 
-	track_menu.add(MenuItem(_("↳ After Current Track"), add_to_queue_next, pass_ref=True, show_test=test_shift))
+	track_menu.add(MenuItem(_("↳ After Current Track"), add_to_queue_next, pass_ref=True, show_test=inp.test_shift))
 
 	track_menu.add(MenuItem(_("Show in Gallery"), show_in_gal, pass_ref=True, show_test=test_show))
 
@@ -40911,7 +40913,7 @@ def main(holder: Holder) -> None:
 
 	track_menu.add(MenuItem(_("Paste"), menu_paste, paste_deco, pass_ref=True))
 
-	track_menu.add(MenuItem(_("Delete Track File"), delete_track, pass_ref=True, icon=delete_icon, show_test=test_shift))
+	track_menu.add(MenuItem(_("Delete Track File"), delete_track, pass_ref=True, icon=delete_icon, show_test=inp.test_shift))
 
 	track_menu.br()
 
@@ -40984,7 +40986,7 @@ def main(holder: Holder) -> None:
 	transcode_icon.colour = [239, 74, 157, 255]
 	folder_menu.add(MenuItem(_("Rescan Tags"), reload_metadata, pass_ref=True))
 	folder_menu.add(MenuItem(_("Edit fields…"), activate_trans_editor))
-	folder_menu.add(MenuItem(_("Vacuum Playtimes"), vacuum_playtimes, pass_ref=True, show_test=test_shift))
+	folder_menu.add(MenuItem(_("Vacuum Playtimes"), vacuum_playtimes, pass_ref=True, show_test=inp.test_shift))
 	folder_menu.add(MenuItem(_("Transcode Folder"), convert_folder, transcode_deco, pass_ref=True, icon=transcode_icon,
 		show_test=tauon.toggle_transcode))
 	gallery_menu.add(MenuItem(_("Transcode Folder"), convert_folder, transcode_deco, pass_ref=True, icon=transcode_icon,
@@ -41021,7 +41023,7 @@ def main(holder: Holder) -> None:
 	selection_menu.add(MenuItem(_("Copy"), tauon.s_copy))
 	selection_menu.add(MenuItem(_("Cut"), tauon.s_cut))
 	selection_menu.add(MenuItem(_("Remove"), del_selected))
-	selection_menu.add(MenuItem(_("Delete Files"), force_del_selected, show_test=test_shift, icon=delete_icon))
+	selection_menu.add(MenuItem(_("Delete Files"), force_del_selected, show_test=inp.test_shift, icon=delete_icon))
 
 	folder_menu.add(MenuItem(_("Copy"), tauon.s_copy))
 	gallery_menu.add(MenuItem(_("Copy"), tauon.s_copy))
@@ -41176,7 +41178,7 @@ def main(holder: Holder) -> None:
 	x_menu.br()
 
 	x_menu.add_to_sub(0, MenuItem(_("Export as CSV"), export_database))
-	x_menu.add_to_sub(0, MenuItem(_("Rescan All Folders"), rescan_all_folders))
+	x_menu.add_to_sub(0, MenuItem(_("Rescan All Folders"), pctl.rescan_all_folders))
 	x_menu.add_to_sub(0, MenuItem(_("Play History to Playlist"), q_to_playlist))
 	x_menu.add_to_sub(0, MenuItem(_("Reset Image Cache"), clear_img_cache))
 
@@ -41189,7 +41191,7 @@ def main(holder: Holder) -> None:
 	x_menu.add_to_sub(0, MenuItem(_("Import POPM Ratings"), import_popm))
 	x_menu.add_to_sub(0, MenuItem(_("Reset User Ratings"), clear_ratings))
 	x_menu.add_to_sub(0, MenuItem(_("Find Incomplete Albums"), find_incomplete))
-	x_menu.add_to_sub(0, MenuItem(_("Mark Missing as Found"), pctl.reset_missing_flags, show_test=test_shift))
+	x_menu.add_to_sub(0, MenuItem(_("Mark Missing as Found"), pctl.reset_missing_flags, show_test=inp.test_shift))
 
 	if tauon.chrome:
 		x_menu.add_sub(_("Chromecast…"), 220)
@@ -41385,7 +41387,7 @@ def main(holder: Holder) -> None:
 	artist_preview_render = PictureRender()
 
 	artist_info_menu.add(MenuItem(_("Download Artist Data"), tauon.artist_info_box.manual_dl, artist_dl_deco, show_test=test_artist_dl))
-	artist_info_menu.add(MenuItem(_("Clear Bio"), flush_artist_bio, pass_ref=True, show_test=test_shift))
+	artist_info_menu.add(MenuItem(_("Clear Bio"), flush_artist_bio, pass_ref=True, show_test=inp.test_shift))
 
 	radio_thumb_gen = RadioThumbGen(tauon=tauon)
 
@@ -46591,7 +46593,7 @@ def main(holder: Holder) -> None:
 		tray.stop()
 		if smtc:
 			sm.unload()
-	elif de_notify_support:
+	elif bag.de_notify_support:
 		try:
 			song_notification.close()
 			g_tc_notify.close()
