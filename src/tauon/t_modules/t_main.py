@@ -4460,11 +4460,11 @@ class ThreadManager:
 	def __init__(self, tauon: Tauon):
 		self.prefs = tauon.bag.prefs
 		self.tauon = tauon
-		self.worker1:      Thread | None = None  # Artist list, download monitor, folder move, importing, db cleaning, transcoding
-		self.worker2:      Thread | None = None  # Art bg, search
-		self.worker3:      Thread | None = None  # Gallery rendering
-		self.playback:     Thread | None = None
-		self.player_lock: threading.Lock = threading.Lock()
+		self.worker1:  threading.Thread | None = None  # Artist list, download monitor, folder move, importing, db cleaning, transcoding
+		self.worker2:  threading.Thread | None = None  # Art bg, search
+		self.worker3:  threading.Thread | None = None  # Gallery rendering
+		self.playback: threading.Thread | None = None
+		self.player_lock:       threading.Lock = threading.Lock()
 
 		self.d: dict = {}
 
@@ -4581,7 +4581,7 @@ class Menu:
 				return item.disable_test(self.reference)
 			return item.disable_test()
 
-	def render_icon(self, x, y, icon, selected, fx):
+	def render_icon(self, x: float, y: float, icon, selected, fx):
 		colours = self.colours
 		gui     = self.gui
 		if colours.lm:
@@ -4958,6 +4958,7 @@ class GallClass:
 		self.renderer             = tauon.bag.renderer
 		self.ddt                  = tauon.bag.ddt
 		self.folder_image_offsets = tauon.bag.folder_image_offsets
+		self.g_cache_directory    = tauon.bag.dirs.g_cache_directory
 		self.gui                  = tauon.gui
 		self.prefs                = tauon.prefs
 		self.search_over          = tauon.search_over
@@ -5027,8 +5028,8 @@ class GallClass:
 					if parent_folder in self.folder_image_offsets:
 						offset = self.folder_image_offsets[parent_folder]
 					img_name = str(key[2]) + "-" + str(size) + "-" + str(key[0].index) + "-" + str(offset)
-					if self.prefs.cache_gallery and os.path.isfile(os.path.join(g_cache_dir, img_name + ".jpg")):
-						source_image = open(os.path.join(g_cache_dir, img_name + ".jpg"), "rb")
+					if self.prefs.cache_gallery and os.path.isfile(os.path.join(self.g_cache_directory, img_name + ".jpg")):
+						source_image = open(os.path.join(self.g_cache_directory, img_name + ".jpg"), "rb")
 						# logging.info('load from cache')
 						cache_load = True
 					else:
@@ -5048,8 +5049,8 @@ class GallClass:
 
 					# gall_render_last_timer.set()
 
-					if self.prefs.cache_gallery and os.path.isfile(os.path.join(g_cache_dir, img_name + ".jpg")):
-						source_image = open(os.path.join(g_cache_dir, img_name + ".jpg"), "rb")
+					if self.prefs.cache_gallery and os.path.isfile(os.path.join(self.g_cache_directory, img_name + ".jpg")):
+						source_image = open(os.path.join(self.g_cache_directory, img_name + ".jpg"), "rb")
 						logging.info("slow load image")
 						cache_load = True
 
@@ -5090,8 +5091,8 @@ class GallClass:
 					im.save(g, "BMP")
 
 					if not error and self.save_out and self.prefs.cache_gallery and not os.path.isfile(
-							os.path.join(g_cache_dir, img_name + ".jpg")):
-						im.save(os.path.join(g_cache_dir, img_name + ".jpg"), "JPEG", quality=95)
+							os.path.join(self.g_cache_directory, img_name + ".jpg")):
+						im.save(os.path.join(self.g_cache_directory, img_name + ".jpg"), "JPEG", quality=95)
 
 				g.seek(0)
 
@@ -5256,6 +5257,8 @@ class Tauon:
 	"""Root class for everything Tauon"""
 	def __init__(self, holder: Holder, bag: Bag, gui: GuiVar):
 		self.bag                          = bag
+		self.mpt                          = bag.mpt
+		self.gme                          = bag.gme
 		self.ddt                          = bag.ddt
 		self.macos                        = bag.macos
 		self.system                       = bag.system
@@ -5366,7 +5369,7 @@ class Tauon:
 		self.thread_manager: ThreadManager | None = None # Avoid NameError
 		self.thread_manager:        ThreadManager = ThreadManager(tauon=self)
 		self.style_overlay                        = StyleOverlay(tauon=self)
-		self.album_art_gen                        = AlbumArt(tauon=self)
+		self.album_art_gen                        = self.style_overlay.album_art_gen
 		self.tool_tip                             = ToolTip(tauon=self)
 		self.tool_tip2                            = ToolTip(tauon=self)
 		self.f_store                              = FunctionStore()
@@ -5488,14 +5491,14 @@ class Tauon:
 			nt.misc.clear()
 			nt.file_ext = os.path.splitext(os.path.basename(nt.fullpath))[1][1:].upper()
 
-			if nt.file_ext.lower() in self.bag.formats.GME_Formats and gme:
+			if nt.file_ext.lower() in self.bag.formats.GME_Formats and self.gme:
 				emu = ctypes.c_void_p()
 				track_info = ctypes.POINTER(GMETrackInfo)()
-				err = gme.gme_open_file(nt.fullpath.encode("utf-8"), ctypes.byref(emu), -1)
+				err = self.gme.gme_open_file(nt.fullpath.encode("utf-8"), ctypes.byref(emu), -1)
 				#logging.error(err)
 				if not err:
 					n = nt.subtrack
-					err = gme.gme_track_info(emu, byref(track_info), n)
+					err = self.gme.gme_track_info(emu, byref(track_info), n)
 					#logging.error(err)
 					if not err:
 						nt.length = track_info.contents.play_length / 1000
@@ -5503,8 +5506,8 @@ class Tauon:
 						nt.artist = track_info.contents.author.decode("utf-8")
 						nt.album = track_info.contents.game.decode("utf-8")
 						nt.comment = track_info.contents.comment.decode("utf-8")
-						gme.gme_free_info(track_info)
-					gme.gme_delete(emu)
+						self.gme.gme_free_info(track_info)
+					self.gme.gme_delete(emu)
 
 					filepath = nt.fullpath  # this is the full file path
 					filename = nt.filename  # this is the name of the file
@@ -5537,18 +5540,18 @@ class Tauon:
 											break
 				if not nt.title:
 					nt.title = "Track " + str(nt.subtrack + 1)
-			elif nt.file_ext in ("MOD", "IT", "XM", "S3M", "MPTM") and mpt:
+			elif nt.file_ext in ("MOD", "IT", "XM", "S3M", "MPTM") and self.mpt:
 				with Path(nt.fullpath).open("rb") as file:
 					data = file.read()
 				MOD1 = MOD.from_address(
-					mpt.openmpt_module_create_from_memory(
+					self.mpt.openmpt_module_create_from_memory(
 						ctypes.c_char_p(data), ctypes.c_size_t(len(data)), None, None, None))
-				nt.length = mpt.openmpt_module_get_duration_seconds(byref(MOD1))
-				nt.title = mpt.openmpt_module_get_metadata(byref(MOD1), ctypes.c_char_p(b"title")).decode()
-				nt.artist = mpt.openmpt_module_get_metadata(byref(MOD1), ctypes.c_char_p(b"artist")).decode()
-				nt.comment = mpt.openmpt_module_get_metadata(byref(MOD1), ctypes.c_char_p(b"message_raw")).decode()
+				nt.length  = self.mpt.openmpt_module_get_duration_seconds(byref(MOD1))
+				nt.title   = self.mpt.openmpt_module_get_metadata(byref(MOD1), ctypes.c_char_p(b"title")).decode()
+				nt.artist  = self.mpt.openmpt_module_get_metadata(byref(MOD1), ctypes.c_char_p(b"artist")).decode()
+				nt.comment = self.mpt.openmpt_module_get_metadata(byref(MOD1), ctypes.c_char_p(b"message_raw")).decode()
 
-				mpt.openmpt_module_destroy(byref(MOD1))
+				self.mpt.openmpt_module_destroy(byref(MOD1))
 				del MOD1
 			elif nt.file_ext == "FLAC":
 				with Flac(nt.fullpath) as audio:
@@ -5694,7 +5697,6 @@ class Tauon:
 					nt.disc_total = audio.disc_total
 					nt.comment = audio.comment
 					nt.misc = audio.misc
-
 			else:
 				# Use MUTAGEN
 				try:
@@ -5717,10 +5719,10 @@ class Tauon:
 					if not nt.length:
 						try:
 							startupinfo = None
-							if system == "Windows" or msys:
+							if self.system == "Windows" or self.msys:
 								startupinfo = subprocess.STARTUPINFO()
 								startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-							result = subprocess.run([tauon.get_ffprobe(), "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", nt.fullpath], stdout=subprocess.PIPE, startupinfo=startupinfo, check=True)
+							result = subprocess.run([self.get_ffprobe(), "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", nt.fullpath], stdout=subprocess.PIPE, startupinfo=startupinfo, check=True)
 							nt.length = float(result.stdout.decode())
 						except Exception:
 							logging.exception("FFPROBE couldn't supply a duration")
@@ -5891,7 +5893,7 @@ class Tauon:
 			return False
 
 		if track_id is None:
-			track_id = self.pctl.track_queue[pctl.queue_step]
+			track_id = self.pctl.track_queue[self.pctl.queue_step]
 
 		loved = False
 		star = self.star_store.full_get(track_id)
@@ -5946,7 +5948,7 @@ class Tauon:
 							_("Maybe check your internet connection and try again?"), mode="error")
 
 				if self.pctl.master_library[track_id].file_ext == "JELY":
-					self.jellyfin.favorite(pctl.master_library[track_id])
+					self.jellyfin.favorite(self.pctl.master_library[track_id])
 		else:
 			time.sleep(delay)
 			self.gui.update += 1
@@ -6051,8 +6053,8 @@ class Tauon:
 			if self.gui.star_mode == "line" and total > 0 and self.pctl.master_library[index].length > 0:
 				ratio = total / self.pctl.master_library[index].length
 				if ratio > 0.55:
-					star_x = int(ratio * 4 * gui.scale)
-					star_x = min(star_x, 60 * gui.scale)
+					star_x = int(ratio * 4 * self.gui.scale)
+					star_x = min(star_x, 60 * self.gui.scale)
 					sp = y - 0 - self.gui.playlist_text_offset + int(self.gui.playlist_row_height / 2)
 					if self.gui.playlist_row_height > 17 * self.gui.scale:
 						sp -= 1
@@ -6154,7 +6156,7 @@ class Tauon:
 					count = 1
 					x = width + start_x - 52 * self.gui.scale - offset_font_extra - xxx
 					self.f_store.store(display_you_heart, (x, yy))
-					star_x += 18 * gui.scale
+					star_x += 18 * self.gui.scale
 
 				if "spotify-liked" in self.pctl.master_library[index].misc:
 					x = width + start_x - 52 * self.gui.scale - offset_font_extra - (self.gui.heart_row_icon.w + spacing) * count - xxx
@@ -6197,7 +6199,7 @@ class Tauon:
 				if li == "1":
 					li = "N"
 					# if item.track_id == n_track.index and item.position == p_track and item.playlist_id == pctl.active_playlist_viewing
-					if self.pctl.playing_ready() and n_track.index == self.pctl.track_queue[pctl.queue_step] \
+					if self.pctl.playing_ready() and n_track.index == self.pctl.track_queue[self.pctl.queue_step] \
 					and p_track == self.pctl.playlist_playing_position:
 						li = "R"
 					# if album_type:
@@ -6280,7 +6282,7 @@ class Tauon:
 		self.gui.update += 1
 
 	def clear_track_image_cache(self, track: TrackClass):
-		self,gui.halt_image_rendering = True
+		self.gui.halt_image_rendering = True
 		if self.gall_ren.queue:
 			time.sleep(0.05)
 		if self.gall_ren.queue:
@@ -6288,7 +6290,7 @@ class Tauon:
 		if self.gall_ren.queue:
 			time.sleep(0.5)
 
-		direc = os.path.join(g_cache_dir)
+		direc = os.path.join(self.g_cache_directory)
 		if os.path.isdir(direc):
 			for item in os.listdir(direc):
 				n = item.split("-")
@@ -7007,7 +7009,7 @@ class Tauon:
 		self.prefs.show_notifications ^= True
 
 		if self.prefs.show_notifications:
-			if not bag.de_notify_support:
+			if not self.bag.de_notify_support:
 				show_message(_("Notifications for this DE not supported"), "", mode="warning")
 		return None
 
@@ -10216,7 +10218,7 @@ class ImageObject:
 		self.format = ""
 
 class AlbumArt:
-	def __init__(self, tauon: Tauon) -> None:
+	def __init__(self, tauon: Tauon, style_overlay: StyleOverlay) -> None:
 		self.tauon                = tauon
 		self.pctl                 = tauon.pctl
 		self.msys                 = tauon.msys
@@ -10225,7 +10227,7 @@ class AlbumArt:
 		self.inp                  = tauon.inp
 		self.gui                  = tauon.gui
 		self.prefs                = tauon.prefs
-		self.style_overlay        = tauon.style_overlay
+		self.style_overlay        = style_overlay
 		self.colours              = tauon.bag.colours
 		self.ddt                  = tauon.bag.ddt
 		self.renderer             = tauon.bag.renderer
@@ -11225,9 +11227,14 @@ class AlbumArt:
 class StyleOverlay:
 
 	def __init__(self, tauon: Tauon) -> None:
+		self.tauon          = tauon
 		self.gui            = tauon.gui
+		self.ddt            = tauon.ddt
 		self.pctl           = tauon.pctl
 		self.prefs          = tauon.prefs
+		self.renderer       = tauon.bag.renderer
+		self.window_size    = tauon.bag.window_size
+		self.album_art_gen  = AlbumArt(tauon=tauon, style_overlay=self)
 		self.thread_manager = tauon.thread_manager
 		self.min_on_timer = Timer()
 		self.fade_on_timer = Timer(0)
@@ -11246,7 +11253,7 @@ class StyleOverlay:
 		self.a_type = 0
 		self.b_type = 0
 
-		self.window_size = None
+		self.window_size_int = None
 		self.parent_path = None
 
 		self.hole_punches = []
@@ -11268,13 +11275,13 @@ class StyleOverlay:
 
 				track = self.pctl.playing_object()
 
-				self.window_size = copy.copy(window_size)
+				self.window_size_int = copy.copy(self.window_size)
 				self.parent_path = track.parent_folder_path
 				self.current_track_id = track.index
 				self.current_track_album = track.album
 
 				try:
-					self.im = tauon.album_art_gen.get_blur_im(track)
+					self.im = self.album_art_gen.get_blur_im(track)
 				except Exception:
 					logging.exception("Blur blackground error")
 					raise
@@ -11315,9 +11322,9 @@ class StyleOverlay:
 
 		if self.stage == 1:
 
-			s_image = ddt.load_image(self.im)
+			s_image = self.ddt.load_image(self.im)
 
-			c = sdl3.SDL_CreateTextureFromSurface(renderer, s_image)
+			c = sdl3.SDL_CreateTextureFromSurface(self.renderer, s_image)
 
 			tex_w = pointer(c_float(0))
 			tex_h = pointer(c_float(0))
@@ -11341,7 +11348,7 @@ class StyleOverlay:
 
 			self.a_texture = c
 			self.a_rect = dst
-			self.a_type = tauon.album_art_gen.loaded_bg_type
+			self.a_type = self.album_art_gen.loaded_bg_type
 
 			self.stage = 2
 			self.radio_meta = None
@@ -11349,11 +11356,11 @@ class StyleOverlay:
 			self.gui.update += 1
 
 		if self.stage == 2:
-			track = pctl.playing_object()
+			track = self.pctl.playing_object()
 
-			if pctl.playing_state == 3 and not tauon.spot_ctl.coasting:
-				if self.radio_meta != pctl.tag_meta:
-					self.radio_meta = pctl.tag_meta
+			if self.pctl.playing_state == 3 and not self.tauon.spot_ctl.coasting:
+				if self.radio_meta != self.pctl.tag_meta:
+					self.radio_meta = self.pctl.tag_meta
 					self.current_track_id = -1
 					self.stage = 0
 
@@ -11364,22 +11371,22 @@ class StyleOverlay:
 				else:
 					self.current_track_id = track.index
 					if (
-							self.parent_path != pctl.playing_object().parent_folder_path or self.current_track_album != pctl.playing_object().album):
+							self.parent_path != self.pctl.playing_object().parent_folder_path or self.current_track_album != self.pctl.playing_object().album):
 						self.stage = 0
 
-		if gui.mode == 3 and prefs.mini_mode_mode == 5:
+		if self.gui.mode == 3 and self.prefs.mini_mode_mode == 5:
 			pass
-		elif prefs.bg_showcase_only:
-			if not gui.combo_mode:
+		elif self.prefs.bg_showcase_only:
+			if not self.gui.combo_mode:
 				return
 
 		t = self.fade_on_timer.get()
-		sdl3.SDL_SetRenderTarget(renderer, gui.main_texture_overlay_temp)
-		sdl3.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255)
-		sdl3.SDL_RenderClear(renderer)
+		sdl3.SDL_SetRenderTarget(self.renderer, self.gui.main_texture_overlay_temp)
+		sdl3.SDL_SetRenderDrawColor(self.renderer, 0, 0, 0, 255)
+		sdl3.SDL_RenderClear(self.renderer)
 
 		if self.a_texture is not None:
-			if self.window_size != window_size:
+			if self.window_size_int != self.window_size:
 				self.flush()
 
 		if self.b_texture is not None:
@@ -11390,7 +11397,7 @@ class StyleOverlay:
 
 			if t < 0.4:
 
-				sdl3.SDL_RenderTexture(renderer, self.b_texture, None, self.b_rect)
+				sdl3.SDL_RenderTexture(self.renderer, self.b_texture, None, self.b_rect)
 
 			else:
 				sdl3.SDL_DestroyTexture(self.b_texture)
@@ -11405,14 +11412,14 @@ class StyleOverlay:
 
 			if t < 0.4:
 				fade = round(t / 0.4 * 255)
-				gui.update += 1
+				self.gui.update += 1
 
 			else:
 				fade = 255
 
 			if self.go_to_sleep:
 				t = self.fade_off_timer.get()
-				gui.update += 1
+				self.gui.update += 1
 
 				if t < 1:
 					fade = 255
@@ -11423,43 +11430,43 @@ class StyleOverlay:
 					self.flush()
 					return
 
-			if prefs.bg_showcase_only and not (prefs.mini_mode_mode == 5 and gui.mode == 3):
-				tb = sdl3.SDL_FRect(0, 0, window_size[0], gui.panelY)
-				bb = sdl3.SDL_FRect(0, window_size[1] - gui.panelBY, window_size[0], gui.panelBY)
+			if self.prefs.bg_showcase_only and not (self.prefs.mini_mode_mode == 5 and self.gui.mode == 3):
+				tb = sdl3.SDL_FRect(0, 0, self.window_size[0], self.gui.panelY)
+				bb = sdl3.SDL_FRect(0, self.window_size[1] - self.gui.panelBY, self.window_size[0], self.gui.panelBY)
 				self.hole_punches.append(tb)
 				self.hole_punches.append(bb)
 
 			# Center image
-			if window_size[0] < 900 * gui.scale:
-				self.a_rect.x = (window_size[0] // 2) - self.a_rect.w // 2
+			if self.window_size[0] < 900 * self.gui.scale:
+				self.a_rect.x = (self.window_size[0] // 2) - self.a_rect.w // 2
 			else:
 				self.a_rect.x = -40
 
-			sdl3.SDL_SetRenderTarget(renderer, gui.main_texture_overlay_temp)
+			sdl3.SDL_SetRenderTarget(self.renderer, self.gui.main_texture_overlay_temp)
 
 			sdl3.SDL_SetTextureAlphaMod(self.a_texture, fade)
-			sdl3.SDL_RenderTexture(renderer, self.a_texture, None, self.a_rect)
+			sdl3.SDL_RenderTexture(self.renderer, self.a_texture, None, self.a_rect)
 
-			sdl3.SDL_SetRenderDrawBlendMode(renderer, sdl3.SDL_BLENDMODE_NONE)
+			sdl3.SDL_SetRenderDrawBlendMode(self.renderer, sdl3.SDL_BLENDMODE_NONE)
 
-			sdl3.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0)
+			sdl3.SDL_SetRenderDrawColor(self.renderer, 0, 0, 0, 0)
 			for rect in self.hole_punches:
-				sdl3.SDL_RenderFillRect(renderer, rect)
+				sdl3.SDL_RenderFillRect(self.renderer, rect)
 
-			sdl3.SDL_SetRenderDrawBlendMode(renderer, sdl3.SDL_BLENDMODE_BLEND)
+			sdl3.SDL_SetRenderDrawBlendMode(self.renderer, sdl3.SDL_BLENDMODE_BLEND)
 
-			sdl3.SDL_SetRenderTarget(renderer, gui.main_texture)
-			opacity = prefs.art_bg_opacity
-			if prefs.mini_mode_mode == 5 and gui.mode == 3:
+			sdl3.SDL_SetRenderTarget(self.renderer, self.gui.main_texture)
+			opacity = self.prefs.art_bg_opacity
+			if self.prefs.mini_mode_mode == 5 and self.gui.mode == 3:
 				opacity = 255
 
-			sdl3.SDL_SetTextureAlphaMod(gui.main_texture_overlay_temp, opacity)
-			sdl3.SDL_RenderTexture(renderer, gui.main_texture_overlay_temp, None, None)
+			sdl3.SDL_SetTextureAlphaMod(self.gui.main_texture_overlay_temp, opacity)
+			sdl3.SDL_RenderTexture(self.renderer, self.gui.main_texture_overlay_temp, None, None)
 
-			sdl3.SDL_SetRenderTarget(renderer, gui.main_texture)
+			sdl3.SDL_SetRenderTarget(self.renderer, self.gui.main_texture)
 
 		else:
-			sdl3.SDL_SetRenderTarget(renderer, gui.main_texture)
+			sdl3.SDL_SetRenderTarget(self.renderer, self.gui.main_texture)
 
 class ToolTip:
 
@@ -11514,7 +11521,11 @@ class ToolTip:
 class ToolTip3:
 
 	def __init__(self, tauon: Tauon) -> None:
-		self.gui = tauon.gui
+		self.inp  = tauon.inp
+		self.ddt  = tauon.ddt
+		self.gui  = tauon.gui
+		self.pctl = tauon.pctl
+		self.coll = tauon.coll
 		self.x = 0
 		self.y = 0
 		self.text = ""
@@ -11528,16 +11539,16 @@ class ToolTip3:
 
 	def set(self, x, y, text, font, rect):
 
-		y -= round(11 * gui.scale)
-		if self.show == False or self.y != y or x != self.x or self.pl_position != pctl.playlist_view_position:
+		y -= round(11 * self.gui.scale)
+		if self.show == False or self.y != y or x != self.x or self.pl_position != self.pctl.playlist_view_position:
 			self.timer.set()
 
-		if point_proximity_test(self.click_exclude_point, inp.mouse_position, 20 * gui.scale):
+		if point_proximity_test(self.click_exclude_point, self.inp.mouse_position, 20 * self.gui.scale):
 			self.timer.set()
 			return
 
-		if inp.mouse_click:
-			self.click_exclude_point = copy.copy(inp.mouse_position)
+		if self.inp.mouse_click:
+			self.click_exclude_point = copy.copy(self.inp.mouse_position)
 			self.timer.set()
 			return
 
@@ -11547,105 +11558,108 @@ class ToolTip3:
 		self.font = font
 		self.show = True
 		self.rect = rect
-		self.pl_position = pctl.playlist_view_position
+		self.pl_position = self.pctl.playlist_view_position
 
-	def render(self):
-
+	def render(self) -> None:
 		if not self.show:
 			return
 
-		if not point_proximity_test(self.click_exclude_point, inp.mouse_position, 20 * gui.scale):
+		if not point_proximity_test(self.click_exclude_point, self.inp.mouse_position, 20 * self.gui.scale):
 			self.click_exclude_point = (0, 0)
 
-		if not tauon.coll(
-				self.rect) or inp.mouse_click or gui.level_2_click or self.pl_position != pctl.playlist_view_position:
+		if not self.coll(
+				self.rect) or self.inp.mouse_click or self.gui.level_2_click or self.pl_position != self.pctl.playlist_view_position:
 			self.show = False
 
-		gui.frame_callback_list.append(TestTimer(0.02))
+		self.gui.frame_callback_list.append(TestTimer(0.02))
 
 		if self.timer.get() < 0.6:
 			return
 
-		w = ddt.get_text_w(self.text, 312) + self.height
+		w = self.ddt.get_text_w(self.text, 312) + self.height
 		x = self.x  # - int(self.width / 2)
 		y = self.y
 		h = self.height
 
-		border = 1 * gui.scale
+		border = 1 * self.gui.scale
 
-		ddt.rect((x - border, y - border, w + border * 2, h + border * 2), colours.grey(60))
-		ddt.rect((x, y, w, h), colours.menu_background)
-		p = ddt.text(
-			(x + int(w / 2), y + 3 * gui.scale, 2), self.text, colours.menu_text, 312, bg=colours.menu_background)
+		self.ddt.rect((x - border, y - border, w + border * 2, h + border * 2), colours.grey(60))
+		self.ddt.rect((x, y, w, h), colours.menu_background)
+		p = self.ddt.text(
+			(x + int(w / 2), y + 3 * self.gui.scale, 2), self.text, colours.menu_text, 312, bg=colours.menu_background)
 
-		if not tauon.coll(self.rect):
+		if not self.coll(self.rect):
 			self.show = False
 
 class RenameTrackBox:
 
-	def __init__(self):
-
+	def __init__(self, tauon: Tauon) -> None:
+		self.tauon       = tauon
+		self.inp         = tauon.inp
+		self.ddt         = tauon.ddt
+		self.gui         = tauon.gui
+		self.pctl        = tauon.pctl
+		self.coll        = tauon.coll
+		self.star_store  = tauon.star_store
+		self.window_size = tauon.bag.window_size
 		self.active = False
 		self.target_track_id = None
 		self.single_only = False
 
-	def activate(self, track_id):
-
+	def activate(self, track_id: int) -> None:
 		self.active = True
 		self.target_track_id = track_id
-		if inp.key_shift_down or inp.key_shiftr_down:
+		if self.inp.key_shift_down or self.inp.key_shiftr_down:
 			self.single_only = True
 		else:
 			self.single_only = False
 
-	def disable_test(self, track_id):
-		if inp.key_shift_down or inp.key_shiftr_down:
+	def disable_test(self, track_id: int):
+		if self.inp.key_shift_down or self.inp.key_shiftr_down:
 			single_only = True
 		else:
 			single_only = False
 
 		if not single_only:
-			for item in pctl.default_playlist:
-				if pctl.master_library[item].parent_folder_path == pctl.master_library[track_id].parent_folder_path:
-
-					if pctl.master_library[item].is_network is True:
+			for item in self.pctl.default_playlist:
+				if self.pctl.master_library[item].parent_folder_path == self.pctl.master_library[track_id].parent_folder_path:
+					if self.pctl.master_library[item].is_network is True:
 						return True
 		return False
 
-	def render(self):
-
+	def render(self) -> None:
 		if not self.active:
 			return
 
-		if gui.level_2_click:
-			inp.mouse_click = True
-		gui.level_2_click = False
+		if self.gui.level_2_click:
+			self.inp.mouse_click = True
+		self.gui.level_2_click = False
 
-		w = 420 * gui.scale
-		h = 155 * gui.scale
-		x = int(window_size[0] / 2) - int(w / 2)
-		y = int(window_size[1] / 2) - int(h / 2)
+		w = 420 * self.gui.scale
+		h = 155 * self.gui.scale
+		x = int(self.window_size[0] / 2) - int(w / 2)
+		y = int(self.window_size[1] / 2) - int(h / 2)
 
-		ddt.rect_a((x - 2 * gui.scale, y - 2 * gui.scale), (w + 4 * gui.scale, h + 4 * gui.scale), colours.box_border)
-		ddt.rect_a((x, y), (w, h), colours.box_background)
-		ddt.text_background_colour = colours.box_background
+		self.ddt.rect_a((x - 2 * self.gui.scale, y - 2 * self.gui.scale), (w + 4 * self.gui.scale, h + 4 * self.gui.scale), colours.box_border)
+		self.ddt.rect_a((x, y), (w, h), colours.box_background)
+		self.ddt.text_background_colour = colours.box_background
 
-		if inp.key_esc_press or ((inp.mouse_click or inp.right_click or inp.level_2_right_click) and not tauon.coll((x, y, w, h))):
+		if self.inp.key_esc_press or ((self.inp.mouse_click or self.inp.right_click or self.inp.level_2_right_click) and not self.coll((x, y, w, h))):
 			rename_track_box.active = False
 
 		r_todo = []
 
 		# Find matching folder tracks in playlist
 		if not self.single_only:
-			for item in pctl.default_playlist:
-				if pctl.master_library[item].parent_folder_path == pctl.master_library[
+			for item in self.pctl.default_playlist:
+				if self.pctl.master_library[item].parent_folder_path == self.pctl.master_library[
 					self.target_track_id].parent_folder_path:
 
 					# Close and display error if any tracks are not single local files
-					if pctl.master_library[item].is_network is True:
+					if self.pctl.master_library[item].is_network is True:
 						rename_track_box.active = False
 						show_message(_("Cannot rename"), _("One or more tracks is from a network location!"), mode="info")
-					if pctl.master_library[item].is_cue is True:
+					if self.pctl.master_library[item].is_cue is True:
 						rename_track_box.active = False
 						show_message(_("This function does not support renaming CUE Sheet tracks."))
 					else:
@@ -11653,56 +11667,55 @@ class RenameTrackBox:
 		else:
 			r_todo = [self.target_track_id]
 
-		ddt.text((x + 10 * gui.scale, y + 8 * gui.scale), _("Track Renaming"), colours.grey(230), 213)
+		self.ddt.text((x + 10 * self.gui.scale, y + 8 * self.gui.scale), _("Track Renaming"), colours.grey(230), 213)
 
 		# if draw.button("Default", x + 230 * gui.scale, y + 8 * gui.scale,
-		if rename_files.text != prefs.rename_tracks_template and draw.button(
-			_("Default"), x + w - 85 * gui.scale, y + h - 35 * gui.scale, 70 * gui.scale):
-			rename_files.text = prefs.rename_tracks_template
+		if rename_files.text != self.prefs.rename_tracks_template and draw.button(
+			_("Default"), x + w - 85 * self.gui.scale, y + h - 35 * self.gui.scale, 70 * self.gui.scale):
+			rename_files.text = self.prefs.rename_tracks_template
 
 		# ddt.draw_text((x + 14, y + 40,), NRN + cursor, colours.grey(150), 12)
-		rename_files.draw(x + 14 * gui.scale, y + 39 * gui.scale, colours.box_input_text, width=300)
+		rename_files.draw(x + 14 * self.gui.scale, y + 39 * self.gui.scale, colours.box_input_text, width=300)
 		NRN = rename_files.text
 
-		ddt.rect_s(
-			(x + 8 * gui.scale, y + 36 * gui.scale, 300 * gui.scale, 22 * gui.scale), colours.box_text_border, 1 * gui.scale)
+		self.ddt.rect_s(
+			(x + 8 * self.gui.scale, y + 36 * self.gui.scale, 300 * self.gui.scale, 22 * self.gui.scale), colours.box_text_border, 1 * self.gui.scale)
 
 		afterline = ""
 		warn = False
 		underscore = False
 
 		for item in r_todo:
-
-			if pctl.master_library[item].track_number == "" or pctl.master_library[item].artist == "" or \
-					pctl.master_library[item].title == "" or pctl.master_library[item].album == "":
+			if self.pctl.master_library[item].track_number == "" or self.pctl.master_library[item].artist == "" or \
+					self.pctl.master_library[item].title == "" or self.pctl.master_library[item].album == "":
 				warn = True
 
 			if item == self.target_track_id:
-				afterline = parse_template2(NRN, pctl.master_library[item])
+				afterline = parse_template2(NRN, self.pctl.master_library[item])
 
-		ddt.text((x + 10 * gui.scale, y + 68 * gui.scale), _("BEFORE"), colours.box_text_label, 212)
-		line = tauon.trunc_line(pctl.master_library[self.target_track_id].filename, 12, 335)
-		ddt.text((x + 70 * gui.scale, y + 68 * gui.scale), line, colours.grey(210), 211, max_w=340)
+		self.ddt.text((x + 10 * self.gui.scale, y + 68 * self.gui.scale), _("BEFORE"), colours.box_text_label, 212)
+		line = self.tauon.trunc_line(self.pctl.master_library[self.target_track_id].filename, 12, 335)
+		self.ddt.text((x + 70 * self.gui.scale, y + 68 * self.gui.scale), line, colours.grey(210), 211, max_w=340)
 
-		ddt.text((x + 10 * gui.scale, y + 83 * gui.scale), _("AFTER"), colours.box_text_label, 212)
-		ddt.text((x + 70 * gui.scale, y + 83 * gui.scale), afterline, colours.grey(210), 211, max_w=340)
+		self.ddt.text((x + 10 * self.gui.scale, y + 83 * self.gui.scale), _("AFTER"), colours.box_text_label, 212)
+		self.ddt.text((x + 70 * self.gui.scale, y + 83 * self.gui.scale), afterline, colours.grey(210), 211, max_w=340)
 
-		if (len(NRN) > 3 and len(pctl.master_library[self.target_track_id].filename) > 3 and afterline[-3:].lower() !=
-			pctl.master_library[self.target_track_id].filename[-3:].lower()) or len(NRN) < 4 or "." not in afterline[-5:]:
-			ddt.text(
-				(x + 10 * gui.scale, y + 108 * gui.scale), _("Warning: This may change the file extension"),
+		if (len(NRN) > 3 and len(self.pctl.master_library[self.target_track_id].filename) > 3 and afterline[-3:].lower() !=
+			self.pctl.master_library[self.target_track_id].filename[-3:].lower()) or len(NRN) < 4 or "." not in afterline[-5:]:
+			self.ddt.text(
+				(x + 10 * self.gui.scale, y + 108 * self.gui.scale), _("Warning: This may change the file extension"),
 				[245, 90, 90, 255],
 				13)
 
 		colour_warn = [143, 186, 65, 255]
 		if not unique_template(NRN):
-			ddt.text(
-				(x + 10 * gui.scale, y + 123 * gui.scale), _("Warning: The filename might not be unique"),
+			self.ddt.text(
+				(x + 10 * self.gui.scale, y + 123 * self.gui.scale), _("Warning: The filename might not be unique"),
 				[245, 90, 90, 255],
 				13)
 		if warn:
-			ddt.text(
-				(x + 10 * gui.scale, y + 135 * gui.scale), _("Warning: A track has incomplete metadata"),
+			self.ddt.text(
+				(x + 10 * self.gui.scale, y + 135 * self.gui.scale), _("Warning: A track has incomplete metadata"),
 				[245, 90, 90, 255],
 				13)
 			colour_warn = [180, 60, 60, 255]
@@ -11710,32 +11723,30 @@ class RenameTrackBox:
 		label = _("Write") + " (" + str(len(r_todo)) + ")"
 
 		if draw.button(
-			label, x + (8 + 300 + 10) * gui.scale, y + 36 * gui.scale, 80 * gui.scale,
+			label, x + (8 + 300 + 10) * self.gui.scale, y + 36 * self.gui.scale, 80 * self.gui.scale,
 			text_highlight_colour=colours.grey(255), background_highlight_colour=colour_warn,
-			tooltip=_("Physically renames all the tracks in the folder")) or inp.level_2_enter:
+			tooltip=_("Physically renames all the tracks in the folder")) or self.inp.level_2_enter:
 
-			inp.mouse_click = False
+			self.inp.mouse_click = False
 			total_todo = len(r_todo)
 			pre_state = 0
 
 			for item in r_todo:
-
-				if pctl.playing_state > 0 and item == pctl.track_queue[pctl.queue_step]:
-					pre_state = pctl.stop(True)
+				if self.pctl.playing_state > 0 and item == self.pctl.track_queue[self.pctl.queue_step]:
+					pre_state = self.pctl.stop(True)
 
 				try:
+					afterline = parse_template2(NRN, self.pctl.master_library[item], strict=True)
 
-					afterline = parse_template2(NRN, pctl.master_library[item], strict=True)
-
-					oldname = pctl.master_library[item].filename
-					oldpath = pctl.master_library[item].fullpath
+					oldname = self.pctl.master_library[item].filename
+					oldpath = self.pctl.master_library[item].fullpath
 
 					logging.info("Renaming...")
 
-					star = star_store.full_get(item)
-					star_store.remove(item)
+					star = self.star_store.full_get(item)
+					self.star_store.remove(item)
 
-					oldpath = pctl.master_library[item].fullpath
+					oldpath = self.pctl.master_library[item].fullpath
 
 					oldsplit = os.path.split(oldpath)
 
@@ -11754,16 +11765,16 @@ class RenameTrackBox:
 						total_todo -= 1
 						continue
 
-					os.rename(pctl.master_library[item].fullpath, os.path.join(oldsplit[0], afterline))
+					os.rename(self.pctl.master_library[item].fullpath, os.path.join(oldsplit[0], afterline))
 
-					pctl.master_library[item].fullpath = os.path.join(oldsplit[0], afterline)
-					pctl.master_library[item].filename = afterline
+					self.pctl.master_library[item].fullpath = os.path.join(oldsplit[0], afterline)
+					self.pctl.master_library[item].filename = afterline
 
 					search_string_cache.pop(item, None)
 					search_dia_string_cache.pop(item, None)
 
 					if star is not None:
-						star_store.insert(item, star)
+						self.star_store.insert(item, star)
 
 				except Exception:
 					logging.exception("Rendering error")
@@ -11772,7 +11783,7 @@ class RenameTrackBox:
 			rename_track_box.active = False
 			logging.info("Done")
 			if pre_state == 1:
-				pctl.revert()
+				self.pctl.revert()
 
 			if total_todo != len(r_todo):
 				show_message(
@@ -11784,17 +11795,21 @@ class RenameTrackBox:
 					_("Rename complete."),
 					_("{N} / {T} filenames were written.")
 					.format(N=str(total_todo), T=str(len(r_todo))), mode="done")
-			pctl.notify_change()
+			self.pctl.notify_change()
 
 class TransEditBox:
 
-	def __init__(self):
+	def __init__(self, tauon: Tauon) -> None:
+		self.gui  = tauon.gui
+		self.ddt  = tauon.ddt
+		self.inp  = tauon.inp
+		self.pctl = tauon.pctl
 		self.active = False
 		self.active_field = 1
 		self.selected = []
 		self.playlist = -1
 
-	def render(self):
+	def render(self) -> None:
 
 		if not self.active:
 			return
@@ -21265,16 +21280,17 @@ class RadioBox:
 
 class RenamePlaylistBox:
 
-	def __init__(self):
-
+	def __init__(self, tauon: Tauon) -> None:
+		self.gui            = tauon.gui
+		self.pctl           = tauon.pctl
+		self.thread_manager = tauon.thread_manager
 		self.x = 300
 		self.y = 300
 		self.playlist_index = 0
 
 		self.edit_generator = False
 
-	def toggle_edit_gen(self):
-
+	def toggle_edit_gen(self) -> None:
 		self.edit_generator ^= True
 		if self.edit_generator:
 
@@ -21293,15 +21309,12 @@ class RenamePlaylistBox:
 
 			gui.regen_single = rename_playlist_box.playlist_index
 			tauon.thread_manager.ready("worker")
-
-
 		else:
 			rename_text_area.set_text(pctl.multi_playlist[self.playlist_index].title)
 			rename_text_area.highlight_none()
 			# rename_text_area.highlight_all()
 
-	def render(self):
-
+	def render(self) -> None:
 		if gui.level_2_click:
 			inp.mouse_click = True
 		gui.level_2_click = False
@@ -26103,6 +26116,8 @@ class Directories:
 @dataclass
 class Bag:
 	"""Holder object for all configs"""
+	mpt:                    CDLL | None
+	gme:                    CDLL | None
 	colours:                ColoursClass
 	console:                DConsole
 	dirs:                   Directories
@@ -39241,6 +39256,42 @@ def main(holder: Holder) -> None:
 	colours = ColoursClass()
 	colours.post_config()
 
+
+	mpt: CDLL | None = None
+	try:
+		p = ctypes.util.find_library("libopenmpt")
+		if p:
+			mpt = ctypes.cdll.LoadLibrary(p)
+		elif msys:
+			mpt = ctypes.cdll.LoadLibrary("libopenmpt-0.dll")
+		else:
+			mpt = ctypes.cdll.LoadLibrary("libopenmpt.so")
+
+		mpt.openmpt_module_create_from_memory.restype = c_void_p
+		mpt.openmpt_module_get_metadata.restype = c_char_p
+		mpt.openmpt_module_get_duration_seconds.restype = c_double
+	except Exception:
+		logging.exception("Failed to load libopenmpt!")
+
+	gme: CDLL | None = None
+	p = None
+	try:
+		p = ctypes.util.find_library("libgme")
+		if p:
+			gme = ctypes.cdll.LoadLibrary(p)
+		elif msys:
+			gme = ctypes.cdll.LoadLibrary("libgme-0.dll")
+		else:
+			gme = ctypes.cdll.LoadLibrary("libgme.so")
+
+		gme.gme_free_info.argtypes = [ctypes.POINTER(GMETrackInfo)]
+		gme.gme_track_info.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.POINTER(GMETrackInfo)), ctypes.c_int]
+		gme.gme_track_info.restype = ctypes.c_char_p
+		gme.gme_open_file.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_void_p), ctypes.c_int]
+		gme.gme_open_file.restype = ctypes.c_char_p
+	except Exception:
+		logging.exception("Cannot find libgme")
+
 	force_subpixel_text = False
 	if gtk_settings and gtk_settings.get_property("gtk-xft-rgba") == "rgb":
 		force_subpixel_text = True
@@ -39288,6 +39339,8 @@ def main(holder: Holder) -> None:
 	prefs.theme = get_theme_number(dirs, prefs.theme_name)
 
 	bag = Bag(
+		gme=gme,
+		mpt=mpt,
 		colours=colours,
 		console=console,
 		dirs=dirs,
@@ -39981,41 +40034,6 @@ def main(holder: Holder) -> None:
 	if prefs.prefer_side is False:
 		gui.rsp = False
 
-	mpt = None
-	try:
-		p = ctypes.util.find_library("libopenmpt")
-		if p:
-			mpt = ctypes.cdll.LoadLibrary(p)
-		elif msys:
-			mpt = ctypes.cdll.LoadLibrary("libopenmpt-0.dll")
-		else:
-			mpt = ctypes.cdll.LoadLibrary("libopenmpt.so")
-
-		mpt.openmpt_module_create_from_memory.restype = c_void_p
-		mpt.openmpt_module_get_metadata.restype = c_char_p
-		mpt.openmpt_module_get_duration_seconds.restype = c_double
-	except Exception:
-		logging.exception("Failed to load libopenmpt!")
-
-	gme = None
-	p = None
-	try:
-		p = ctypes.util.find_library("libgme")
-		if p:
-			gme = ctypes.cdll.LoadLibrary(p)
-		elif msys:
-			gme = ctypes.cdll.LoadLibrary("libgme-0.dll")
-		else:
-			gme = ctypes.cdll.LoadLibrary("libgme.so")
-
-		gme.gme_free_info.argtypes = [ctypes.POINTER(GMETrackInfo)]
-		gme.gme_track_info.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.POINTER(GMETrackInfo)), ctypes.c_int]
-		gme.gme_track_info.restype = ctypes.c_char_p
-		gme.gme_open_file.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_void_p), ctypes.c_int]
-		gme.gme_open_file.restype = ctypes.c_char_p
-	except Exception:
-		logging.exception("Cannot find libgme")
-
 	if system == "Linux" and not macos and not msys:
 		try:
 			Notify.init("Tauon Music Box")
@@ -40044,7 +40062,6 @@ def main(holder: Holder) -> None:
 
 	if system == "Windows" or msys:
 		from lynxtray import SysTrayIcon
-
 
 
 	tauon = Tauon(
@@ -40498,11 +40515,11 @@ def main(holder: Holder) -> None:
 	radio_entry_menu.add(MenuItem(_("Visit Website"), visit_radio_site, visit_radio_site_deco, pass_ref=True, pass_ref_deco=True))
 	radio_entry_menu.add(MenuItem(_("Save"), save_to_radios, pass_ref=True))
 
-	rename_track_box = RenameTrackBox()
-	trans_edit_box = TransEditBox()
+	rename_track_box = RenameTrackBox(tauon=tauon)
+	trans_edit_box = TransEditBox(tauon=tauon)
 	sub_lyrics_box = SubLyricsBox(tauon=tauon)
 	export_playlist_box = ExportPlaylistBox(tauon=tauon)
-	rename_playlist_box = RenamePlaylistBox()
+	rename_playlist_box = RenamePlaylistBox(tauon=tauon)
 
 	tauon.toggle_repeat = toggle_repeat
 	tauon.menu_album_repeat = menu_album_repeat
