@@ -25343,6 +25343,7 @@ class Bag:
 	track_queue:            list[int]
 	logical_size:           list[int] # X Y
 	window_size:            list[int] # X Y
+	cue_list:               list[str]
 	load_orders:            list[LoadClass]
 	multi_playlist:         list[TauonPlaylist]
 	radio_playlists:        list[RadioPlaylist]
@@ -33901,6 +33902,9 @@ def sort_ass(h, invert=False, custom_list=None, custom_name=""):
 	key = None
 	ns = False
 
+	if tauon.bag.use_natsort:
+		natsort = sys.modules.get("natsort")  # Fetch from loaded modules
+
 	if name == "Filepath":
 		key = tauon.key_filepath
 		if tauon.bag.use_natsort:
@@ -35507,7 +35511,7 @@ def cue_scan(content: str, tn: TrackClass) -> int | None:
 
 	added += reversed(cued)
 
-	# cue_list.append(filepath)
+	# bag.cue_list.append(filepath)
 
 def get_album_from_first_track(track_position, track_id=None, pl_number=None, pl_id: int | None = None):
 	if pl_number is None:
@@ -35942,10 +35946,10 @@ def worker2(tauon: Tauon) -> None:
 				#logging.info(tauon.perf_timer.get())
 
 def worker1(tauon: Tauon) -> None:
-	global cue_list
 	global home
 	global added
 
+	bag = tauon.bag
 	gui = tauon.gui
 	pctl = tauon.pctl
 	loaded_pathes_cache = {}
@@ -35975,7 +35979,7 @@ def worker1(tauon: Tauon) -> None:
 	def add_from_cue(path: str):
 		global added
 
-		if not msys:  # Windows terminal doesn't like unicode
+		if not tauon.msys:  # Windows terminal doesn't like unicode
 			logging.info("Reading CUE file: " + path)
 
 		try:
@@ -36093,7 +36097,6 @@ def worker1(tauon: Tauon) -> None:
 						continue
 
 				if line.startswith("FILE "):
-
 					if cd:
 						cds.append(cd)
 						cd = []
@@ -36237,8 +36240,8 @@ def worker1(tauon: Tauon) -> None:
 			for cd in cds:
 				for track in cd:
 					pctl.master_library[track.index] = track
-					if track.fullpath not in cue_list:
-						cue_list.append(track.fullpath)
+					if track.fullpath not in bag.cue_list:
+						bag.cue_list.append(track.fullpath)
 					loaded_pathes_cache[track.fullpath] = track.index
 					added.append(track.index)
 
@@ -36392,7 +36395,7 @@ def worker1(tauon: Tauon) -> None:
 		if path in loaded_pathes_cache:
 			de = loaded_pathes_cache[path]
 
-			if pctl.master_library[de].fullpath in cue_list:
+			if pctl.master_library[de].fullpath in bag.cue_list:
 				logging.info("File has an associated .cue file... Skipping")
 				return None
 
@@ -36450,8 +36453,8 @@ def worker1(tauon: Tauon) -> None:
 			pctl.jump(pctl.master_count - 1)
 			gui.auto_play_import = False
 
-	# Count the approx number of files to be imported
-	def pre_get(direc):
+	def pre_get(direc: str) -> None:
+		"""Count the approx number of files to be imported"""
 		gui.to_get = 0
 		for root, dirs, files in os.walk(direc):
 			gui.to_get += len(files)
@@ -36466,6 +36469,7 @@ def worker1(tauon: Tauon) -> None:
 		try:
 			items_in_dir = os.listdir(direc)
 			if tauon.bag.use_natsort:
+				natsort = sys.modules.get("natsort")  # Fetch from loaded modules
 				items_in_dir = natsort.os_sorted(items_in_dir)
 			else:
 				items_in_dir.sort()
@@ -36498,12 +36502,10 @@ def worker1(tauon: Tauon) -> None:
 			if os.path.isdir(os.path.join(direc, items_in_dir[q])) is False:
 
 				if os.path.splitext(items_in_dir[q])[1][1:].lower() in bag.formats.DA_Formats:
-
 					if len(items_in_dir[q]) > 2 and items_in_dir[q][0:2] == "._":
 						continue
 
 					add_file(os.path.join(direc, items_in_dir[q]).replace("\\", "/"), force_scan)
-
 				elif os.path.splitext(items_in_dir[q])[1][1:] in {"CUE", "cue"}:
 					add_from_cue(os.path.join(direc, items_in_dir[q]).replace("\\", "/"))
 
@@ -36607,7 +36609,7 @@ def worker1(tauon: Tauon) -> None:
 				not tauon.move_in_progress and \
 				(gui.lowered or not window_is_focused(tauon.t_window) or not gui.mouse_in_window):
 			tauon.save_state()
-			cue_list.clear()
+			bag.cue_list.clear()
 			tauon.worker_save_state = False
 
 		# Folder moving
@@ -36870,7 +36872,7 @@ def worker1(tauon: Tauon) -> None:
 
 					# Double check for cue dupes
 					for i in reversed(range(len(order.tracks))):
-						if pctl.master_library[order.tracks[i]].fullpath in cue_list:
+						if pctl.master_library[order.tracks[i]].fullpath in bag.cue_list:
 							if pctl.master_library[order.tracks[i]].is_cue is False:
 								del order.tracks[i]
 
@@ -39277,7 +39279,7 @@ def main(holder: Holder) -> None:
 	# Library and loader Variables--------------------------------------------------------
 	master_library: dict[int, TrackClass] = {}
 
-	cue_list = []
+	cue_list: list[str] = []
 
 	master_count = 0
 
@@ -39395,6 +39397,7 @@ def main(holder: Holder) -> None:
 		track_queue=track_queue,
 		volume=volume,
 		multi_playlist=multi_playlist,
+		cue_list=cue_list,
 		p_force_queue=p_force_queue,
 		logical_size=logical_size,
 		window_size=window_size,
