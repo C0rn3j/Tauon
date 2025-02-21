@@ -846,11 +846,9 @@ class StarStore:
 		return [0, "", 0, 0]
 
 	def get_by_object(self, track: TrackClass):
-
 		return self.db.get(self.object_key(track), (0,))[0]
 
 	def get_total(self):
-
 		return sum(item[0] for item in self.db.values())
 
 	def full_get(self, index: int):
@@ -944,6 +942,18 @@ class Input:
 		self.drag_mode:           bool = False
 		self.quick_drag:          bool = False
 		self.clicked:             bool = False
+
+		self.key_del:             bool = False
+		self.key_c_press:         bool = False
+		self.key_v_press:         bool = False
+		#self.key_f_press:        bool = False
+		self.key_a_press:         bool = False
+		#self.key_t_press:        bool = False
+		self.key_z_press:         bool = False
+		self.key_x_press:         bool = False
+		self.key_backspace_press: bool = False
+		self.key_home_press:      bool = False
+		self.key_end_press:       bool = False
 
 		self.k_input:          bool = True
 		self.key_return_press: bool = False
@@ -9620,23 +9630,23 @@ class TextBox2:
 				self.paste_text = ""
 
 			# Paste via ctrl-v
-			if self.inp.key_ctrl_down and key_v_press:
+			if self.inp.key_ctrl_down and inp.key_v_press:
 				clip = sdl3.SDL_GetClipboardText().decode("utf-8")
 				self.eliminate_selection()
 				self.text = self.text[0: len(self.text) - self.cursor_position] + clip + self.text[len(
 					self.text) - self.cursor_position:]
 
-			if self.inp.key_ctrl_down and key_c_press:
+			if self.inp.key_ctrl_down and inp.key_c_press:
 				self.copy()
 
-			if self.inp.key_ctrl_down and key_x_press:
+			if self.inp.key_ctrl_down and inp.key_x_press:
 				if len(self.get_selection()) > 0:
 					text = self.get_selection()
 					if text != "":
 						sdl3.SDL_SetClipboardText(text.encode("utf-8"))
 					self.eliminate_selection()
 
-			if self.inp.key_ctrl_down and key_a_press:
+			if self.inp.key_ctrl_down and inp.key_a_press:
 				self.cursor_position = 0
 				self.selection = len(self.text)
 
@@ -9645,7 +9655,7 @@ class TextBox2:
 				self.gui.cursor_want = 2
 
 			# Delete key to remove text in front of cursor
-			if key_del:
+			if inp.key_del:
 				if self.selection != self.cursor_position:
 					self.eliminate_selection()
 				else:
@@ -9655,11 +9665,11 @@ class TextBox2:
 						self.cursor_position -= 1
 					self.selection = self.cursor_position
 
-			if key_home_press:
+			if inp.key_home_press:
 				self.cursor_position = len(self.text)
 				if not self.inp.key_shift_down and not self.inp.key_shiftr_down:
 					self.selection = self.cursor_position
-			if key_end_press:
+			if inp.key_end_press:
 				self.cursor_position = 0
 				if not self.inp.key_shift_down and not self.inp.key_shiftr_down:
 					self.selection = self.cursor_position
@@ -10031,23 +10041,23 @@ class TextBox:
 					self.selection = self.cursor_position
 
 			# Paste via ctrl-v
-			if inp.key_ctrl_down and key_v_press:
+			if inp.key_ctrl_down and inp.key_v_press:
 				clip = sdl3.SDL_GetClipboardText().decode("utf-8")
 				self.eliminate_selection()
 				self.text = self.text[0: len(self.text) - self.cursor_position] + clip + self.text[len(
 					self.text) - self.cursor_position:]
 
-			if inp.key_ctrl_down and key_c_press:
+			if inp.key_ctrl_down and inp.key_c_press:
 				self.copy()
 
-			if inp.key_ctrl_down and key_x_press:
+			if inp.key_ctrl_down and inp.key_x_press:
 				if len(self.get_selection()) > 0:
 					text = self.get_selection()
 					if text != "":
 						sdl3.SDL_SetClipboardText(text.encode("utf-8"))
 					self.eliminate_selection()
 
-			if inp.key_ctrl_down and key_a_press:
+			if inp.key_ctrl_down and inp.key_a_press:
 				self.cursor_position = 0
 				self.selection = len(self.text)
 
@@ -10058,7 +10068,7 @@ class TextBox:
 			self.tauon.fields.add(rect)
 
 			# Delete key to remove text in front of cursor
-			if key_del:
+			if inp.key_del:
 				if self.selection != self.cursor_position:
 					self.eliminate_selection()
 				else:
@@ -10068,11 +10078,11 @@ class TextBox:
 						self.cursor_position -= 1
 					self.selection = self.cursor_position
 
-			if key_home_press:
+			if inp.key_home_press:
 				self.cursor_position = len(self.text)
 				if not inp.key_shift_down and not inp.key_shiftr_down:
 					self.selection = self.cursor_position
-			if key_end_press:
+			if inp.key_end_press:
 				self.cursor_position = 0
 				if not inp.key_shift_down and not inp.key_shiftr_down:
 					self.selection = self.cursor_position
@@ -10180,7 +10190,7 @@ class TextBox:
 					self.text = self.text[:-1]
 					inp.backspace_press -= 1
 
-				if inp.key_ctrl_down and key_v_press:
+				if inp.key_ctrl_down and inp.key_v_press:
 					self.paste()
 
 			if secret:
@@ -11926,16 +11936,16 @@ class TransEditBox:
 		changed = 0
 		if len(select) == 1:
 			changed = field_edit(x, y, _("Track title"), 0, titles, edit_title)
-		y += round(40 * gui.scale)
+		y += round(40 * self.gui.scale)
 		changed += field_edit(x, y, _("Album name"), 1, albums, edit_album)
-		y += round(40 * gui.scale)
+		y += round(40 * self.gui.scale)
 		changed += field_edit(x, y, _("Artist name"), 2, artists, edit_artist)
-		y += round(40 * gui.scale)
+		y += round(40 * self.gui.scale)
 		changed += field_edit(x, y, _("Album-artist name"), 3, album_artists, edit_album_artist)
 
-		y += round(40 * gui.scale)
+		y += round(40 * self.gui.scale)
 		for s in select:
-			tr = pctl.get_track(pctl.default_playlist[s])
+			tr = pctl.get_track(self.pctl.default_playlist[s])
 			if tr.is_network:
 				ddt.text((x, y), _("Editing network tracks is not recommended!"), [245, 90, 90, 255], 312)
 
@@ -11981,8 +11991,6 @@ class TransEditBox:
 				return
 
 			def write_tag_go():
-
-
 				for s in select:
 					tr = pctl.get_track(pctl.default_playlist[s])
 
@@ -12028,19 +12036,24 @@ class TransEditBox:
 class SubLyricsBox:
 
 	def __init__(self, tauon: Tauon):
-		self.ddt = tauon.bag.ddt
+		self.ddt     = tauon.ddt
+		self.gui     = tauon.gui
+		self.inp     = tauon.inp
+		self.coll    = tauon.coll
+		self.fields  = tauon.fields
+		self.prefs   = tauon.prefs
+		self.colours = tauon.colours
 		self.active = False
 		self.target_track = None
 		self.active_field = 1
 
 	def activate(self, track: TrackClass):
-
 		self.active = True
 		gui.box_over = True
 		self.target_track = track
 
-		sub_lyrics_a.text = prefs.lyrics_subs.get(self.target_track.artist, "")
-		sub_lyrics_b.text = prefs.lyrics_subs.get(self.target_track.title, "")
+		sub_lyrics_a.text = self.prefs.lyrics_subs.get(self.target_track.artist, "")
+		sub_lyrics_b.text = self.prefs.lyrics_subs.get(self.target_track.title, "")
 
 		if not sub_lyrics_a.text:
 			sub_lyrics_a.text = self.target_track.artist
@@ -12048,91 +12061,91 @@ class SubLyricsBox:
 			sub_lyrics_b.text = self.target_track.title
 
 	def render(self):
-
 		if not self.active:
 			return
 
-		if gui.level_2_click:
-			inp.mouse_click = True
-		gui.level_2_click = False
+		if self.gui.level_2_click:
+			self.inp.mouse_click = True
+		self.gui.level_2_click = False
 
-		w = 400 * gui.scale
-		h = 155 * gui.scale
+		w = 400 * self.gui.scale
+		h = 155 * self.gui.scale
 		x = int(window_size[0] / 2) - int(w / 2)
 		y = int(window_size[1] / 2) - int(h / 2)
 
-		ddt.rect_a((x - 2 * gui.scale, y - 2 * gui.scale), (w + 4 * gui.scale, h + 4 * gui.scale), colours.box_border)
-		ddt.rect_a((x, y), (w, h), colours.box_background)
-		ddt.text_background_colour = colours.box_background
+		self.ddt.rect_a((x - 2 * self.gui.scale, y - 2 * self.gui.scale), (w + 4 * self.gui.scale, h + 4 * self.gui.scale), self.colours.box_border)
+		self.ddt.rect_a((x, y), (w, h), self.colours.box_background)
+		self.ddt.text_background_colour = self.colours.box_background
 
-		if inp.key_esc_press or ((inp.mouse_click or inp.right_click or inp.level_2_right_click) and not tauon.coll((x, y, w, h))):
+		if self.inp.key_esc_press or ((self.inp.mouse_click or self.inp.right_click or self.inp.level_2_right_click) and not self.coll((x, y, w, h))):
 			self.active = False
-			gui.box_over = False
+			self.gui.box_over = False
 
 			if sub_lyrics_a.text and sub_lyrics_a.text != self.target_track.artist:
-				prefs.lyrics_subs[self.target_track.artist] = sub_lyrics_a.text
-			elif self.target_track.artist in prefs.lyrics_subs:
-				del prefs.lyrics_subs[self.target_track.artist]
+				self.prefs.lyrics_subs[self.target_track.artist] = sub_lyrics_a.text
+			elif self.target_track.artist in self.prefs.lyrics_subs:
+				del self.prefs.lyrics_subs[self.target_track.artist]
 
 			if sub_lyrics_b.text and sub_lyrics_b.text != self.target_track.title:
 				prefs.lyrics_subs[self.target_track.title] = sub_lyrics_b.text
-			elif self.target_track.title in prefs.lyrics_subs:
-				del prefs.lyrics_subs[self.target_track.title]
+			elif self.target_track.title in self.prefs.lyrics_subs:
+				del self.prefs.lyrics_subs[self.target_track.title]
 
-		ddt.text((x + 10 * gui.scale, y + 8 * gui.scale), _("Substitute Lyric Search"), colours.grey(230), 213)
+		self.ddt.text((x + 10 * self.gui.scale, y + 8 * self.gui.scale), _("Substitute Lyric Search"), self.colours.grey(230), 213)
 
-		y += round(35 * gui.scale)
-		x += round(23 * gui.scale)
+		y += round(35 * self.gui.scale)
+		x += round(23 * self.gui.scale)
 
 		xx = x
-		xx += ddt.text(
-			(x + round(0 * gui.scale), y + round(0 * gui.scale)), _("Substitute"), colours.box_text_label, 212)
-		xx += round(6 * gui.scale)
-		ddt.text((xx, y + round(0 * gui.scale)), self.target_track.artist, colours.box_sub_text, 312)
+		xx += self.ddt.text(
+			(x + round(0 * self.gui.scale), y + round(0 * self.gui.scale)), _("Substitute"), self.colours.box_text_label, 212)
+		xx += round(6 * self.gui.scale)
+		self.ddt.text((xx, y + round(0 * self.gui.scale)), self.target_track.artist, self.colours.box_sub_text, 312)
 
 		y += round(19 * gui.scale)
 		xx = x
-		xx += ddt.text((xx + round(0 * gui.scale), y + round(0 * gui.scale)), _("with"), colours.box_text_label, 212)
-		xx += round(6 * gui.scale)
-		rect1 = (xx, y, round(250 * gui.scale), round(17 * gui.scale))
-		tauon.fields.add(rect1)
-		ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
-		if (tauon.coll(rect1) and inp.mouse_click) or (inp.key_tab_press and self.active_field == 2):
+		xx += self.ddt.text((xx + round(0 * self.gui.scale), y + round(0 * self.gui.scale)), _("with"), self.colours.box_text_label, 212)
+		xx += round(6 * self.gui.scale)
+		rect1 = (xx, y, round(250 * self.gui.scale), round(17 * self.gui.scale))
+		self.fields.add(rect1)
+		self.ddt.bordered_rect(rect1, self.colours.box_background, self.colours.box_text_border, round(1 * self.gui.scale))
+		if (self.coll(rect1) and inp.mouse_click) or (inp.key_tab_press and self.active_field == 2):
 			self.active_field = 1
 			inp.key_tab_press = False
 
 		sub_lyrics_a.draw(
-			xx + round(4 * gui.scale), y, colours.box_input_text, self.active_field == 1,
-			width=rect1[2] - 8 * gui.scale)
+			xx + round(4 * self.gui.scale), y, colours.box_input_text, self.active_field == 1,
+			width=rect1[2] - 8 * self.gui.scale)
 
-		y += round(28 * gui.scale)
+		y += round(28 * self.gui.scale)
 
 		xx = x
 		xx += ddt.text(
-			(x + round(0 * gui.scale), y + round(0 * gui.scale)), _("Substitute"), colours.box_text_label, 212)
-		xx += round(6 * gui.scale)
-		ddt.text((xx, y + round(0 * gui.scale)), self.target_track.title, colours.box_sub_text, 312)
+			(x + round(0 * self.gui.scale), y + round(0 * self.gui.scale)), _("Substitute"), self.colours.box_text_label, 212)
+		xx += round(6 * self.gui.scale)
+		ddt.text((xx, y + round(0 * self.gui.scale)), self.target_track.title, self.colours.box_sub_text, 312)
 
-		y += round(19 * gui.scale)
+		y += round(19 * self.gui.scale)
 		xx = x
-		xx += ddt.text((xx + round(0 * gui.scale), y + round(0 * gui.scale)), _("with"), colours.box_text_label, 212)
-		xx += round(6 * gui.scale)
-		rect1 = (xx, y, round(250 * gui.scale), round(16 * gui.scale))
-		tauon.fields.add(rect1)
-		if (tauon.coll(rect1) and inp.mouse_click) or (inp.key_tab_press and self.active_field == 1):
+		xx += ddt.text((xx + round(0 * self.gui.scale), y + round(0 * self.gui.scale)), _("with"), self.colours.box_text_label, 212)
+		xx += round(6 * self.gui.scale)
+		rect1 = (xx, y, round(250 * self.gui.scale), round(16 * self.gui.scale))
+		self.fields.add(rect1)
+		if (self.coll(rect1) and self.inp.mouse_click) or (self.inp.key_tab_press and self.active_field == 1):
 			self.active_field = 2
 		# ddt.rect(rect1, [40, 40, 40, 255], True)
-		ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+		self.ddt.bordered_rect(rect1, self.colours.box_background, self.colours.box_text_border, round(1 * self.gui.scale))
 		sub_lyrics_b.draw(
-			xx + round(4 * gui.scale), y, colours.box_input_text, self.active_field == 2, width=rect1[2] - 8 * gui.scale)
+			xx + round(4 * self.gui.scale), y, self.colours.box_input_text, self.active_field == 2, width=rect1[2] - 8 * self.gui.scale)
 
 class ExportPlaylistBox:
 
 	def __init__(self, tauon: Tauon):
+		self.gui      = tauon.gui
+		self.ddt      = tauon.ddt
 		self.pctl     = tauon.pctl
 		self.prefs    = tauon.prefs
-		self.colours  = tauon.bag.colours
-		self.gui      = tauon.gui
+		self.colours  = tauon.colours
 		self.pref_box = tauon.pref_box
 		self.active = False
 		self.id = None
@@ -12159,6 +12172,7 @@ class ExportPlaylistBox:
 
 	def render(self) -> None:
 		gui = self.gui
+		ddt = self.ddt
 		colours = self.colours
 		if not self.active:
 			return
@@ -12581,7 +12595,7 @@ class SearchOverlay:
 					except Exception:
 						logging.exception("Unknown error trying to release worker2_lock")
 
-			if inp.input_text or key_backspace_press:
+			if inp.input_text or inp.key_backspace_press:
 				self.input_timer.set()
 
 				gui.update += 1
@@ -14945,6 +14959,7 @@ class Over:
 
 	def codec_config(self, x0: int, y0: int, w0: int, h0: int) -> None:
 		tauon   = self.tauon
+		pctl    = self.pctl
 		gui     = self.gui
 		ddt     = self.ddt
 		prefs   = self.prefs
@@ -17120,9 +17135,9 @@ class TopPanel:
 		# TODO list listenieng clients
 		elif tauon.transcode_list:
 			bg = colours.status_info_text
-			# if inp.key_ctrl_down and key_c_press:
-			#     del transcode_list[1:]
-			#     gui.tc_cancel = True
+			# if inp.key_ctrl_down and inp.key_c_press:
+			# 	del transcode_list[1:]
+			# 	gui.tc_cancel = True
 			if inp.right_click and tauon.coll([x, y, 280 * gui.scale, 18 * gui.scale]):
 				cancel_menu.activate(position=(x + 20 * gui.scale, y + 23 * gui.scale))
 
@@ -17136,9 +17151,9 @@ class TopPanel:
 				# c3 = [130, 130, 130, 255]
 				#
 				# if colours.lm:
-				#     c1 = [100, 100, 100, 255]
-				#     c2 = [130, 130, 130, 255]
-				#     c3 = [180, 180, 180, 255]
+				# 	c1 = [100, 100, 100, 255]
+				# 	c2 = [130, 130, 130, 255]
+				# 	c3 = [180, 180, 180, 255]
 
 				c1 = [40, 40, 40, 255]
 				c2 = [100, 59, 200, 200]
@@ -21355,7 +21370,7 @@ class RenamePlaylistBox:
 			id = pctl.pl_to_id(pl)
 			pctl.gen_codes[id] = rename_text_area.text
 
-			if input_text or key_backspace_press:
+			if input_text or inp.key_backspace_press:
 				gui.regen_single = rename_playlist_box.playlist_index
 				tauon.thread_manager.ready("worker")
 
@@ -41603,17 +41618,17 @@ def main(holder: Holder) -> None:
 			inp.key_up_press = False
 			inp.key_left_press = False
 			inp.key_esc_press = False
-			key_del = False
+			inp.key_del = False
 			inp.backspace_press = 0
-			key_backspace_press = False
+			inp.key_backspace_press = False
 			inp.key_tab_press = False
-			key_c_press = False
-			key_v_press = False
-			key_a_press = False
-			key_z_press = False
-			key_x_press = False
-			key_home_press = False
-			key_end_press = False
+			inp.key_c_press = False
+			inp.key_v_press = False
+			inp.key_a_press = False
+			inp.key_z_press = False
+			inp.key_x_press = False
+			inp.key_home_press = False
+			inp.key_end_press = False
 			inp.mouse_wheel = 0
 			pref_box.scroll = 0
 			gui.new_playlist_cooldown = False
@@ -41893,25 +41908,25 @@ def main(holder: Holder) -> None:
 
 				if prefs.use_scancodes:
 					if event.key.scancode == sdl3.SDL_SCANCODE_V:
-						key_v_press = True
+						inp.key_v_press = True
 					elif event.key.scancode == sdl3.SDL_SCANCODE_A:
-						key_a_press = True
+						inp.key_a_press = True
 					elif event.key.scancode == sdl3.SDL_SCANCODE_C:
-						key_c_press = True
+						inp.key_c_press = True
 					elif event.key.scancode == sdl3.SDL_SCANCODE_Z:
-						key_z_press = True
+						inp.key_z_press = True
 					elif event.key.scancode == sdl3.SDL_SCANCODE_X:
-						key_x_press = True
+						inp.key_x_press = True
 				elif event.key.key == sdl3.SDLK_V:
-					key_v_press = True
+					inp.key_v_press = True
 				elif event.key.key == sdl3.SDLK_A:
-					key_a_press = True
+					inp.key_a_press = True
 				elif event.key.key == sdl3.SDLK_C:
-					key_c_press = True
+					inp.key_c_press = True
 				elif event.key.key == sdl3.SDLK_Z:
-					key_z_press = True
+					inp.key_z_press = True
 				elif event.key.key == sdl3.SDLK_X:
-					key_x_press = True
+					inp.key_x_press = True
 
 				if event.key.key == (sdl3.SDLK_RETURN or sdl3.SDLK_RETURN2) and len(editline) == 0:
 					inp.key_return_press = True
@@ -41921,9 +41936,9 @@ def main(holder: Holder) -> None:
 					inp.key_tab_press = True
 				elif event.key.key == sdl3.SDLK_BACKSPACE:
 					inp.backspace_press += 1
-					key_backspace_press = True
+					inp.key_backspace_press = True
 				elif event.key.key == sdl3.SDLK_DELETE:
-					key_del = True
+					inp.key_del = True
 				elif event.key.key == sdl3.SDLK_RALT:
 					inp.key_ralt = True
 				elif event.key.key == sdl3.SDLK_LALT:
@@ -41945,9 +41960,9 @@ def main(holder: Holder) -> None:
 				elif event.key.key == sdl3.SDLK_RCTRL:
 					inp.key_rctrl_down = True
 				elif event.key.key == sdl3.SDLK_HOME:
-					key_home_press = True
+					inp.key_home_press = True
 				elif event.key.key == sdl3.SDLK_END:
-					key_end_press = True
+					inp.key_end_press = True
 				elif event.key.key == sdl3.SDLK_LGUI:
 					if macos:
 						inp.key_ctrl_down = True
@@ -42261,19 +42276,19 @@ def main(holder: Holder) -> None:
 				inp.key_right_press = False
 				inp.key_left_press = False
 				inp.key_esc_press = False
-				key_del = False
+				inp.key_del = False
 				inp.backspace_press = 0
-				key_backspace_press = False
+				inp.key_backspace_press = False
 				inp.key_tab_press = False
-				key_c_press = False
-				key_v_press = False
+				inp.key_c_press = False
+				inp.key_v_press = False
 				# key_f_press = False
-				key_a_press = False
+				inp.key_a_press = False
 				# key_t_press = False
-				key_z_press = False
-				key_x_press = False
-				key_home_press = False
-				key_end_press = False
+				inp.key_z_press = False
+				inp.key_x_press = False
+				inp.key_home_press = False
+				inp.key_end_press = False
 				inp.mouse_wheel = 0
 				pref_box.scroll = 0
 				inp.input_text = ""
@@ -42402,7 +42417,7 @@ def main(holder: Holder) -> None:
 							inp.key_down_press = False
 
 				if not tauon.search_over.active:
-					if key_del:
+					if inp.key_del:
 						close_all_menus()
 						del_selected()
 
@@ -42444,15 +42459,15 @@ def main(holder: Holder) -> None:
 						add_selected_to_queue()
 						input_text = ""
 				else:
-					if key_c_press and inp.key_ctrl_down:
+					if inp.key_c_press and inp.key_ctrl_down:
 						gui.pl_update = 1
 						tauon.s_copy()
 
-					if key_x_press and inp.key_ctrl_down:
+					if inp.key_x_press and inp.key_ctrl_down:
 						gui.pl_update = 1
 						tauon.s_cut()
 
-					if key_v_press and inp.key_ctrl_down:
+					if inp.key_v_press and inp.key_ctrl_down:
 						gui.pl_update = 1
 						tauon.paste()
 
@@ -42464,7 +42479,7 @@ def main(holder: Holder) -> None:
 				inp.key_return_press = False
 				inp.level_2_enter = True
 
-			if inp.key_ctrl_down and key_z_press:
+			if inp.key_ctrl_down and inp.key_z_press:
 				undo.undo()
 
 			if keymaps.test("quit"):
@@ -42704,7 +42719,7 @@ def main(holder: Holder) -> None:
 						inp.key_left_press = False
 						pctl.back()
 
-					if key_a_press and inp.key_ctrl_down:
+					if inp.key_a_press and inp.key_ctrl_down:
 						gui.pl_update = 1
 						gui.shift_selection = range(len(pctl.default_playlist)) # TODO(Martin): This can under some circumstances end up doing a range.clear()
 
@@ -45502,9 +45517,8 @@ def main(holder: Holder) -> None:
 					nagbox.draw()
 
 				# SEARCH
-				# if inp.key_ctrl_down and key_v_press:
-
-				#     tauon.search_over.active = True
+				# if inp.key_ctrl_down and inp.key_v_press:
+				# 	tauon.search_over.active = True
 
 				tauon.search_over.render()
 
