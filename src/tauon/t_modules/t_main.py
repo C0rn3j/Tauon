@@ -77,7 +77,7 @@ from ctypes import Structure, byref, c_char_p, c_double, c_int, c_uint32, c_void
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import musicbrainzngs
 import mutagen
@@ -921,6 +921,7 @@ class Input:
 	def __init__(self, gui: GuiVar) -> None:
 		self.gui = gui
 		self.ab_click:            bool = False
+		self.d_mouse_click:       bool = False
 		self.mouse_click:         bool = False
 		self.middle_click:        bool = False
 		self.right_click:         bool = False
@@ -1575,6 +1576,49 @@ class PlayerCtl:
 	#	 load_order.target = path
 	#	 load_order.playlist = pctl.multi_playlist[pl].uuid_int
 	#	 tauon.load_orders.append(copy.deepcopy(load_order))
+
+	def index_key(self, index: int) -> (list[int | str] | Literal['a']):
+		tr = self.master_library[index]
+		s = str(tr.track_number)
+		d = str(tr.disc_number)
+
+		if "/" in d:
+			d = d.split("/")[0]
+
+		# Make sure the value for disc number is an int, make 1 if 0, otherwise ignore
+		if d:
+			try:
+				dd = int(d)
+				if dd < 2:
+					dd = 1
+				d = str(dd)
+			except Exception:
+				logging.exception("Failed to parse as index as int")
+				d = ""
+
+
+		# Add the disc number for sorting by CD, make it '1' if theres isnt one
+		if s or d:
+			if not d:
+				s = "1" + "d" + s
+			else:
+				s = d + "d" + s
+
+		# Use the filename if we dont have any metadata to sort by,
+		# since it could likely have the track number in it
+		else:
+			s = tr.filename
+
+		if (not tr.disc_number or tr.disc_number == "0") and tr.is_cue:
+			s = tr.filename + "-" + s
+
+		# This splits the line by groups of numbers, causing the sorting algorithum to sort
+		# by those numbers. Should work for filenames, even with the disc number in the name
+		try:
+			return [tryint(c) for c in re.split("([0-9]+)", s)]
+		except Exception:
+			logging.exception("Failed to parse as int, returning 'a'")
+			return "a"
 
 	def re_import2(self, pl: int) -> None:
 		paths = self.multi_playlist[pl].last_folder
@@ -3771,10 +3815,10 @@ class LastFMapi:
 				logging.error("Error getting loved status")
 				return
 
-			local_loved = love(set=False, track_id=track_object.index, notify=False, sync=False)
+			local_loved = self.tauon.love(set=False, track_id=track_object.index, notify=False, sync=False)
 
 			if remote_loved != local_loved:
-				love(set=True, track_id=track_object.index, notify=False, sync=False)
+				self.tauon.love(set=True, track_id=track_object.index, notify=False, sync=False)
 		except Exception:
 			logging.exception("Failed to pull love")
 
@@ -3856,8 +3900,7 @@ class LastFMapi:
 		# else:
 		#	return ""
 
-	def love(self, artist: str, title: str):
-
+	def love(self, artist: str, title: str) -> None:
 		if not self.connected and self.prefs.auto_lfm:
 			self.connect(False)
 			self.prefs.scrobble_hold = True
@@ -3877,7 +3920,6 @@ class LastFMapi:
 			track.unlove()
 
 	def clear_friends_love(self) -> None:
-
 		count = 0
 		for index, tr in self.pctl.master_library.items():
 			count += len(tr.lfm_friend_likes)
@@ -5322,6 +5364,7 @@ class Tauon:
 		self.album_art_gen                        = AlbumArt(tauon=self)
 		self.tool_tip                             = ToolTip(tauon=self)
 		self.tool_tip2                            = ToolTip(tauon=self)
+		self.f_store                              = FunctionStore()
 		self.tool_tip2.trigger                    = 1.8
 		self.undo                                 = Undo(tauon=self)
 		self.timed_lyrics_ren                     = TimedLyricsRen(tauon=self)
@@ -5341,7 +5384,6 @@ class Tauon:
 		self.load_orders:         list[LoadClass] = bag.load_orders
 		self.switch_playlist                      = None
 		self.open_uri                             = open_uri
-		self.love                                 = love
 		self.album_info_cache                     = {}
 		self.album_info_cache_key                 = (-1, -1)
 		self.album_mode:                     bool = False
@@ -5415,6 +5457,370 @@ class Tauon:
 		self.tau               = TauService(self)
 
 		self.tls_context = bag.tls_context
+
+	def love(self, set: bool = True, track_id: int | None = None, no_delay: bool = False, notify: bool = False, sync: bool = True) -> bool | None:
+		if len(self.pctl.track_queue) < 1:
+			return False
+
+		if track_id is not None and track_id < 0:
+			return False
+
+		if track_id is None:
+			track_id = self.pctl.track_queue[pctl.queue_step]
+
+		loved = False
+		star = self.star_store.full_get(track_id)
+
+		if star is not None:
+			if "L" in star[1]:
+				loved = True
+
+		if set is False:
+			return loved
+
+		# if len(lfm_username) > 0 and not lastfm.connected and not prefs.auto_lfm:
+		#	 show_message(
+		# 	"You have a last.fm account ready but it is not enabled.", 'info',
+		# 	'Either connect, enable auto connect, or remove the account.')
+		#	 return
+
+		if star is None:
+			star = self.star_store.new_object()
+
+		loved ^= True
+
+		if notify:
+			self.gui.toast_love_object = self.pctl.get_track(track_id)
+			self.gui.toast_love_added = loved
+			self.toast_love_timer.set()
+			self.gui.delay_frame(1.81)
+
+		delay = 0.3
+		if no_delay or not sync or not self.lastfm.details_ready():
+			delay = 0
+
+		star[3] = time.time()
+
+		if loved:
+			time.sleep(delay)
+			self.gui.update += 1
+			self.gui.pl_update += 1
+			star[1] = star[1] + "L" # = [star[0], star[1] + "L", star[2]]
+			self.star_store.insert(track_id, star)
+			if sync:
+				if self.prefs.last_fm_token:
+					try:
+						self.lastfm.love(self.pctl.master_library[track_id].artist, self.pctl.master_library[track_id].title)
+					except Exception:
+						logging.exception("Failed updating last.fm love status")
+						show_message(_("Failed updating last.fm love status"), mode="warning")
+						star[1] = star[1].replace("L", "") # = [star[0], star[1].strip("L"), star[2]]
+						self.star_store.insert(track_id, star)
+						show_message(
+							_("Error updating love to last.fm!"),
+							_("Maybe check your internet connection and try again?"), mode="error")
+
+				if self.pctl.master_library[track_id].file_ext == "JELY":
+					self.jellyfin.favorite(pctl.master_library[track_id])
+		else:
+			time.sleep(delay)
+			self.gui.update += 1
+			self.gui.pl_update += 1
+			star[1] = star[1].replace("L", "")
+			self.star_store.insert(track_id, star)
+			if sync:
+				if self.prefs.last_fm_token:
+					try:
+						self.lastfm.unlove(self.pctl.master_library[track_id].artist, self.pctl.master_library[track_id].title)
+					except Exception:
+						logging.exception("Failed updating last.fm love status")
+						show_message(_("Failed updating last.fm love status"), mode="warning")
+						star[1] = star[1] + "L"
+						self.star_store.insert(track_id, star)
+				if self.pctl.master_library[track_id].file_ext == "JELY":
+					self.jellyfin.favorite(self.pctl.master_library[track_id], un=True)
+
+		self.gui.pl_update = 2
+		self.gui.update += 1
+		if sync and self.pctl.mpris is not None:
+			self.pctl.mpris.update(force=True)
+
+	def line_render(self, n_track: TrackClass, p_track: TrackClass, y: int, this_line_playing, album_fade: int, start_x: int, width: int, style: int = 1, ry=None):
+		timec   = self.colours.bar_time
+		titlec  = self.colours.title_text
+		indexc  = self.colours.index_text
+		artistc = self.colours.artist_text
+		albumc  = self.colours.album_text
+
+		if this_line_playing is True:
+			timec   = self.colours.time_text
+			titlec  = self.colours.title_playing
+			indexc  = self.colours.index_playing
+			artistc = self.colours.artist_playing
+			albumc  = self.colours.album_playing
+
+		if n_track.found is False:
+			timec   = self.colours.playlist_text_missing
+			titlec  = self.colours.playlist_text_missing
+			indexc  = self.colours.playlist_text_missing
+			artistc = self.colours.playlist_text_missing
+			albumc  = self.colours.playlist_text_missing
+
+		artistoffset = 0
+		indexLine = ""
+
+		offset_font_extra = 0
+		if self.gui.row_font_size > 14:
+			offset_font_extra = 8
+
+		# In windows (arial?) draws numbers too high (hack fix)
+		num_y_offset = 0
+		# if system == 'Windows':
+		#    num_y_offset = 1
+
+		if True or style == 1:
+			# if not gui.rsp and not gui.combo_mode:
+			#     width -= 10 * gui.scale
+
+			dash = False
+			if n_track.artist and self.colours.artist_text == self.colours.title_text:
+				dash = True
+
+			if n_track.title:
+				line = track_number_process(n_track.track_number)
+				indexLine = line
+
+				if self.prefs.use_absolute_track_index and self.pctl.multi_playlist[self.pctl.active_playlist_viewing].hide_title:
+					indexLine = str(p_track)
+					if len(indexLine) > 3:
+						indexLine += "  "
+
+				line = ""
+
+				if n_track.artist != "" and not dash:
+					line0 = n_track.artist
+
+					artistoffset = self.ddt.text(
+						(start_x + 27 * self.gui.scale, y),
+						line0,
+						alpha_mod(artistc, album_fade),
+						self.gui.row_font_size,
+						int(width / 2))
+
+					line = n_track.title
+				else:
+					line += n_track.title
+			else:
+				line = \
+					os.path.splitext(n_track.filename)[
+						0]
+
+			if p_track >= len(self.pctl.default_playlist):
+				self.gui.pl_update += 1
+				return
+
+			index = self.pctl.default_playlist[p_track]
+			star_x = 0
+			total = self.star_store.get(index)
+
+			if self.gui.star_mode == "line" and total > 0 and self.pctl.master_library[index].length > 0:
+				ratio = total / self.pctl.master_library[index].length
+				if ratio > 0.55:
+					star_x = int(ratio * 4 * gui.scale)
+					star_x = min(star_x, 60 * gui.scale)
+					sp = y - 0 - self.gui.playlist_text_offset + int(self.gui.playlist_row_height / 2)
+					if self.gui.playlist_row_height > 17 * self.gui.scale:
+						sp -= 1
+
+					lh = 1
+					if self.gui.scale != 1:
+						lh = 2
+
+					colour = self.colours.star_line
+					if this_line_playing and self.colours.star_line_playing is not None:
+						colour = self.colours.star_line_playing
+
+					self.ddt.rect(
+						[
+							width + start_x - star_x - 45 * self.gui.scale - offset_font_extra,
+							sp,
+							star_x + 3 * self.gui.scale,
+							lh],
+						alpha_mod(colour, album_fade))
+
+					star_x += 6 * self.gui.scale
+
+			if self.gui.show_ratings:
+				sx = round(width + start_x - round(40 * self.gui.scale) - offset_font_extra)
+				sy = round(ry + (self.gui.playlist_row_height // 2) - round(7 * self.gui.scale))
+				sx -= round(68 * self.gui.scale)
+
+				draw_rating_widget(sx, sy, n_track)
+
+				star_x += round(70 * self.gui.scale)
+
+			if self.gui.star_mode == "star" and total > 0 and self.pctl.master_library[index].length != 0:
+				sx = width + start_x - 40 * self.gui.scale - offset_font_extra
+				sy = ry + (self.gui.playlist_row_height // 2) - (6 * self.gui.scale)
+				# if self.gui.scale == 1.25:
+				# 	sy += 1
+				playtime_stars = star_count(total, self.pctl.master_library[index].length) - 1
+
+				sx2 = sx
+				selected_star = -2
+				rated_star = -1
+
+				# if self.inp.key_ctrl_down:
+
+				c = 60
+				d = 6
+
+				colour = [70, 70, 70, 255]
+				if self.colours.lm:
+					colour = [90, 90, 90, 255]
+				# colour = alpha_mod(indexc, album_fade)
+
+				for count in range(8):
+					if selected_star < count and playtime_stars < count and rated_star < count:
+						break
+
+					if count == 0:
+						sx -= round(13 * self.gui.scale)
+						star_x += round(13 * self.gui.scale)
+					elif playtime_stars > 3:
+						dd = round((13 - (playtime_stars - 3)) * self.gui.scale)
+						sx -= dd
+						star_x += dd
+					else:
+						sx -= round(13 * self.gui.scale)
+						star_x += round(13 * self.gui.scale)
+
+					# if playtime_stars > 4:
+					# 	colour = [c + d * count, c + d * count, c + d * count, 255]
+					# if playtime_stars > 6: # and count < 1:
+					# 	colour = [230, 220, 60, 255]
+					if self.gui.tracklist_bg_is_light:
+						colour = alpha_blend([0, 0, 0, 200], self.ddt.text_background_colour)
+					else:
+						colour = alpha_blend([255, 255, 255, 50], self.ddt.text_background_colour)
+
+					# if selected_star > -2:
+					# 	if selected_star >= count:
+					# 		colour = (220, 200, 60, 255)
+					# else:
+					# 	if rated_star >= count:
+					# 		colour = (220, 200, 60, 255)
+
+					self.gui.star_pc_icon.render(sx, sy, colour)
+
+			if self.gui.show_hearts:
+				xxx = star_x
+
+				count = 0
+				spacing = 6 * self.gui.scale
+
+				yy = ry + (self.gui.playlist_row_height // 2) - (5 * self.gui.scale)
+				if self.gui.scale == 1.25:
+					yy += 1
+				if xxx > 0:
+					xxx += 3 * self.gui.scale
+
+				if self.love(False, index):
+					count = 1
+					x = width + start_x - 52 * self.gui.scale - offset_font_extra - xxx
+					self.f_store.store(display_you_heart, (x, yy))
+					star_x += 18 * gui.scale
+
+				if "spotify-liked" in self.pctl.master_library[index].misc:
+					x = width + start_x - 52 * self.gui.scale - offset_font_extra - (self.gui.heart_row_icon.w + spacing) * count - xxx
+					self.f_store.store(display_spot_heart, (x, yy))
+					star_x += self.gui.heart_row_icon.w + spacing + 2
+
+				for name in self.pctl.master_library[index].lfm_friend_likes:
+					# Limit to number of hears to display
+					if self.gui.star_mode == "none":
+						if count > 6:
+							break
+					elif count > 4:
+						break
+
+					x = width + start_x - 52 * self.gui.scale - offset_font_extra - (self.gui.heart_row_icon.w + spacing) * count - xxx
+					self.f_store.store(display_friend_heart, (x, yy, name))
+					count += 1
+					star_x += self.gui.heart_row_icon.w + spacing + 2
+
+			# Draw track number/index
+			display_queue = False
+
+			if self.pctl.force_queue:
+				marks = []
+				album_type = False
+				for i, item in enumerate(self.pctl.force_queue):
+					if item.track_id == n_track.index and item.position == p_track and item.playlist_id == self.pctl.pl_to_id(
+							self.pctl.active_playlist_viewing):
+						if item.type == 0:  # Only show mark if track type
+							marks.append(i)
+						# else:
+						# 	album_type = True
+						# 	marks.append(i)
+
+				if marks:
+					display_queue = True
+
+			if display_queue:
+				li = str(marks[0] + 1)
+				if li == "1":
+					li = "N"
+					# if item.track_id == n_track.index and item.position == p_track and item.playlist_id == pctl.active_playlist_viewing
+					if self.pctl.playing_ready() and n_track.index == self.pctl.track_queue[pctl.queue_step] \
+					and p_track == self.pctl.playlist_playing_position:
+						li = "R"
+					# if album_type:
+					# 	li = "A"
+
+				# rect = (start_x + 3 * self.gui.scale, y - 1 * self.gui.scale, 5 * self.gui.scale, 5 * self.gui.scale)
+				# self.ddt.rect_r(rect, [100, 200, 100, 255], True)
+				if len(marks) > 1:
+					li += " " + ("." * (len(marks) - 1))
+					li = li[:5]
+
+				# if album_type:
+				# 	li += "🠗"
+
+				colour = [244, 200, 66, 255]
+				if self.colours.lm:
+					colour = [220, 40, 40, 255]
+
+				self.ddt.text(
+					(start_x + 5 * self.gui.scale, y, 2),
+					li, colour, self.gui.row_font_size + 200 - 1)
+			elif len(indexLine) > 2:
+				self.ddt.text(
+					(start_x + 5 * self.gui.scale, y, 2), indexLine,
+					alpha_mod(indexc, album_fade), self.gui.row_font_size)
+			else:
+				self.ddt.text(
+					(start_x, y), indexLine,
+					alpha_mod(indexc, album_fade), self.gui.row_font_size)
+
+			if dash and n_track.artist and n_track.title:
+				line = n_track.artist + " - " + n_track.title
+
+			self.ddt.text(
+				(start_x + 33 * self.gui.scale + artistoffset, y),
+				line,
+				alpha_mod(titlec, album_fade),
+				self.gui.row_font_size,
+				width - 71 * self.gui.scale - artistoffset - star_x - 20 * self.gui.scale)
+
+			line = get_display_time(n_track.length)
+
+			self.ddt.text(
+				(width + start_x - (round(36 * self.gui.scale) + offset_font_extra),
+				y + num_y_offset, 0), line,
+				alpha_mod(timec, album_fade), self.gui.row_font_size)
+
+			self.f_store.recall_all()
 
 	def clear_img_cache(self, delete_disk: bool = True) -> None:
 		self.album_art_gen.clear_cache()
@@ -5916,10 +6322,10 @@ class Tauon:
 
 		i = 0
 		while i < len(albums) - 1:
-			playlist[albums[i]:albums[i + 1]] = sorted(playlist[albums[i]:albums[i + 1]], key=index_key)
+			playlist[albums[i]:albums[i + 1]] = sorted(playlist[albums[i]:albums[i + 1]], key=self.pctl.index_key)
 			i += 1
 		if len(albums) > 0:
-			playlist[albums[i]:] = sorted(playlist[albums[i]:], key=index_key)
+			playlist[albums[i]:] = sorted(playlist[albums[i]:], key=self.pctl.index_key)
 
 		self.gui.pl_update += 1
 
@@ -18458,7 +18864,7 @@ class StandardPlaylist:
 							gui.pl_update += 1
 
 						# Play if double click:
-						if d_mouse_click and track_position in gui.shift_selection and coll_point(
+						if inp.d_mouse_click and track_position in gui.shift_selection and coll_point(
 							inp.last_click_location, (input_box)):
 							click_time -= 1.5
 							pctl.jump(track_id, track_position)
@@ -18562,7 +18968,7 @@ class StandardPlaylist:
 				line_hit = False
 
 			# Double click to play
-			if inp.key_shift_down is False and d_mouse_click and line_hit and track_position == pctl.selected_in_playlist and coll_point(
+			if inp.key_shift_down is False and inp.d_mouse_click and line_hit and track_position == pctl.selected_in_playlist and coll_point(
 					inp.last_click_location, input_box):
 
 				pctl.jump(track_id, track_position)
@@ -18740,13 +19146,10 @@ class StandardPlaylist:
 		gui.tracklist_bg_is_light = test_lumi(colours.playlist_panel_background) < 0.55
 
 		for type, track_position, tr, track_box, input_box, highlight, number, drag_highlight, playing in list_items:
-
 			line_y = gui.playlist_top + gui.playlist_row_height * number
-
 			ddt.text_background_colour = colours.playlist_panel_background
 
 			if type == 1:
-
 				# Is type ALBUM TITLE
 				separator = " - "
 				if prefs.row_title_separator_type == 1:
@@ -18765,7 +19168,6 @@ class StandardPlaylist:
 						pctl.get_track(pctl.default_playlist[track_position + 1]).parent_folder_path == tr.parent_folder_path:
 					line = tr.parent_folder_name
 				else:
-
 					if tr.album_artist != "" and tr.album != "":
 						line = tr.album_artist + separator + tr.album
 
@@ -18791,9 +19193,7 @@ class StandardPlaylist:
 							if match:
 								line = b[0]
 								date = "(" + b[1]
-
 					elif line.startswith("("):
-
 						b = line.split(")")
 						if len(b) > 1 and len(b[0]) <= 11:
 
@@ -18818,7 +19218,6 @@ class StandardPlaylist:
 
 				total_time = 0
 				while q < len(pctl.default_playlist):
-
 					if pctl.get_track(pctl.default_playlist[q]).parent_folder_path != tr.parent_folder_path:
 						break
 
@@ -18864,7 +19263,6 @@ class StandardPlaylist:
 						(left + highlight_left, gui.playlist_top + gui.playlist_row_height * number),
 						(highlight_width, gui.playlist_row_height), colours.row_select_highlight)
 
-
 				#logging.info(d_date) # date of album release / release year
 				#logging.info(tr.parent_folder_name) # folder name
 				#logging.info(tr.album)
@@ -18872,10 +19270,7 @@ class StandardPlaylist:
 				#logging.info(tr.album_artist)
 				#logging.info(tr.genre)
 
-
-
 				if prefs.row_title_format == 2:
-
 					separator = " | "
 
 					start_offset = round(15 * gui.scale)
@@ -18912,12 +19307,7 @@ class StandardPlaylist:
 							(ex - run, height, 1), tr.genre, colour,
 							gui.row_font_size + gui.pl_title_font_offset)
 
-
 					w2 = ddt.text((xx, height), title_line, colours.folder_title, gui.row_font_size + gui.pl_title_font_offset, max_w=ww - (start_offset + run + round(10 * gui.scale)))
-
-
-
-
 				else:
 					date_w = 0
 					if date:
@@ -18931,13 +19321,9 @@ class StandardPlaylist:
 					aa = 0
 
 					ft_width = ddt.get_text_w(line, gui.row_font_size + gui.pl_title_font_offset)
-
 					left_align = highlight_width - date_w - 13 * gui.scale - light_offset
-
 					left_align -= star_offset
-
 					extra = aa
-
 					left_align -= extra
 
 					if ft_width > left_align:
@@ -18947,7 +19333,6 @@ class StandardPlaylist:
 							colours.folder_title,
 							gui.row_font_size + gui.pl_title_font_offset,
 							highlight_width - date_w - extra - star_offset)
-
 					else:
 						ddt.text(
 							(ex - date_w, height, 1), line,
@@ -18983,7 +19368,6 @@ class StandardPlaylist:
 
 			# Blue drop line
 			if drag_highlight:  # gui.playlist_hold_position != p_track:
-
 				ddt.rect(
 					[left + highlight_left, line_y + gui.playlist_row_height - 1 * gui.scale, highlight_width,
 					3 * gui.scale], [125, 105, 215, 255])
@@ -19004,11 +19388,9 @@ class StandardPlaylist:
 					1 * gui.scale), colours.folder_line)
 
 			if not gui.set_mode:
-
-				line_render(
+				tauon.line_render(
 					tr, track_position, gui.playlist_text_offset + line_y,
 					playing, 255, left + inset_left, inset_width, 1, line_y)
-
 			else:
 				# NEE ---------------------------------------------------------
 				n_track = tr
@@ -19685,7 +20067,6 @@ class RadioBox:
 			"gensokyoradio.net" not in self.loaded_url
 
 	def search_country(self, text):
-
 		if len(text) == 2 and text.isalpha():
 			self.search_radio_browser(
 				"/json/stations/search?countrycode=" + text + "&order=votes&limit=250&reverse=true")
@@ -19694,12 +20075,10 @@ class RadioBox:
 				"/json/stations/search?country=" + text + "&order=votes&limit=250&reverse=true")
 
 	def search_tag(self, text):
-
 		text = text.lower()
 		self.search_radio_browser("/json/stations/search?order=votes&limit=250&reverse=true&tag=" + text)
 
 	def search_title(self, text):
-
 		text = text.lower()
 		self.search_radio_browser("/json/stations/search?order=votes&limit=250&reverse=true&name=" + text)
 
@@ -19803,8 +20182,7 @@ class RadioBox:
 		shoot.daemon = True
 		shoot.start()
 
-	def start2(self, url: str):
-
+	def start2(self, url: str) -> None:
 		if self.run_proxy and not tauon.stream_proxy.start_download(url):
 			self.load_failed_timer.set()
 			self.load_failed = True
@@ -27177,93 +27555,6 @@ def get_love_timestamp_index(index: int):
 		return 0
 	return star[3]
 
-def love(set=True, track_id=None, no_delay=False, notify=False, sync=True):
-	if len(pctl.track_queue) < 1:
-		return False
-
-	if track_id is not None and track_id < 0:
-		return False
-
-	if track_id is None:
-		track_id = pctl.track_queue[pctl.queue_step]
-
-	loved = False
-	star = star_store.full_get(track_id)
-
-	if star is not None:
-		if "L" in star[1]:
-			loved = True
-
-	if set is False:
-		return loved
-
-	# if len(lfm_username) > 0 and not lastfm.connected and not prefs.auto_lfm:
-	#	 show_message("You have a last.fm account ready but it is not enabled.", 'info',
-	#				  'Either connect, enable auto connect, or remove the account.')
-	#	 return
-
-	if star is None:
-		star = star_store.new_object()
-
-	loved ^= True
-
-	if notify:
-		gui.toast_love_object = pctl.get_track(track_id)
-		gui.toast_love_added = loved
-		tauon.toast_love_timer.set()
-		gui.delay_frame(1.81)
-
-	delay = 0.3
-	if no_delay or not sync or not lastfm.details_ready():
-		delay = 0
-
-	star[3] = time.time()
-
-	if loved:
-		time.sleep(delay)
-		gui.update += 1
-		gui.pl_update += 1
-		star[1] = star[1] + "L" # = [star[0], star[1] + "L", star[2]]
-		star_store.insert(track_id, star)
-		if sync:
-			if prefs.last_fm_token:
-				try:
-					lastfm.love(pctl.master_library[track_id].artist, pctl.master_library[track_id].title)
-				except Exception:
-					logging.exception("Failed updating last.fm love status")
-					show_message(_("Failed updating last.fm love status"), mode="warning")
-					star[1] = star[1].replace("L", "") # = [star[0], star[1].strip("L"), star[2]]
-					star_store.insert(track_id, star)
-					show_message(
-						_("Error updating love to last.fm!"),
-						_("Maybe check your internet connection and try again?"), mode="error")
-
-			if pctl.master_library[track_id].file_ext == "JELY":
-				jellyfin.favorite(pctl.master_library[track_id])
-
-	else:
-		time.sleep(delay)
-		gui.update += 1
-		gui.pl_update += 1
-		star[1] = star[1].replace("L", "")
-		star_store.insert(track_id, star)
-		if sync:
-			if prefs.last_fm_token:
-				try:
-					lastfm.unlove(pctl.master_library[track_id].artist, pctl.master_library[track_id].title)
-				except Exception:
-					logging.exception("Failed updating last.fm love status")
-					show_message(_("Failed updating last.fm love status"), mode="warning")
-					star[1] = star[1] + "L"
-					star_store.insert(track_id, star)
-			if pctl.master_library[track_id].file_ext == "JELY":
-				jellyfin.favorite(pctl.master_library[track_id], un=True)
-
-	gui.pl_update = 2
-	gui.update += 1
-	if sync and pctl.mpris is not None:
-		pctl.mpris.update(force=True)
-
 def maloja_get_scrobble_counts():
 	if lastfm.scanning_scrobbles is True or not prefs.maloja_url:
 		return
@@ -29959,49 +30250,6 @@ def append_playlist(tauon: Tauon, index: int) -> None:
 	tauon.gui.pl_update = 1
 	reload()
 
-def index_key(index: int):
-	tr = pctl.master_library[index]
-	s = str(tr.track_number)
-	d = str(tr.disc_number)
-
-	if "/" in d:
-		d = d.split("/")[0]
-
-	# Make sure the value for disc number is an int, make 1 if 0, otherwise ignore
-	if d:
-		try:
-			dd = int(d)
-			if dd < 2:
-				dd = 1
-			d = str(dd)
-		except Exception:
-			logging.exception("Failed to parse as index as int")
-			d = ""
-
-
-	# Add the disc number for sorting by CD, make it '1' if theres isnt one
-	if s or d:
-		if not d:
-			s = "1" + "d" + s
-		else:
-			s = d + "d" + s
-
-	# Use the filename if we dont have any metadata to sort by,
-	# since it could likely have the track number in it
-	else:
-		s = tr.filename
-
-	if (not tr.disc_number or tr.disc_number == "0") and tr.is_cue:
-		s = tr.filename + "-" + s
-
-	# This splits the line by groups of numbers, causing the sorting algorithum to sort
-	# by those numbers. Should work for filenames, even with the disc number in the name
-	try:
-		return [tryint(c) for c in re.split("([0-9]+)", s)]
-	except Exception:
-		logging.exception("Failed to parse as int, returning 'a'")
-		return "a"
-
 #def sort_track_numbers_album_only(pl: int, custom_list=None):
 #	current_folder = ""
 #	albums = []
@@ -30020,10 +30268,10 @@ def index_key(index: int):
 #
 #	i = 0
 #	while i < len(albums) - 1:
-#		playlist[albums[i]:albums[i + 1]] = sorted(playlist[albums[i]:albums[i + 1]], key=index_key)
+#		playlist[albums[i]:albums[i + 1]] = sorted(playlist[albums[i]:albums[i + 1]], key=pctl.index_key)
 #		i += 1
 #	if len(albums) > 0:
-#		playlist[albums[i]:] = sorted(playlist[albums[i]:], key=index_key)
+#		playlist[albums[i]:] = sorted(playlist[albums[i]:], key=pctl.index_key)
 #
 #	gui.pl_update += 1
 
@@ -33874,7 +34122,7 @@ def key_genre(index: int) -> str:
 
 def key_t(index: int):
 	# return str(pctl.master_library[index].track_number)
-	return index_key(index)
+	return pctl.index_key(index)
 
 def key_codec(index: int) -> str:
 	return pctl.master_library[index].file_ext
@@ -34556,7 +34804,6 @@ def draw_rating_widget(x: int, y: int, n_track: TrackClass, album: bool = False)
 			fg2 = alpha_blend([255, 255, 255, 50], ddt.text_background_colour)
 
 	for ss in range(5):
-
 		xx = x + ss * gui.star_row_icon.w
 
 		if playtime_stars:
@@ -34578,7 +34825,7 @@ def draw_rating_widget(x: int, y: int, n_track: TrackClass, album: bool = False)
 				gui.star_row_icon.render(xx, y, fg)
 
 def love_deco():
-	if love(False):
+	if self.tauon.love(False):
 		return [colours.menu_text, colours.menu_background, _("Un-Love Track")]
 	if pctl.playing_state == 1 or pctl.playing_state == 2:
 		return [colours.menu_text, colours.menu_background, _("Love Track")]
@@ -35949,9 +36196,10 @@ def worker1(tauon: Tauon) -> None:
 	global home
 	global added
 
-	bag = tauon.bag
-	gui = tauon.gui
-	pctl = tauon.pctl
+	bag   = tauon.bag
+	gui   = tauon.gui
+	pctl  = tauon.pctl
+	prefs = tauon.prefs
 	loaded_pathes_cache = {}
 	loaded_cue_cache = {}
 	added = []
@@ -36415,7 +36663,7 @@ def worker1(tauon: Tauon) -> None:
 		nt.index = pctl.master_count
 		set_path(nt, path)
 
-		def commit_track(nt):
+		def commit_track(nt: TrackClass) -> None:
 			pctl.master_library[pctl.master_count] = nt
 			added.append(pctl.master_count)
 
@@ -37296,306 +37544,6 @@ def restore_full_mode():
 	gui.update_layout = True
 	if prefs.art_bg:
 		tauon.thread_manager.ready("style")
-
-def line_render(n_track: TrackClass, p_track: TrackClass, y, this_line_playing, album_fade, start_x, width, style=1, ry=None):
-	timec = colours.bar_time
-	titlec = colours.title_text
-	indexc = colours.index_text
-	artistc = colours.artist_text
-	albumc = colours.album_text
-
-	if this_line_playing is True:
-		timec = colours.time_text
-		titlec = colours.title_playing
-		indexc = colours.index_playing
-		artistc = colours.artist_playing
-		albumc = colours.album_playing
-
-	if n_track.found is False:
-		timec = colours.playlist_text_missing
-		titlec = colours.playlist_text_missing
-		indexc = colours.playlist_text_missing
-		artistc = colours.playlist_text_missing
-		albumc = colours.playlist_text_missing
-
-	artistoffset = 0
-	indexLine = ""
-
-	offset_font_extra = 0
-	if gui.row_font_size > 14:
-		offset_font_extra = 8
-
-	# In windows (arial?) draws numbers too high (hack fix)
-	num_y_offset = 0
-	# if system == 'Windows':
-	#    num_y_offset = 1
-
-	if True or style == 1:
-
-		# if not gui.rsp and not gui.combo_mode:
-		#     width -= 10 * gui.scale
-
-		dash = False
-		if n_track.artist and colours.artist_text == colours.title_text:
-			dash = True
-
-		if n_track.title:
-
-			line = track_number_process(n_track.track_number)
-
-			indexLine = line
-
-			if prefs.use_absolute_track_index and pctl.multi_playlist[pctl.active_playlist_viewing].hide_title:
-				indexLine = str(p_track)
-				if len(indexLine) > 3:
-					indexLine += "  "
-
-			line = ""
-
-			if n_track.artist != "" and not dash:
-				line0 = n_track.artist
-
-				artistoffset = ddt.text(
-					(start_x + 27 * gui.scale, y),
-					line0,
-					alpha_mod(artistc, album_fade),
-					gui.row_font_size,
-					int(width / 2))
-
-				line = n_track.title
-			else:
-				line += n_track.title
-		else:
-			line = \
-				os.path.splitext(n_track.filename)[
-					0]
-
-		if p_track >= len(pctl.default_playlist):
-			gui.pl_update += 1
-			return
-
-		index = pctl.default_playlist[p_track]
-		star_x = 0
-		total = star_store.get(index)
-
-		if gui.star_mode == "line" and total > 0 and pctl.master_library[index].length > 0:
-
-			ratio = total / pctl.master_library[index].length
-			if ratio > 0.55:
-				star_x = int(ratio * 4 * gui.scale)
-				star_x = min(star_x, 60 * gui.scale)
-				sp = y - 0 - gui.playlist_text_offset + int(gui.playlist_row_height / 2)
-				if gui.playlist_row_height > 17 * gui.scale:
-					sp -= 1
-
-				lh = 1
-				if gui.scale != 1:
-					lh = 2
-
-				colour = colours.star_line
-				if this_line_playing and colours.star_line_playing is not None:
-					colour = colours.star_line_playing
-
-				ddt.rect(
-					[
-						width + start_x - star_x - 45 * gui.scale - offset_font_extra,
-						sp,
-						star_x + 3 * gui.scale,
-						lh],
-					alpha_mod(colour, album_fade))
-
-				star_x += 6 * gui.scale
-
-		if gui.show_ratings:
-			sx = round(width + start_x - round(40 * gui.scale) - offset_font_extra)
-			sy = round(ry + (gui.playlist_row_height // 2) - round(7 * gui.scale))
-			sx -= round(68 * gui.scale)
-
-			draw_rating_widget(sx, sy, n_track)
-
-			star_x += round(70 * gui.scale)
-
-		if gui.star_mode == "star" and total > 0 and pctl.master_library[
-			index].length != 0:
-
-			sx = width + start_x - 40 * gui.scale - offset_font_extra
-			sy = ry + (gui.playlist_row_height // 2) - (6 * gui.scale)
-			# if gui.scale == 1.25:
-			#     sy += 1
-			playtime_stars = star_count(total, pctl.master_library[index].length) - 1
-
-			sx2 = sx
-			selected_star = -2
-			rated_star = -1
-
-			# if inp.key_ctrl_down:
-
-			c = 60
-			d = 6
-
-			colour = [70, 70, 70, 255]
-			if colours.lm:
-				colour = [90, 90, 90, 255]
-			# colour = alpha_mod(indexc, album_fade)
-
-			for count in range(8):
-
-				if selected_star < count and playtime_stars < count and rated_star < count:
-					break
-
-				if count == 0:
-					sx -= round(13 * gui.scale)
-					star_x += round(13 * gui.scale)
-				elif playtime_stars > 3:
-					dd = round((13 - (playtime_stars - 3)) * gui.scale)
-					sx -= dd
-					star_x += dd
-				else:
-					sx -= round(13 * gui.scale)
-					star_x += round(13 * gui.scale)
-
-				# if playtime_stars > 4:
-				#     colour = [c + d * count, c + d * count, c + d * count, 255]
-				# if playtime_stars > 6: # and count < 1:
-				#     colour = [230, 220, 60, 255]
-				if gui.tracklist_bg_is_light:
-					colour = alpha_blend([0, 0, 0, 200], ddt.text_background_colour)
-				else:
-					colour = alpha_blend([255, 255, 255, 50], ddt.text_background_colour)
-
-				# if selected_star > -2:
-				#     if selected_star >= count:
-				#         colour = (220, 200, 60, 255)
-				# else:
-				#     if rated_star >= count:
-				#         colour = (220, 200, 60, 255)
-
-				gui.star_pc_icon.render(sx, sy, colour)
-
-		if gui.show_hearts:
-
-			xxx = star_x
-
-			count = 0
-			spacing = 6 * gui.scale
-
-			yy = ry + (gui.playlist_row_height // 2) - (5 * gui.scale)
-			if gui.scale == 1.25:
-				yy += 1
-			if xxx > 0:
-				xxx += 3 * gui.scale
-
-			if love(False, index):
-				count = 1
-
-				x = width + start_x - 52 * gui.scale - offset_font_extra - xxx
-
-				f_store.store(display_you_heart, (x, yy))
-
-				star_x += 18 * gui.scale
-
-			if "spotify-liked" in pctl.master_library[index].misc:
-
-				x = width + start_x - 52 * gui.scale - offset_font_extra - (gui.heart_row_icon.w + spacing) * count - xxx
-
-				f_store.store(display_spot_heart, (x, yy))
-
-				star_x += gui.heart_row_icon.w + spacing + 2
-
-			for name in pctl.master_library[index].lfm_friend_likes:
-
-				# Limit to number of hears to display
-				if gui.star_mode == "none":
-					if count > 6:
-						break
-				elif count > 4:
-					break
-
-				x = width + start_x - 52 * gui.scale - offset_font_extra - (gui.heart_row_icon.w + spacing) * count - xxx
-
-				f_store.store(display_friend_heart, (x, yy, name))
-
-				count += 1
-
-				star_x += gui.heart_row_icon.w + spacing + 2
-
-		# Draw track number/index
-		display_queue = False
-
-		if pctl.force_queue:
-
-			marks = []
-			album_type = False
-			for i, item in enumerate(pctl.force_queue):
-				if item.track_id == n_track.index and item.position == p_track and item.playlist_id == pctl.pl_to_id(
-						pctl.active_playlist_viewing):
-					if item.type == 0:  # Only show mark if track type
-						marks.append(i)
-					# else:
-					#     album_type = True
-					#     marks.append(i)
-
-			if marks:
-				display_queue = True
-
-		if display_queue:
-
-			li = str(marks[0] + 1)
-			if li == "1":
-				li = "N"
-				# if item.track_id == n_track.index and item.position == p_track and item.playlist_id == pctl.active_playlist_viewing
-				if pctl.playing_ready() and n_track.index == pctl.track_queue[
-					pctl.queue_step] and p_track == pctl.playlist_playing_position:
-					li = "R"
-				# if album_type:
-				#     li = "A"
-
-			# rect = (start_x + 3 * gui.scale, y - 1 * gui.scale, 5 * gui.scale, 5 * gui.scale)
-			# ddt.rect_r(rect, [100, 200, 100, 255], True)
-			if len(marks) > 1:
-				li += " " + ("." * (len(marks) - 1))
-				li = li[:5]
-
-			# if album_type:
-			#     li += "🠗"
-
-			colour = [244, 200, 66, 255]
-			if colours.lm:
-				colour = [220, 40, 40, 255]
-
-			ddt.text(
-				(start_x + 5 * gui.scale, y, 2),
-				li, colour, gui.row_font_size + 200 - 1)
-
-		elif len(indexLine) > 2:
-
-			ddt.text(
-				(start_x + 5 * gui.scale, y, 2), indexLine,
-				alpha_mod(indexc, album_fade), gui.row_font_size)
-		else:
-
-			ddt.text(
-				(start_x, y), indexLine,
-				alpha_mod(indexc, album_fade), gui.row_font_size)
-
-		if dash and n_track.artist and n_track.title:
-			line = n_track.artist + " - " + n_track.title
-
-		ddt.text(
-			(start_x + 33 * gui.scale + artistoffset, y),
-			line,
-			alpha_mod(titlec, album_fade),
-			gui.row_font_size,
-			width - 71 * gui.scale - artistoffset - star_x - 20 * gui.scale)
-
-		line = get_display_time(n_track.length)
-
-		ddt.text(
-			(width + start_x - (round(36 * gui.scale) + offset_font_extra),
-			y + num_y_offset, 0), line,
-			alpha_mod(timec, album_fade), gui.row_font_size)
-
-		f_store.recall_all()
 
 # def visit_radio_site_show_test(p):
 # 	return "website_url" in prefs.radio_urls[p] and prefs.radio_urls[p].["website_url"]
@@ -39123,9 +39071,6 @@ def main(holder: Holder) -> None:
 	if os.environ.get("SDL_VIDEODRIVER") != "wayland":
 		wayland = False
 		os.environ["GDK_BACKEND"] = "x11"
-
-
-	f_store = FunctionStore()
 
 	search_string_cache = {}
 	search_dia_string_cache = {}
@@ -41643,7 +41588,7 @@ def main(holder: Holder) -> None:
 		if inp.k_input:
 			keymaps.hits.clear()
 
-			d_mouse_click = False
+			inp.d_mouse_click = False
 			inp.right_click = False
 			inp.level_2_right_click = False
 			inp.mouse_click = False
@@ -42301,7 +42246,7 @@ def main(holder: Holder) -> None:
 			if key_focused != 0:
 				keymaps.hits.clear()
 
-				# d_mouse_click = False
+				# inp.d_mouse_click = False
 				# inp.right_click = False
 				# inp.level_2_right_click = False
 				# inp.mouse_click = False
@@ -43133,7 +43078,7 @@ def main(holder: Holder) -> None:
 			if inp.mouse_click:
 				n_click_time = time.time()
 				if n_click_time - click_time < 0.42:
-					d_mouse_click = True
+					inp.d_mouse_click = True
 				click_time = n_click_time
 
 				# Don't register bottom level click when closing message box
