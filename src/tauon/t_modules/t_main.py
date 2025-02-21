@@ -5416,6 +5416,72 @@ class Tauon:
 
 		self.tls_context = bag.tls_context
 
+	def clear_img_cache(self, delete_disk: bool = True) -> None:
+		self.album_art_gen.clear_cache()
+		self.prefs.failed_artists.clear()
+		self.prefs.failed_background_artists.clear()
+		self.gall_ren.key_list = []
+
+		i = 0
+		while len(self.gall_ren.queue) > 0:
+			time.sleep(0.01)
+			i += 1
+			if i > 5 / 0.01:
+				break
+
+		for key, value in self.gall_ren.gall.items():
+			sdl3.SDL_DestroyTexture(value[2])
+		self.gall_ren.gall = {}
+
+		if delete_disk:
+			dirs = [g_cache_dir, n_cache_dir, e_cache_dir]
+			for direc in dirs:
+				if os.path.isdir(direc):
+					for item in os.listdir(direc):
+						path = os.path.join(direc, item)
+						os.remove(path)
+
+		self.prefs.failed_artists.clear()
+		for key, value in self.artist_list_box.thumb_cache.items():
+			if value:
+				sdl3.SDL_DestroyTexture(value[0])
+		self.artist_list_box.thumb_cache.clear()
+		self.gui.update += 1
+
+	def clear_track_image_cache(self, track: TrackClass):
+		self,gui.halt_image_rendering = True
+		if self.gall_ren.queue:
+			time.sleep(0.05)
+		if self.gall_ren.queue:
+			time.sleep(0.2)
+		if self.gall_ren.queue:
+			time.sleep(0.5)
+
+		direc = os.path.join(g_cache_dir)
+		if os.path.isdir(direc):
+			for item in os.listdir(direc):
+				n = item.split("-")
+				if len(n) > 2 and n[2] == str(track.index):
+					os.remove(os.path.join(direc, item))
+					logging.info("Cleared cache thumbnail: " + os.path.join(direc, item))
+
+		keys = set()
+		for key, value in self.gall_ren.gall.items():
+			if key[0] == track:
+				sdl3.SDL_DestroyTexture(value[2])
+				if key not in keys:
+					keys.add(key)
+		for key in keys:
+			del self.gall_ren.gall[key]
+			if key in self.gall_ren.key_list:
+				self.gall_ren.key_list.remove(key)
+
+		self.gui.halt_image_rendering = False
+		self.album_art_gen.clear_cache()
+
+	def signal_handler(self, signum, frame) -> None:
+		signal.signal(signum, signal.SIG_IGN) # ignore additional signals
+		self.exit(reason="SIGINT recieved")
 
 	def save_state(self) -> None:
 		gui   = self.gui
@@ -9327,6 +9393,7 @@ class AlbumArt:
 		self.system               = tauon.system
 		self.gui                  = tauon.gui
 		self.prefs                = tauon.prefs
+		self.colours              = tauon.bag.colours
 		self.ddt                  = tauon.bag.ddt
 		self.renderer             = tauon.bag.renderer
 		self.tls_context          = tauon.bag.tls_context
@@ -10297,22 +10364,20 @@ class AlbumArt:
 		return 0
 
 	def render(self, unit, location) -> None:
-
 		rect = unit.rect
 
-		gui.art_aspect_ratio = unit.actual_size[0] / unit.actual_size[1]
+		self.gui.art_aspect_ratio = unit.actual_size[0] / unit.actual_size[1]
 
 		rect.x = round(int((unit.request_size[0] - unit.actual_size[0]) / 2) + location[0])
 		rect.y = round(int((unit.request_size[1] - unit.actual_size[1]) / 2) + location[1])
 
 		style_overlay.hole_punches.append(rect)
 
-		sdl3.SDL_RenderTexture(renderer, unit.texture, None, rect)
+		sdl3.SDL_RenderTexture(self.renderer, unit.texture, None, rect)
 
-		gui.art_drawn_rect = (rect.x, rect.y, rect.w, rect.h)
+		self.gui.art_drawn_rect = (rect.x, rect.y, rect.w, rect.h)
 
 	def clear_cache(self) -> None:
-
 		for unit in self.image_cache:
 			sdl3.SDL_DestroyTexture(unit.texture)
 
@@ -10327,9 +10392,9 @@ class AlbumArt:
 		self.loading_bin = (None, None)
 		self.embed_cached = (None, None)
 
-		gui.temp_themes.clear()
-		gui.theme_temp_current = -1
-		colours.last_album = ""
+		self.gui.temp_themes.clear()
+		self.gui.theme_temp_current = -1
+		self.colours.last_album = ""
 
 class StyleOverlay:
 
@@ -27317,10 +27382,6 @@ def encode_folder_name(track_object: TrackClass) -> str:
 
 	return folder_name
 
-def signal_handler(signum, frame):
-	signal.signal(signum, signal.SIG_IGN) # ignore additional signals
-	tauon.exit(reason="SIGINT recieved")
-
 def get_network_thumbnail_url(track_object: TrackClass):
 	if track_object.file_ext == "TIDAL":
 		return track_object.art_url_key
@@ -27651,7 +27712,7 @@ def bass_player_thread(player):
 	#					 format='%(asctime)s %(levelname)s %(name)s %(message)s')
 
 	try:
-		player(pctl, gui, prefs, lfm_scrobbler, star_store, tauon)
+		player(pctl, gui, prefs, tauon.lfm_scrobbler, star_store, tauon)
 	except Exception:
 		logging.exception("Exception on player thread")
 		show_message(_("Playback thread has crashed. Sorry about that."), _("App will need to be restarted."), mode="error")
@@ -27806,7 +27867,7 @@ def img_slide_update_gall(value, pause: bool = True) -> None:
 
 	bag.album_mode_art_size = value
 
-	clear_img_cache(False)
+	tauon.clear_img_cache(False)
 	if pause:
 		tauon.gallery_load_delay.set()
 		gui.frame_callback_list.append(TestTimer(0.6))
@@ -27817,69 +27878,6 @@ def img_slide_update_gall(value, pause: bool = True) -> None:
 
 	if bag.album_mode_art_size > 150:
 		prefs.thin_gallery_borders = False
-
-def clear_img_cache(delete_disk: bool = True) -> None:
-	tauon.album_art_gen.clear_cache()
-	prefs.failed_artists.clear()
-	prefs.failed_background_artists.clear()
-	tauon.gall_ren.key_list = []
-
-	i = 0
-	while len(tauon.gall_ren.queue) > 0:
-		time.sleep(0.01)
-		i += 1
-		if i > 5 / 0.01:
-			break
-
-	for key, value in tauon.gall_ren.gall.items():
-		sdl3.SDL_DestroyTexture(value[2])
-	tauon.gall_ren.gall = {}
-
-	if delete_disk:
-		dirs = [g_cache_dir, n_cache_dir, e_cache_dir]
-		for direc in dirs:
-			if os.path.isdir(direc):
-				for item in os.listdir(direc):
-					path = os.path.join(direc, item)
-					os.remove(path)
-
-	prefs.failed_artists.clear()
-	for key, value in tauon.artist_list_box.thumb_cache.items():
-		if value:
-			sdl3.SDL_DestroyTexture(value[0])
-	tauon.artist_list_box.thumb_cache.clear()
-	gui.update += 1
-
-def clear_track_image_cache(track: TrackClass):
-	gui.halt_image_rendering = True
-	if tauon.gall_ren.queue:
-		time.sleep(0.05)
-	if tauon.gall_ren.queue:
-		time.sleep(0.2)
-	if tauon.gall_ren.queue:
-		time.sleep(0.5)
-
-	direc = os.path.join(g_cache_dir)
-	if os.path.isdir(direc):
-		for item in os.listdir(direc):
-			n = item.split("-")
-			if len(n) > 2 and n[2] == str(track.index):
-				os.remove(os.path.join(direc, item))
-				logging.info("Cleared cache thumbnail: " + os.path.join(direc, item))
-
-	keys = set()
-	for key, value in tauon.gall_ren.gall.items():
-		if key[0] == track:
-			sdl3.SDL_DestroyTexture(value[2])
-			if key not in keys:
-				keys.add(key)
-	for key in keys:
-		del tauon.gall_ren.gall[key]
-		if key in tauon.gall_ren.key_list:
-			tauon.gall_ren.key_list.remove(key)
-
-	gui.halt_image_rendering = False
-	tauon.album_art_gen.clear_cache()
 
 def fix_encoding(index, mode, enc):
 	global enc_field
@@ -29286,9 +29284,7 @@ def download_art1(tr):
 
 			logging.info("Found release group ID: " + album_id)
 			logging.info("Found artist ID: " + artist_id)
-
 		else:
-
 			album_id = tr.misc["musicbrainz_releasegroupid"]
 			artist_id = tr.misc["musicbrainz_artistids"][0]
 
@@ -29316,7 +29312,6 @@ def download_art1(tr):
 				t.seek(0)
 
 				if info.get_content_maintype() == "image" and l > 1000:
-
 					if info.get_content_subtype() == "jpeg":
 						filepath = os.path.join(tr.parent_folder_path, "cover-" + id + ".jpg")
 					elif info.get_content_subtype() == "png":
@@ -29330,10 +29325,10 @@ def download_art1(tr):
 					f.close()
 
 					show_message(_("Cover art downloaded from fanart.tv"), mode="done")
-					# clear_img_cache()
+					# tauon.clear_img_cache()
 					for track_id in pctl.default_playlist:
 						if tr.parent_folder_path == pctl.get_track(track_id).parent_folder_path:
-							clear_track_image_cache(pctl.get_track(track_id))
+							tauon.clear_track_image_cache(pctl.get_track(track_id))
 					return
 			except Exception:
 				logging.exception("Failed to get from fanart.tv")
@@ -29351,12 +29346,12 @@ def download_art1(tr):
 			f.close()
 
 			show_message(_("Cover art downloaded from MusicBrainz"), mode="done")
-			# clear_img_cache()
-			clear_track_image_cache(tr)
+			# tauon.clear_img_cache()
+			tauon.clear_track_image_cache(tr)
 
 			for track_id in pctl.default_playlist:
 				if tr.parent_folder_path == pctl.get_track(track_id).parent_folder_path:
-					clear_track_image_cache(pctl.get_track(track_id))
+					tauon.clear_track_image_cache(pctl.get_track(track_id))
 
 			return
 
@@ -29447,7 +29442,7 @@ def remove_embed_picture(track_object: TrackClass, dry: bool = True) -> int | No
 					except Exception:
 						logging.exception("Failed to save tags on FLAC")
 
-				clear_track_image_cache(tr)
+				tauon.clear_track_image_cache(tr)
 
 	except Exception:
 		logging.exception("Image remove error")
@@ -29473,8 +29468,8 @@ def delete_file_image(track_object: TrackClass):
 		if showc is not None and showc[0] == 0:
 			source = tauon.album_art_gen.get_sources(track_object)[showc[2]][1]
 			os.remove(source)
-			# clear_img_cache()
-			clear_track_image_cache(track_object)
+			# tauon.clear_img_cache()
+			tauon.clear_track_image_cache(track_object)
 			logging.info("Deleted file: " + source)
 	except Exception:
 		logging.exception("Failed to delete file")
@@ -33032,11 +33027,11 @@ def clean_folder(index: int, do: bool = False) -> int | None:
 				if os.path.isfile(os.path.join(folder, item)):
 					logging.info("Deleting File: " + os.path.join(folder, item))
 					os.remove(os.path.join(folder, item))
-			# clear_img_cache()
+			# tauon.clear_img_cache()
 
 			for track_id in pctl.default_playlist:
 				if pctl.get_track(track_id).parent_folder_path == folder:
-					clear_track_image_cache(pctl.get_track(track_id))
+					tauon.clear_track_image_cache(pctl.get_track(track_id))
 
 	except Exception:
 		logging.exception("Error deleting files, may not have permission or file may be set to read-only")
@@ -34050,7 +34045,7 @@ def standard_size(tauon: Tauon) -> None:
 	gui.rspw = 80 + int(tauon.bag.window_size[0] * 0.18)
 	gui.update_layout = True
 	bag.album_mode_art_size = 130
-	# clear_img_cache()
+	# tauon.clear_img_cache()
 
 def path_stem_to_playlist(path: str, title: str) -> None:
 	"""Used with gallery power bar"""
@@ -37917,15 +37912,15 @@ def download_img(link: str, target_folder: str, track: TrackClass) -> None:
 				save_target = os.path.join(target_dir, "image.jpg")
 				with open(save_target, "wb") as f:
 					f.write(response.read())
-				# clear_img_cache()
-				clear_track_image_cache(track)
+				# tauon.clear_img_cache()
+				tauon.clear_track_image_cache(track)
 
 			elif info.get_content_subtype() == "png":
 				save_target = os.path.join(target_dir, "image.png")
 				with open(save_target, "wb") as f:
 					f.write(response.read())
-				# clear_img_cache()
-				clear_track_image_cache(track)
+				# tauon.clear_img_cache()
+				tauon.clear_track_image_cache(track)
 			else:
 				show_message(_("Image types other than PNG or JPEG are currently not supported"), mode="warning")
 		else:
@@ -38748,6 +38743,8 @@ def main(holder: Holder) -> None:
 	except Exception:
 		logging.exception("Unknown error trying to import natsort, playlists may not sort as intended!")
 	else:
+		logging.critical("NATSORT IMPORTED")
+		print(sys.modules)
 		use_natsort = True
 
 	if platform_system == "Windows":
@@ -40111,8 +40108,6 @@ def main(holder: Holder) -> None:
 
 	QuickThumbnail.renderer = holder.renderer
 
-	signal.signal(signal.SIGINT, signal_handler)
-
 	if system == "Windows" or msys:
 		from lynxtray import SysTrayIcon
 
@@ -40122,6 +40117,7 @@ def main(holder: Holder) -> None:
 		holder=holder,
 		bag=bag,
 		gui=gui)
+	signal.signal(signal.SIGINT, tauon.signal_handler)
 	tray = STray(tauon=tauon)
 	tauon.perf_timer = perf_timer
 	tauon.core_timer = core_timer
@@ -41211,7 +41207,7 @@ def main(holder: Holder) -> None:
 	x_menu.add_to_sub(0, MenuItem(_("Export as CSV"), export_database))
 	x_menu.add_to_sub(0, MenuItem(_("Rescan All Folders"), pctl.rescan_all_folders))
 	x_menu.add_to_sub(0, MenuItem(_("Play History to Playlist"), q_to_playlist))
-	x_menu.add_to_sub(0, MenuItem(_("Reset Image Cache"), clear_img_cache))
+	x_menu.add_to_sub(0, MenuItem(_("Reset Image Cache"), tauon.clear_img_cache))
 
 	# x_menu.add('Toggle Side panel', toggle_combo_view, combo_deco)
 
@@ -43091,7 +43087,7 @@ def main(holder: Holder) -> None:
 
 			if reset_render:
 				logging.info("Reset render targets!")
-				clear_img_cache(delete_disk=False)
+				tauon.clear_img_cache(delete_disk=False)
 				ddt.clear_text_cache()
 				for item in WhiteModImageAsset.assets:
 					item.reload()
@@ -46548,8 +46544,8 @@ def main(holder: Holder) -> None:
 		tauon.spot_ctl.control("stop")
 
 	# Send scrobble if pending
-	if lfm_scrobbler.queue and not lfm_scrobbler.running:
-		lfm_scrobbler.start_queue()
+	if tauon.lfm_scrobbler.queue and not tauon.lfm_scrobbler.running:
+		tauon.lfm_scrobbler.start_queue()
 		logging.info("Sending scrobble before close...")
 
 	if gui.mode < 3:
@@ -46562,7 +46558,7 @@ def main(holder: Holder) -> None:
 	sdl3.SDL_DestroyTexture(gui.spec1_tex)
 	sdl3.SDL_DestroyTexture(gui.spec_level_tex)
 	ddt.clear_text_cache()
-	clear_img_cache(False)
+	tauon.clear_img_cache(False)
 
 	sdl3.SDL_DestroyWindow(t_window)
 
@@ -46661,9 +46657,9 @@ def main(holder: Holder) -> None:
 				logging.warning("Phazor unload timeout")
 				break
 
-		while lfm_scrobbler.running:
+		while tauon.lfm_scrobbler.running:
 			time.sleep(0.2)
-			lfm_scrobbler.running = False
+			tauon.lfm_scrobbler.running = False
 			if exit_timer.get() > 15:
 				logging.warning("Scrobble wait timeout")
 				break
