@@ -5236,7 +5236,7 @@ class ThumbTracks:
 		image_name = track.album + track.parent_folder_path + str(offset)
 		image_name = hashlib.md5(image_name.encode("utf-8", "replace")).hexdigest()
 
-		t_path = os.path.join(e_cache_dir, image_name + ".jpg")
+		t_path = os.path.join(self.tauon.e_cache_directory, image_name + ".jpg")
 
 		if os.path.isfile(t_path):
 			return t_path
@@ -5260,11 +5260,14 @@ class Tauon:
 		self.macos                        = bag.macos
 		self.system                       = bag.system
 		self.colours                      = bag.colours
-		self.cache_directory:        Path = bag.dirs.cache_directory
+		self.cache_directory              = bag.dirs.cache_directory
 		self.user_directory:  Path | None = bag.dirs.user_directory
 		self.install_directory            = bag.dirs.install_directory
 		self.music_directory: Path | None = bag.dirs.music_directory
-		self.locale_directory:       Path = bag.dirs.locale_directory
+		self.locale_directory             = bag.dirs.locale_directory
+		self.g_cache_directory            = bag.dirs.g_cache_directory
+		self.n_cache_directory            = bag.dirs.n_cache_directory
+		self.e_cache_directory            = bag.dirs.e_cache_directory
 		self.inp                          = gui.inp
 		self.n_version                    = holder.n_version
 		self.t_window                     = holder.t_window
@@ -5534,7 +5537,6 @@ class Tauon:
 											break
 				if not nt.title:
 					nt.title = "Track " + str(nt.subtrack + 1)
-
 			elif nt.file_ext in ("MOD", "IT", "XM", "S3M", "MPTM") and mpt:
 				with Path(nt.fullpath).open("rb") as file:
 					data = file.read()
@@ -5548,7 +5550,6 @@ class Tauon:
 
 				mpt.openmpt_module_destroy(byref(MOD1))
 				del MOD1
-
 			elif nt.file_ext == "FLAC":
 				with Flac(nt.fullpath) as audio:
 					audio.read()
@@ -5574,7 +5575,6 @@ class Tauon:
 					nt.comment = audio.comment
 					nt.cue_sheet = audio.cue_sheet
 					nt.misc = audio.misc
-
 			elif nt.file_ext == "WAV":
 				with Wav(nt.fullpath) as audio:
 					try:
@@ -5597,9 +5597,7 @@ class Tauon:
 					audio = mutagen.File(nt.fullpath)
 					if audio.tags and type(audio.tags) == mutagen.wave._WaveID3:
 						use_id3(audio.tags, nt)
-
 			elif nt.file_ext == "OPUS" or nt.file_ext == "OGG" or nt.file_ext == "OGA":
-
 				#logging.info("get opus")
 				with Opus(nt.fullpath) as audio:
 					audio.read()
@@ -5626,7 +5624,6 @@ class Tauon:
 					nt.misc = audio.misc
 					if nt.bitrate == 0 and nt.length > 0:
 						nt.bitrate = int(nt.size / nt.length * 8 / 1024)
-
 			elif nt.file_ext == "APE":
 				with mutagen.File(nt.fullpath) as audio:
 					nt.length = audio.info.length
@@ -5671,9 +5668,7 @@ class Tauon:
 					nt.disc_total = audio.disc_total
 					nt.comment = audio.comment
 					nt.misc = audio.misc
-
 			elif nt.file_ext == "WV" or nt.file_ext == "TTA":
-
 				with Ape(nt.fullpath) as audio:
 					audio.read()
 
@@ -6270,7 +6265,7 @@ class Tauon:
 		self.gall_ren.gall = {}
 
 		if delete_disk:
-			dirs = [g_cache_dir, n_cache_dir, e_cache_dir]
+			dirs = [self.g_cache_directory, self.n_cache_directory, self.e_cache_directory]
 			for direc in dirs:
 				if os.path.isdir(direc):
 					for item in os.listdir(direc):
@@ -10227,6 +10222,7 @@ class AlbumArt:
 		self.msys                 = tauon.msys
 		self.macos                = tauon.macos
 		self.system               = tauon.system
+		self.inp                  = tauon.inp
 		self.gui                  = tauon.gui
 		self.prefs                = tauon.prefs
 		self.style_overlay        = tauon.style_overlay
@@ -10925,11 +10921,9 @@ class AlbumArt:
 							assert self.downloaded_image
 							source_image = self.downloaded_image
 
-
 					except Exception:
 						logging.exception("IMAGE NETWORK LOAD ERROR")
 						raise
-
 			else:
 				# source_image = open(source[offset][1], 'rb')
 				source_image = self.get_source_raw(0, 0, track, source[offset])
@@ -11063,7 +11057,6 @@ class AlbumArt:
 				colours.queue_background = colours.side_panel_background
 				# Check artist text colour
 				if contrast_ratio(colours.artist_text, colours.playlist_panel_background) < 1.9:
-
 					black = [25, 25, 25, 255]
 					white = [220, 220, 220, 255]
 
@@ -11079,7 +11072,6 @@ class AlbumArt:
 
 				# Check title text colour
 				if contrast_ratio(colours.title_text, colours.playlist_panel_background) < 1.9:
-
 					black = [60, 60, 60, 255]
 					white = [180, 180, 180, 255]
 
@@ -11175,15 +11167,15 @@ class AlbumArt:
 
 			self.render(unit, location)
 
-			if len(self.image_cache) > 5 or (prefs.colour_from_image and len(self.image_cache) > 1):
+			if len(self.image_cache) > 5 or (self.prefs.colour_from_image and len(self.image_cache) > 1):
 				sdl3.SDL_DestroyTexture(self.image_cache[0].texture)
 				del self.image_cache[0]
 
 			# temp fix
 			global move_on_title
-			inp.quick_drag = False
+			self.inp.quick_drag = False
 			move_on_title = False
-			gui.playlist_hold = False
+			self.gui.playlist_hold = False
 
 		except Exception:
 			logging.exception("Image load error")
@@ -11194,9 +11186,7 @@ class AlbumArt:
 				del self.source_cache[index][offset]
 			except Exception:
 				logging.exception(" -- Error, no source cache?")
-
 			return 1
-
 		return 0
 
 	def render(self, unit, location) -> None:
@@ -25721,7 +25711,6 @@ class DLMon:
 		self.done = set()
 
 	def scan(self):
-
 		if len(self.watching) == 0:
 			if self.ticker.get() < 10:
 				return
@@ -25731,9 +25720,7 @@ class DLMon:
 		self.ticker.set()
 
 		for downloads in download_directories:
-
 			for item in os.listdir(downloads):
-
 				path = os.path.join(downloads, item)
 
 				if path in self.done:
@@ -25795,7 +25782,6 @@ class DLMon:
 					else:
 						self.watching[path] = size
 						#logging.info("add.")
-
 				elif min_age < 60 \
 				and os.path.isdir(path) \
 				and path not in tauon.quick_import_done \
@@ -26107,6 +26093,12 @@ class Directories:
 	home_directory:         Path
 	music_directory:        Path
 	download_directory:     Path
+	n_cache_directory:      Path
+	e_cache_directory:      Path
+	g_cache_directory:      Path
+	a_cache_directory:      Path
+	r_cache_directory:      Path
+	b_cache_directory:      Path
 
 @dataclass
 class Bag:
@@ -38684,8 +38676,6 @@ def main(holder: Holder) -> None:
 	except Exception:
 		logging.exception("Unknown error trying to import natsort, playlists may not sort as intended!")
 	else:
-		logging.critical("NATSORT IMPORTED")
-		print(sys.modules)
 		use_natsort = True
 
 	if platform_system == "Windows":
@@ -38736,6 +38726,13 @@ def main(holder: Holder) -> None:
 		music_directory = Path("~").expanduser() / "music"
 
 	download_directory = Path("~").expanduser() / "Downloads"
+
+	n_cache_dir = cache_directory / "network"
+	e_cache_dir = cache_directory / "export"
+	g_cache_dir = cache_directory / "gallery"
+	a_cache_dir = cache_directory / "artist"
+	r_cache_dir = cache_directory / "radio-thumbs"
+	b_cache_dir = user_directory  / "artist-backgrounds"
 
 	# Detect if we are installed or running portable
 	install_mode = False
@@ -38812,13 +38809,6 @@ def main(holder: Holder) -> None:
 		logging.info(cache_directory)
 		shutil.rmtree(str(cache_directory))
 
-	n_cache_dir = str(cache_directory / "network")
-	e_cache_dir = str(cache_directory / "export")
-	g_cache_dir = str(cache_directory / "gallery")
-	a_cache_dir = str(cache_directory / "artist")
-	r_cache_dir = str(cache_directory / "radio-thumbs")
-	b_cache_dir = str(user_directory  / "artist-backgrounds")
-
 	if not os.path.isdir(n_cache_dir):
 		os.makedirs(n_cache_dir)
 	if not os.path.isdir(e_cache_dir):
@@ -38889,6 +38879,12 @@ def main(holder: Holder) -> None:
 		home_directory=home_directory,
 		music_directory=music_directory,
 		download_directory=download_directory,
+		n_cache_directory=n_cache_dir,
+		e_cache_directory=e_cache_dir,
+		g_cache_directory=g_cache_dir,
+		a_cache_directory=a_cache_dir,
+		r_cache_directory=r_cache_dir,
+		b_cache_directory=b_cache_dir,
 	)
 
 	logging.info(f"Install directory:         {install_directory}")
