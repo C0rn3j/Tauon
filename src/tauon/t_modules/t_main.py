@@ -5168,6 +5168,7 @@ class Tauon:
 	"""Root class for everything Tauon"""
 	def __init__(self, holder: Holder, bag: Bag, gui: GuiVar):
 		self.bag                          = bag
+		self.ddt                          = bag.ddt
 		self.macos                        = bag.macos
 		self.system                       = bag.system
 		self.colours                      = bag.colours
@@ -5367,6 +5368,65 @@ class Tauon:
 		self.tau               = TauService(self)
 
 		self.tls_context = bag.tls_context
+
+
+	def trunc_line(self, line: str, font: str, px: int, dots: bool = True) -> str:
+		"""This old function is slow and should be avoided"""
+		if self.ddt.get_text_w(line, font) < px + 10:
+			return line
+
+		if dots:
+			while self.ddt.get_text_w(line.rstrip(" ") + self.gui.trunk_end, font) > px:
+				if len(line) == 0:
+					return self.gui.trunk_end
+				line = line[:-1]
+			return line.rstrip(" ") + self.gui.trunk_end
+
+		while self.ddt.get_text_w(line, font) > px:
+			line = line[:-1]
+			if len(line) < 2:
+				break
+
+		return line
+
+	def right_trunc(self, line: str, font: str, px: int, dots: bool = True) -> str:
+		if self.ddt.get_text_w(line, font) < px + 10:
+			return line
+
+		if dots:
+			while self.ddt.get_text_w(line.rstrip(" ") + self.gui.trunk_end, font) > px:
+				if len(line) == 0:
+					return self.gui.trunk_end
+				line = line[1:]
+			return self.gui.trunk_end + line.rstrip(" ")
+
+		while self.ddt.get_text_w(line, font) > px:
+			# trunk = True
+			line = line[1:]
+			if len(line) < 2:
+				break
+		# if trunk and dots:
+		#	 line = line.rstrip(" ") + self.gui.trunk_end
+		return line
+
+	# def trunc_line2(self, line, font, px):
+	#	 trunk = False
+	#	 p = self.ddt.get_text_w(line, font)
+	#	 if p == 0 or p < px + 15:
+	#		 return line
+	#
+	#	 tl = line[0:(int(px / p * len(line)) + 3)]
+	#
+	#	 if self.ddt.get_text_w(line.rstrip(" ") + self.gui.trunk_end, font) > px:
+	#		 line = tl
+	#
+	#	 while self.ddt.get_text_w(line.rstrip(" ") + self.gui.trunk_end, font) > px + 10:
+	#		 trunk = True
+	#		 line = line[:-1]
+	#		 if len(line) < 1:
+	#			 break
+	#
+	#	 return line.rstrip(" ") + self.gui.trunk_end
 
 	def sort_track_2(self, pl: int, custom_list: list[int] | None = None) -> None:
 		current_folder = ""
@@ -10335,7 +10395,7 @@ class RenameTrackBox:
 				afterline = parse_template2(NRN, pctl.master_library[item])
 
 		ddt.text((x + 10 * gui.scale, y + 68 * gui.scale), _("BEFORE"), colours.box_text_label, 212)
-		line = trunc_line(pctl.master_library[self.target_track_id].filename, 12, 335)
+		line = tauon.trunc_line(pctl.master_library[self.target_track_id].filename, 12, 335)
 		ddt.text((x + 70 * gui.scale, y + 68 * gui.scale), line, colours.grey(210), 211, max_w=340)
 
 		ddt.text((x + 10 * gui.scale, y + 83 * gui.scale), _("AFTER"), colours.box_text_label, 212)
@@ -11851,7 +11911,9 @@ class Over:
 		self.key_box = TextBox2(tauon=tauon)
 		self.key_box_focused = False
 
-	def theme(self, x0: int, y0: int, w0: int, h0: int):
+	def theme(self, x0: int, y0: int, w0: int, h0: int) -> None:
+		gui = self.gui
+		prefs = self.prefs
 		y = y0 + 13 * gui.scale
 		x = x0 + 25 * gui.scale
 
@@ -12243,7 +12305,7 @@ class Over:
 					self.prefs.phazor_device_selected = name
 					reload = True
 
-				line = trunc_line(name, 10, 245 * self.gui.scale)
+				line = self.tauon.trunc_line(name, 10, 245 * self.gui.scale)
 
 				self.tauon.fields.add(rect)
 
@@ -14402,25 +14464,28 @@ class Over:
 				logging.exception("Error draw ext bar")
 
 	def config_v(self, x0: int, y0: int, w0: int, h0: int):
-		ddt.text_background_colour = colours.box_background
+		gui     = self.gui
+		ddt     = self.ddt
+		colours = self.colours
+		self.ddt.text_background_colour = self.colours.box_background
 
 		x = x0 + self.item_x_offset
 		y = y0 + 17 * gui.scale
 
-		self.toggle_square(x, y, rating_toggle, _("Track ratings"))
+		self.toggle_square(x, y, self.tauon.rating_toggle, _("Track ratings"))
 		y += round(25 * gui.scale)
-		self.toggle_square(x, y, album_rating_toggle, _("Album ratings"))
+		self.toggle_square(x, y, self.tauon.album_rating_toggle, _("Album ratings"))
 		y += round(35 * gui.scale)
 
-		self.toggle_square(x, y, heart_toggle, "     ")
+		self.toggle_square(x, y, self.tauon.heart_toggle, "     ")
 		heart_row_icon.render(x + round(23 * gui.scale), y + round(2 * gui.scale), colours.box_text)
 		rect = (x, y + round(2 * gui.scale), 40 * gui.scale, 15 * gui.scale)
-		tauon.fields.add(rect)
-		if tauon.coll(rect):
+		self.tauon.fields.add(rect)
+		if self.tauon.coll(rect):
 			ex_tool_tip(x + round(45 * gui.scale), y - 20 * gui.scale, 0, _("Show track loves"), 12)
 
 		x += (55 * gui.scale)
-		self.toggle_square(x, y, star_toggle, "     ")
+		self.toggle_square(x, y, self.tauon.star_toggle, "     ")
 		star_row_icon.render(x + round(22 * gui.scale), y + round(0 * gui.scale), colours.box_text)
 		rect = (x, y + round(2 * gui.scale), 40 * gui.scale, 15 * gui.scale)
 		tauon.fields.add(rect)
@@ -14428,7 +14493,7 @@ class Over:
 			ex_tool_tip(x + round(35 * gui.scale), y - 20 * gui.scale, 0, _("Represent playtime as stars"), 12)
 
 		x += (55 * gui.scale)
-		self.toggle_square(x, y, star_line_toggle, "     ")
+		self.toggle_square(x, y, self.tauon.star_line_toggle, "     ")
 		ddt.rect(
 			(x + round(21 * gui.scale), y + round(6 * gui.scale), round(15 * gui.scale), round(1 * gui.scale)),
 			colours.box_text)
@@ -14441,14 +14506,14 @@ class Over:
 
 		# y += round(25 * gui.scale)
 
-		# self.toggle_square(x, y, star_line_toggle, _('Show playtime lines'))
+		# self.toggle_square(x, y, self.tauon.star_line_toggle, _('Show playtime lines'))
 		y += round(15 * gui.scale)
 
 		# if gui.show_ratings:
-		#     x += round(10 * gui.scale)
-		# #self.toggle_square(x, y, star_toggle, _('Show playtime stars'))
+		# 	x += round(10 * gui.scale)
+		# #self.toggle_square(x, y, self.tauon.star_toggle, _('Show playtime stars'))
 		# if gui.show_ratings:
-		#     x -= round(10 * gui.scale)
+		# 	x -= round(10 * gui.scale)
 
 
 		y += round(25 * gui.scale)
@@ -14463,10 +14528,10 @@ class Over:
 		prefs.row_title_genre = self.toggle_square(x + round(10 * gui.scale), y, prefs.row_title_genre, _("Show album genre"))
 		y += round(25 * gui.scale)
 
-		self.toggle_square(x, y, toggle_append_date, _("Show album release year"))
+		self.toggle_square(x, y, self.tauon.toggle_append_date, _("Show album release year"))
 		y += round(25 * gui.scale)
 
-		self.toggle_square(x, y, toggle_append_total_time, _("Show album duration"))
+		self.toggle_square(x, y, self.tauon.toggle_append_total_time, _("Show album duration"))
 		y += round(35 * gui.scale)
 
 		if self.toggle_square(x, y, prefs.row_title_separator_type == 0, " - "):
@@ -14494,31 +14559,31 @@ class Over:
 
 	def set_playlist_cycle(self, mode: int = 0):
 		if mode == 1:
-			return True if prefs.end_setting == "cycle" else False
-		prefs.end_setting = "cycle"
+			return True if self.prefs.end_setting == "cycle" else False
+		self.prefs.end_setting = "cycle"
 		# pl_follow = False
 
 	def set_playlist_advance(self, mode: int = 0):
 		if mode == 1:
-			return True if prefs.end_setting == "advance" else False
-		prefs.end_setting = "advance"
+			return True if self.prefs.end_setting == "advance" else False
+		self.prefs.end_setting = "advance"
 		# pl_follow = False
 
 	def set_playlist_stop(self, mode: int = 0):
 		if mode == 1:
-			return True if prefs.end_setting == "stop" else False
-		prefs.end_setting = "stop"
+			return True if self.prefs.end_setting == "stop" else False
+		self.prefs.end_setting = "stop"
 
 	def set_playlist_repeat(self, mode: int = 0):
 		if mode == 1:
-			return True if prefs.end_setting == "repeat" else False
-		prefs.end_setting = "repeat"
+			return True if self.prefs.end_setting == "repeat" else False
+		self.prefs.end_setting = "repeat"
 
 	def small_preset(self) -> None:
-		prefs.playlist_row_height = round(22 * prefs.ui_scale)
-		prefs.playlist_font_size = 15
-		prefs.tracklist_y_text_offset = 0
-		gui.update_layout = True
+		self.prefs.playlist_row_height = round(22 * prefs.ui_scale)
+		self.prefs.playlist_font_size = 15
+		self.prefs.tracklist_y_text_offset = 0
+		self.gui.update_layout = True
 
 	def large_preset(self) -> None:
 		self.prefs.playlist_row_height = round(27 * self.prefs.ui_scale)
@@ -14529,7 +14594,7 @@ class Over:
 		width = round(width * self.gui.scale)
 
 		if label is not None:
-			ddt.text((x + 55 * self.gui.scale, y, 1), label, self.colours.box_text, 312)
+			self.ddt.text((x + 55 * self.gui.scale, y, 1), label, self.colours.box_text, 312)
 			x += 65 * self.gui.scale
 		y += 1 * self.gui.scale
 		rect = (x, y, 33 * self.gui.scale, 15 * self.gui.scale)
@@ -16183,11 +16248,11 @@ class BottomBarType1:
 
 			x = self.seek_bar_position[0] + 1
 			mx = window_size[0] - 710 * gui.scale
-			# if gui.bb_show_art:
-			#     x += 10 * gui.scale
-			#     mx -= gui.panelBY - 10
+			# if self.gui.bb_show_art:
+			#  x += 10 * self.gui.scale
+			#  mx -= self.gui.panelBY - 10
 
-			# line = trunc_line(line, 213, mx)
+			# line = self.tauon.trunc_line(line, 213, mx)
 			ddt.text(
 				(x, self.seek_bar_position[1] + 24 * gui.scale), line, colours.bar_title_text,
 				fonts.panel_title, max_w=mx)
@@ -27470,64 +27535,6 @@ def clear_track_image_cache(track: TrackClass):
 	gui.halt_image_rendering = False
 	tauon.album_art_gen.clear_cache()
 
-def trunc_line(line: str, font: str, px: int, dots: bool = True) -> str:
-	"""This old function is slow and should be avoided"""
-	if self.ddt.get_text_w(line, font) < px + 10:
-		return line
-
-	if dots:
-		while self.ddt.get_text_w(line.rstrip(" ") + gui.trunk_end, font) > px:
-			if len(line) == 0:
-				return self.gui.trunk_end
-			line = line[:-1]
-		return line.rstrip(" ") + self.gui.trunk_end
-
-	while self.ddt.get_text_w(line, font) > px:
-		line = line[:-1]
-		if len(line) < 2:
-			break
-
-	return line
-
-def right_trunc(line: str, font: str, px: int, dots: bool = True) -> str:
-	if self.ddt.get_text_w(line, font) < px + 10:
-		return line
-
-	if dots:
-		while self.ddt.get_text_w(line.rstrip(" ") + self.gui.trunk_end, font) > px:
-			if len(line) == 0:
-				return self.gui.trunk_end
-			line = line[1:]
-		return self.gui.trunk_end + line.rstrip(" ")
-
-	while self.ddt.get_text_w(line, font) > px:
-		# trunk = True
-		line = line[1:]
-		if len(line) < 2:
-			break
-	# if trunk and dots:
-	#	 line = line.rstrip(" ") + gui.trunk_end
-	return line
-
-# def trunc_line2(line, font, px):
-#	 trunk = False
-#	 p = ddt.get_text_w(line, font)
-#	 if p == 0 or p < px + 15:
-#		 return line
-#
-#	 tl = line[0:(int(px / p * len(line)) + 3)]
-#
-#	 if ddt.get_text_w(line.rstrip(" ") + gui.trunk_end, font) > px:
-#		 line = tl
-#
-#	 while ddt.get_text_w(line.rstrip(" ") + gui.trunk_end, font) > px + 10:
-#		 trunk = True
-#		 line = line[:-1]
-#		 if len(line) < 1:
-#			 break
-#
-#	 return line.rstrip(" ") + gui.trunk_end
-
 def fix_encoding(index, mode, enc):
 	global enc_field
 
@@ -28110,11 +28117,12 @@ def toggle_shuffle_layout(albums: bool = False):
 		if not gui.shuffle_was_showcase:
 			exit_combo()
 
-def toggle_shuffle_layout_albums():
+def toggle_shuffle_layout_albums() -> None:
 	toggle_shuffle_layout(albums=True)
 
-def toggle_shuffle_layout_deco():
-	if not prefs.shuffle_lock:
+def toggle_shuffle_layout_deco(tauon: Tauon) -> list[list[int] | str | None]:
+	colours = tauon.bag.colours
+	if not tauon.prefs.shuffle_lock:
 		return [colours.menu_text, colours.menu_background, _("Shuffle Lockdown")]
 	return [colours.menu_text, colours.menu_background, _("Exit Shuffle Lockdown")]
 
@@ -42049,7 +42057,7 @@ def main(holder: Holder) -> None:
 					sdl3.SDL_GetWindowSizeInPixels(t_window, i_x, i_y)
 					window_size[0] = i_x.contents.value
 					window_size[1] = i_y.contents.value
-					auto_scale()
+					auto_scale(bag)
 					update_layout = True
 					gui.update = 2
 				elif event.type == sdl3.SDL_EVENT_WINDOW_RESIZED:
@@ -43080,7 +43088,7 @@ def main(holder: Holder) -> None:
 			# inp.mouse_position[0], inp.mouse_position[1] = input_sdl.mouse()
 			gui.showed_title = False
 
-		if not gui.ext_drop_mode and not gui.mouse_in_window and not tauon.bottom_bar1.volume_bar_being_dragged and not tauon.bottom_bar1.volume_hit and not tauon.bottom_bar1.seek_hit:
+			if not gui.ext_drop_mode and not gui.mouse_in_window and not tauon.bottom_bar1.volume_bar_being_dragged and not tauon.bottom_bar1.volume_hit and not tauon.bottom_bar1.seek_hit:
 				inp.mouse_position[0] = -300.
 				inp.mouse_position[1] = -300.
 
@@ -45496,7 +45504,7 @@ def main(holder: Holder) -> None:
 					ddt.text((x + 10 * gui.scale, y + 65 * gui.scale), _("PATH"), colours.box_text_label, 212)
 					line = os.path.dirname(
 						pctl.master_library[rename_index].parent_folder_path.rstrip("\\/")).replace("\\","/") + "/"
-					line = right_trunc(line, 12, 420 * gui.scale)
+					line = tauon.right_trunc(line, 12, 420 * gui.scale)
 					line = clean_string(line)
 					ddt.text((x + 60 * gui.scale, y + 65 * gui.scale), line, colours.grey(220), 211)
 
