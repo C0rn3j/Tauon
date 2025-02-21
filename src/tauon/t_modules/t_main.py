@@ -5416,6 +5416,273 @@ class Tauon:
 
 		self.tls_context = bag.tls_context
 
+
+	def save_state(self) -> None:
+		gui   = self.gui
+		pctl  = self.pctl
+		prefs = self.prefs
+		view_prefs = prefs.view_prefs
+
+		if self.bag.should_save_state:
+			logging.info("Writing database to disk... ")
+		else:
+			logging.warning("Dev mode, not saving state... ")
+			return
+
+		view_prefs["update-title"] = prefs.update_title
+		view_prefs["side-panel"] = prefs.prefer_side
+		view_prefs["dim-art"] = prefs.dim_art
+		# view_prefs['pl-follow'] = pl_follow
+		view_prefs["scroll-enable"] = prefs.scroll_enable
+		view_prefs["break-enable"] = prefs.break_enable
+		view_prefs["append-date"] = prefs.append_date
+
+		tauonplaylist_jar = []
+		radioplaylist_jar = []
+		tauonqueueitem_jar = []
+		trackclass_jar = []
+		for v in pctl.multi_playlist:
+			tauonplaylist_jar.append(v.__dict__)
+		for v in pctl.radio_playlists:
+			radioplaylist_jar.append(v.__dict__)
+		for v in pctl.force_queue:
+			tauonqueueitem_jar.append(v.__dict__)
+		for v in pctl.master_library.values():
+			trackclass_jar.append(v.__dict__)
+
+		save = [
+			None,
+			pctl.master_count,
+			pctl.playlist_playing_position,
+			pctl.active_playlist_viewing,
+			pctl.playlist_view_position,
+			tauonplaylist_jar, # pctl.multi_playlist, # list[TauonPlaylist]
+			pctl.player_volume,
+			pctl.track_queue,
+			pctl.queue_step,
+			pctl.default_playlist,
+			None,  # pctl.playlist_playing_position,
+			None,  # Was cue list
+			"",  # radio_field.text,
+			theme,
+			folder_image_offsets,
+			None,  # lfm_username,
+			None,  # lfm_hash,
+			latest_db_version,  # Used for upgrading
+			view_prefs,
+			gui.save_size,
+			None,  # old side panel size
+			0,  # save time (unused)
+			gui.vis_want,  # gui.vis
+			pctl.selected_in_playlist,
+			bag.album_mode_art_size,
+			self.draw_border,
+			prefs.enable_web,
+			prefs.allow_remote,
+			prefs.expose_web,
+			prefs.enable_transcode,
+			prefs.show_rym,
+			None,  # was combo mode art size
+			gui.maximized,
+			prefs.prefer_bottom_title,
+			gui.display_time_mode,
+			prefs.transcode_mode,
+			prefs.transcode_codec,
+			prefs.transcode_bitrate,
+			1,  # prefs.line_style,
+			prefs.cache_gallery,
+			prefs.playlist_font_size,
+			prefs.use_title,
+			gui.pl_st,
+			None,  # gui.set_mode,
+			None,
+			prefs.playlist_row_height,
+			prefs.show_wiki,
+			prefs.auto_extract,
+			prefs.colour_from_image,
+			gui.set_bar,
+			gui.gallery_show_text,
+			gui.bb_show_art,
+			False,  # Was show stars
+			prefs.auto_lfm,
+			prefs.scrobble_mark,
+			prefs.replay_gain,
+			True,  # Was radio lyrics
+			prefs.show_gimage,
+			prefs.end_setting,
+			prefs.show_gen,
+			[],  # was old radio urls
+			prefs.auto_del_zip,
+			gui.level_meter_colour_mode,
+			prefs.ui_scale,
+			prefs.show_lyrics_side,
+			None, #prefs.last_device,
+			album_mode,
+			None,  # gui.album_playlist_width
+			prefs.transcode_opus_as,
+			gui.star_mode,
+			prefs.prefer_side,  # gui.rsp,
+			gui.lsp,
+			gui.rspw,
+			gui.pref_gallery_w,
+			gui.pref_rspw,
+			gui.show_hearts,
+			prefs.monitor_downloads,  # 76
+			gui.artist_info_panel,  # 77
+			prefs.extract_to_music,  # 78
+			lb.enable,
+			None,  # lb.key,
+			rename_files.text,
+			rename_folder.text,
+			prefs.use_jump_crossfade,
+			prefs.use_transition_crossfade,
+			prefs.show_notifications,
+			prefs.true_shuffle,
+			gui.set_mode,
+			None,  # prefs.show_queue, # 88
+			None,  # prefs.show_transfer,
+			tauonqueueitem_jar, # pctl.force_queue, # 90
+			prefs.use_pause_fade,  # 91
+			prefs.append_total_time,  # 92
+			None,  # prefs.backend,
+			pctl.album_shuffle_mode,
+			pctl.album_repeat_mode,  # 95
+			prefs.finish_current,  # Not used
+			prefs.reload_state,  # 97
+			None,  # prefs.reload_play_state,
+			prefs.last_fm_token,
+			prefs.last_fm_username,
+			prefs.use_card_style,
+			prefs.auto_lyrics,
+			prefs.auto_lyrics_checked,
+			prefs.show_side_art,
+			prefs.window_opacity,
+			prefs.gallery_single_click,
+			prefs.tabs_on_top,
+			prefs.showcase_vis,
+			prefs.spec2_colour_mode,
+			prefs.device_buffer,  # moved to config file
+			prefs.use_eq,
+			prefs.eq,
+			prefs.bio_large,
+			prefs.discord_show,
+			prefs.min_to_tray,
+			prefs.guitar_chords,
+			None,  # prefs.playback_follow_cursor,
+			prefs.art_bg,
+			pctl.random_mode,
+			pctl.repeat_mode,
+			prefs.art_bg_stronger,
+			prefs.art_bg_always_blur,
+			prefs.failed_artists,
+			prefs.artist_list,
+			None,  # prefs.auto_sort,
+			prefs.lyrics_enables,
+			prefs.fanart_notify,
+			prefs.bg_showcase_only,
+			None,  # prefs.discogs_pat,
+			prefs.mini_mode_mode,
+			self.after_scan,
+			gui.gallery_positions,
+			prefs.chart_bg,
+			prefs.left_panel_mode,
+			gui.last_left_panel_mode,
+			None, #prefs.gst_device,
+			search_string_cache,
+			search_dia_string_cache,
+			pctl.gen_codes,
+			gui.show_ratings,
+			gui.show_album_ratings,
+			prefs.radio_urls,
+			gui.showcase_mode,  # gui.combo_mode,
+			self.top_panel.prime_tab,
+			self.top_panel.prime_side,
+			prefs.sync_playlist,
+			prefs.spot_client,
+			prefs.spot_secret,
+			prefs.show_band,
+			prefs.download_playlist,
+			self.spot_ctl.cache_saved_albums,
+			prefs.auto_rec,
+			prefs.spotify_token,
+			prefs.use_libre_fm,
+			self.playlist_box.scroll_on,
+			prefs.artist_list_sort_mode,
+			prefs.phazor_device_selected,
+			prefs.failed_background_artists,
+			prefs.bg_flips,
+			prefs.tray_show_title,
+			prefs.artist_list_style,
+			trackclass_jar,
+			prefs.premium,
+			gui.radio_view,
+			radioplaylist_jar, # pctl.radio_playlists,
+			pctl.radio_playlist_viewing,
+			prefs.radio_thumb_bans,
+			prefs.playlist_exports,
+			prefs.show_chromecast,
+			prefs.cache_list,
+			prefs.shuffle_lock,
+			prefs.album_shuffle_lock_mode,
+			gui.was_radio,
+			prefs.spot_username,
+			"", #prefs.spot_password,  # No longer used
+			prefs.artist_list_threshold,
+			prefs.tray_theme,
+			prefs.row_title_format,
+			prefs.row_title_genre,
+			prefs.row_title_separator_type,
+			prefs.replay_preamp,  # 181
+			prefs.gallery_combine_disc,
+		]
+
+		try:
+			with (user_directory / "state.p.backup").open("wb") as file:
+				pickle.dump(save, file, protocol=pickle.HIGHEST_PROTOCOL)
+			# if not pctl.running:
+			with (user_directory / "state.p").open("wb") as file:
+				pickle.dump(save, file, protocol=pickle.HIGHEST_PROTOCOL)
+
+			old_position = old_window_position
+			if not prefs.save_window_position:
+				old_position = None
+
+			save = [
+				self.draw_border,
+				gui.save_size,
+				prefs.window_opacity,
+				gui.scale,
+				gui.maximized,
+				old_position,
+			]
+
+			if not fs_mode:
+				with (user_directory / "window.p").open("wb") as file:
+					pickle.dump(save, file, protocol=pickle.HIGHEST_PROTOCOL)
+
+			self.spot_ctl.save_token()
+
+			with (user_directory / "lyrics_substitutions.json").open("w") as file:
+				json.dump(prefs.lyrics_subs, file)
+
+			save_prefs(bag=bag, cf=cf)
+
+			for key, item in prefs.playlist_exports.items():
+				pl = pctl.id_to_pl(key)
+				if pl is None:
+					continue
+				if item["auto"] is False:
+					continue
+				export_playlist_box.run_export(item, key, warnings=False)
+
+			logging.info("Done writing database")
+
+		except PermissionError:
+			logging.exception("Permission error encountered while writing database")
+			show_message(_("Permission error encountered while writing database"), "error")
+		except Exception:
+			logging.exception("Unknown error encountered while writing database")
+
 	def draw_linked_text(self, location: tuple[int, int], text: str, colour: ColoursClass, font: int, force: bool = False, replace: str = "") -> tuple[int, int, str]:
 		base = ""
 		link_text = ""
@@ -36344,7 +36611,7 @@ def worker1(tauon: Tauon) -> None:
 				not tauon.lastfm.scanning_friends and \
 				not tauon.move_in_progress and \
 				(gui.lowered or not window_is_focused(tauon.t_window) or not gui.mouse_in_window):
-			save_state()
+			tauon.save_state()
 			cue_list.clear()
 			tauon.worker_save_state = False
 
@@ -38318,270 +38585,6 @@ def window_is_focused(t_window) -> bool:
 		return True
 	return False
 
-def save_state() -> None:
-	if bag.should_save_state:
-		logging.info("Writing database to disk... ")
-	else:
-		logging.warning("Dev mode, not saving state... ")
-		return
-
-	# view_prefs['star-lines'] = star_lines
-	view_prefs["update-title"] = prefs.update_title
-	view_prefs["side-panel"] = prefs.prefer_side
-	view_prefs["dim-art"] = prefs.dim_art
-	#view_prefs['level-meter'] = gui.turbo
-	# view_prefs['pl-follow'] = pl_follow
-	view_prefs["scroll-enable"] = prefs.scroll_enable
-	view_prefs["break-enable"] = prefs.break_enable
-	# view_prefs['dd-index'] = dd_index
-	view_prefs["append-date"] = prefs.append_date
-
-	tauonplaylist_jar = []
-	radioplaylist_jar = []
-	tauonqueueitem_jar = []
-	trackclass_jar = []
-	for v in pctl.multi_playlist:
-		tauonplaylist_jar.append(v.__dict__)
-	for v in pctl.radio_playlists:
-		radioplaylist_jar.append(v.__dict__)
-	for v in pctl.force_queue:
-		tauonqueueitem_jar.append(v.__dict__)
-	for v in pctl.master_library.values():
-		trackclass_jar.append(v.__dict__)
-
-	save = [
-		None,
-		pctl.master_count,
-		pctl.playlist_playing_position,
-		pctl.active_playlist_viewing,
-		pctl.playlist_view_position,
-		tauonplaylist_jar, # pctl.multi_playlist, # list[TauonPlaylist]
-		pctl.player_volume,
-		pctl.track_queue,
-		pctl.queue_step,
-		pctl.default_playlist,
-		None,  # pctl.playlist_playing_position,
-		None,  # Was cue list
-		"",  # radio_field.text,
-		theme,
-		folder_image_offsets,
-		None,  # lfm_username,
-		None,  # lfm_hash,
-		latest_db_version,  # Used for upgrading
-		view_prefs,
-		gui.save_size,
-		None,  # old side panel size
-		0,  # save time (unused)
-		gui.vis_want,  # gui.vis
-		pctl.selected_in_playlist,
-		bag.album_mode_art_size,
-		tauon.draw_border,
-		prefs.enable_web,
-		prefs.allow_remote,
-		prefs.expose_web,
-		prefs.enable_transcode,
-		prefs.show_rym,
-		None,  # was combo mode art size
-		gui.maximized,
-		prefs.prefer_bottom_title,
-		gui.display_time_mode,
-		prefs.transcode_mode,
-		prefs.transcode_codec,
-		prefs.transcode_bitrate,
-		1,  # prefs.line_style,
-		prefs.cache_gallery,
-		prefs.playlist_font_size,
-		prefs.use_title,
-		gui.pl_st,
-		None,  # gui.set_mode,
-		None,
-		prefs.playlist_row_height,
-		prefs.show_wiki,
-		prefs.auto_extract,
-		prefs.colour_from_image,
-		gui.set_bar,
-		gui.gallery_show_text,
-		gui.bb_show_art,
-		False,  # Was show stars
-		prefs.auto_lfm,
-		prefs.scrobble_mark,
-		prefs.replay_gain,
-		True,  # Was radio lyrics
-		prefs.show_gimage,
-		prefs.end_setting,
-		prefs.show_gen,
-		[],  # was old radio urls
-		prefs.auto_del_zip,
-		gui.level_meter_colour_mode,
-		prefs.ui_scale,
-		prefs.show_lyrics_side,
-		None, #prefs.last_device,
-		album_mode,
-		None,  # gui.album_playlist_width
-		prefs.transcode_opus_as,
-		gui.star_mode,
-		prefs.prefer_side,  # gui.rsp,
-		gui.lsp,
-		gui.rspw,
-		gui.pref_gallery_w,
-		gui.pref_rspw,
-		gui.show_hearts,
-		prefs.monitor_downloads,  # 76
-		gui.artist_info_panel,  # 77
-		prefs.extract_to_music,  # 78
-		lb.enable,
-		None,  # lb.key,
-		rename_files.text,
-		rename_folder.text,
-		prefs.use_jump_crossfade,
-		prefs.use_transition_crossfade,
-		prefs.show_notifications,
-		prefs.true_shuffle,
-		gui.set_mode,
-		None,  # prefs.show_queue, # 88
-		None,  # prefs.show_transfer,
-		tauonqueueitem_jar, # pctl.force_queue, # 90
-		prefs.use_pause_fade,  # 91
-		prefs.append_total_time,  # 92
-		None,  # prefs.backend,
-		pctl.album_shuffle_mode,
-		pctl.album_repeat_mode,  # 95
-		prefs.finish_current,  # Not used
-		prefs.reload_state,  # 97
-		None,  # prefs.reload_play_state,
-		prefs.last_fm_token,
-		prefs.last_fm_username,
-		prefs.use_card_style,
-		prefs.auto_lyrics,
-		prefs.auto_lyrics_checked,
-		prefs.show_side_art,
-		prefs.window_opacity,
-		prefs.gallery_single_click,
-		prefs.tabs_on_top,
-		prefs.showcase_vis,
-		prefs.spec2_colour_mode,
-		prefs.device_buffer,  # moved to config file
-		prefs.use_eq,
-		prefs.eq,
-		prefs.bio_large,
-		prefs.discord_show,
-		prefs.min_to_tray,
-		prefs.guitar_chords,
-		None,  # prefs.playback_follow_cursor,
-		prefs.art_bg,
-		pctl.random_mode,
-		pctl.repeat_mode,
-		prefs.art_bg_stronger,
-		prefs.art_bg_always_blur,
-		prefs.failed_artists,
-		prefs.artist_list,
-		None,  # prefs.auto_sort,
-		prefs.lyrics_enables,
-		prefs.fanart_notify,
-		prefs.bg_showcase_only,
-		None,  # prefs.discogs_pat,
-		prefs.mini_mode_mode,
-		tauon.after_scan,
-		gui.gallery_positions,
-		prefs.chart_bg,
-		prefs.left_panel_mode,
-		gui.last_left_panel_mode,
-		None, #prefs.gst_device,
-		search_string_cache,
-		search_dia_string_cache,
-		pctl.gen_codes,
-		gui.show_ratings,
-		gui.show_album_ratings,
-		prefs.radio_urls,
-		gui.showcase_mode,  # gui.combo_mode,
-		tauon.top_panel.prime_tab,
-		tauon.top_panel.prime_side,
-		prefs.sync_playlist,
-		prefs.spot_client,
-		prefs.spot_secret,
-		prefs.show_band,
-		prefs.download_playlist,
-		tauon.spot_ctl.cache_saved_albums,
-		prefs.auto_rec,
-		prefs.spotify_token,
-		prefs.use_libre_fm,
-		tauon.playlist_box.scroll_on,
-		prefs.artist_list_sort_mode,
-		prefs.phazor_device_selected,
-		prefs.failed_background_artists,
-		prefs.bg_flips,
-		prefs.tray_show_title,
-		prefs.artist_list_style,
-		trackclass_jar,
-		prefs.premium,
-		gui.radio_view,
-		radioplaylist_jar, # pctl.radio_playlists,
-		pctl.radio_playlist_viewing,
-		prefs.radio_thumb_bans,
-		prefs.playlist_exports,
-		prefs.show_chromecast,
-		prefs.cache_list,
-		prefs.shuffle_lock,
-		prefs.album_shuffle_lock_mode,
-		gui.was_radio,
-		prefs.spot_username,
-		"", #prefs.spot_password,  # No longer used
-		prefs.artist_list_threshold,
-		prefs.tray_theme,
-		prefs.row_title_format,
-		prefs.row_title_genre,
-		prefs.row_title_separator_type,
-		prefs.replay_preamp,  # 181
-		prefs.gallery_combine_disc,
-	]
-
-	try:
-		with (user_directory / "state.p.backup").open("wb") as file:
-			pickle.dump(save, file, protocol=pickle.HIGHEST_PROTOCOL)
-		# if not pctl.running:
-		with (user_directory / "state.p").open("wb") as file:
-			pickle.dump(save, file, protocol=pickle.HIGHEST_PROTOCOL)
-
-		old_position = old_window_position
-		if not prefs.save_window_position:
-			old_position = None
-
-		save = [
-			tauon.draw_border,
-			gui.save_size,
-			prefs.window_opacity,
-			gui.scale,
-			gui.maximized,
-			old_position,
-		]
-
-		if not fs_mode:
-			with (user_directory / "window.p").open("wb") as file:
-				pickle.dump(save, file, protocol=pickle.HIGHEST_PROTOCOL)
-
-		tauon.spot_ctl.save_token()
-
-		with (user_directory / "lyrics_substitutions.json").open("w") as file:
-			json.dump(prefs.lyrics_subs, file)
-
-		save_prefs(bag=bag, cf=cf)
-
-		for key, item in prefs.playlist_exports.items():
-			pl = pctl.id_to_pl(key)
-			if pl is None:
-				continue
-			if item["auto"] is False:
-				continue
-			export_playlist_box.run_export(item, key, warnings=False)
-
-		logging.info("Done writing database")
-
-	except PermissionError:
-		logging.exception("Permission error encountered while writing database")
-		show_message(_("Permission error encountered while writing database"), "error")
-	except Exception:
-		logging.exception("Unknown error encountered while writing database")
-
 def test_show_add_home_music(tauon: Tauon) -> None:
 	gui = tauon.gui
 	pctl = tauon.pctl
@@ -39321,7 +39324,18 @@ def main(holder: Holder) -> None:
 	if macos or phone:
 		power_save = True
 
+	# This is legacy. New settings are added straight to the save list (need to overhaul)
+	view_prefs = {
+		"split-line": True,
+		"update-title": False,
+		"star-lines": False,
+		"side-panel": True,
+		"dim-art": False,
+		"pl-follow": False,
+		"scroll-enable": True,
+	}
 	prefs = Prefs(
+		view_prefs=view_prefs,
 		power_save=power_save,
 		encoder_output=encoder_output,
 	#	user_directory=user_directory,
@@ -39409,17 +39423,6 @@ def main(holder: Holder) -> None:
 	# Functions for reading and setting play counts
 	inp = gui.inp
 	keymaps = KeyMap(bag=bag, inp=inp)
-
-	# This is legacy. New settings are added straight to the save list (need to overhaul)
-	view_prefs = {
-		"split-line": True,
-		"update-title": False,
-		"star-lines": False,
-		"side-panel": True,
-		"dim-art": False,
-		"pl-follow": False,
-		"scroll-enable": True,
-	}
 
 
 	# STATE LOADING
@@ -39529,7 +39532,7 @@ def main(holder: Holder) -> None:
 			folder_image_offsets = save[14]
 			# lfm_username = save[15]
 			# lfm_hash = save[16]
-			view_prefs = save[18]
+			bag.view_prefs = save[18]
 			# window_size = save[19]
 			gui.save_size = copy.copy(save[19])
 			gui.rspw = save[20]
@@ -40024,22 +40027,19 @@ def main(holder: Holder) -> None:
 	scale_assets(bag=bag, scale_want=prefs.scale_want)
 
 	try:
-		#star_lines         = view_prefs['star-lines']
-		prefs.update_title  = view_prefs["update-title"]
-		prefs.prefer_side   = view_prefs["side-panel"]
+		prefs.update_title  = bag.view_prefs["update-title"]
+		prefs.prefer_side   = bag.view_prefs["side-panel"]
 		prefs.dim_art       = False  # view_prefs['dim-art']
-		#gui.turbo          = view_prefs['level-meter']
 		#pl_follow          = view_prefs['pl-follow']
-		prefs.scroll_enable = view_prefs["scroll-enable"]
-		if "break-enable" in view_prefs:
-			prefs.break_enable = view_prefs["break-enable"]
+		prefs.scroll_enable = bag.view_prefs["scroll-enable"]
+		if "break-enable" in bag.view_prefs:
+			prefs.break_enable = bag.view_prefs["break-enable"]
 		else:
 			logging.warning("break-enable not found in view_prefs[] when trying to load settings! First run?")
-		#dd_index          = view_prefs['dd-index']
 		#custom_line_mode  = view_prefs['custom-line']
 		#thick_lines       = view_prefs['thick-lines']
-		if "append-date" in view_prefs:
-			prefs.append_date = view_prefs["append-date"]
+		if "append-date" in bag.view_prefs:
+			prefs.append_date = bag.view_prefs["append-date"]
 		else:
 			logging.warning("append-date not found in view_prefs[] when trying to load settings! First run?")
 	except KeyError:
@@ -42998,7 +42998,7 @@ def main(holder: Holder) -> None:
 		# 		not tauon.cm_clean_db and\
 		# 		not tauon.lastfm.scanning_friends and\
 		# 		not tauon.move_in_progress:
-		# 	save_state()
+		# 	tauon.save_state()
 		# 	cue_list.clear()
 		# 	tauon.worker_save_state = False
 
@@ -46580,7 +46580,7 @@ def main(holder: Holder) -> None:
 			pickle.dump(album_star_store.db, file, protocol=pickle.HIGHEST_PROTOCOL)
 
 	gui.gallery_positions[pctl.pl_to_id(pctl.active_playlist_viewing)] = gui.album_scroll_px
-	save_state()
+	tauon.save_state()
 
 	date = datetime.date.today()
 	if bag.should_save_state:

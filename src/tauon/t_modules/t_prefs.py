@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 class Prefs:
 	"""Used to hold any kind of settings"""
 
+	view_prefs:              dict[str, bool]
 #	music_directory:         Path | None
 	encoder_output:          Path
 #	user_directory:          Path
