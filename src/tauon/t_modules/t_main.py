@@ -643,9 +643,17 @@ class GuiVar:
 		self.column_sort_ani_direction = 1
 		self.column_sort_ani_x = 0
 
-		self.inc_arrow   = asset_loader(self.bag, self.bag.loaded_asset_dc, "inc.png", True)
-		self.dec_arrow   = asset_loader(self.bag, self.bag.loaded_asset_dc, "dec.png", True)
-		self.corner_icon = asset_loader(self.bag, self.bag.loaded_asset_dc, "corner.png", True)
+		self.inc_arrow               = asset_loader(self.bag, self.bag.loaded_asset_dc, "inc.png", True)
+		self.dec_arrow               = asset_loader(self.bag, self.bag.loaded_asset_dc, "dec.png", True)
+		self.corner_icon             = asset_loader(self.bag, self.bag.loaded_asset_dc, "corner.png", True)
+		self.heart_icon              = MenuIcon(asset_loader(self.bag, self.bag.loaded_asset_dc, "heart-menu.png", True))
+		self.heart_row_icon          = asset_loader(self.bag, self.bag.loaded_asset_dc, "heart-track.png", True)
+		self.heart_notify_icon       = asset_loader(self.bag, self.bag.loaded_asset_dc, "heart-notify.png", True)
+		self.heart_notify_break_icon = asset_loader(self.bag, self.bag.loaded_asset_dc, "heart-notify-break.png", True)
+		# self.spotify_row_icon      = asset_loader(self.bag, self.bag.loaded_asset_dc, "spotify-row.png", True)
+		self.star_pc_icon            = asset_loader(self.bag, self.bag.loaded_asset_dc, "star-pc.png", True)
+		self.star_row_icon           = asset_loader(self.bag, self.bag.loaded_asset_dc, "star.png", True)
+		self.star_half_row_icon      = asset_loader(self.bag, self.bag.loaded_asset_dc, "star-half.png", True)
 
 		self.restore_showcase_view = False
 		self.restore_radio_view = False
@@ -5408,6 +5416,86 @@ class Tauon:
 
 		self.tls_context = bag.tls_context
 
+	def draw_linked_text(self, location: tuple[int, int], text: str, colour: ColoursClass, font: int, force: bool = False, replace: str = "") -> tuple[int, int, str]:
+		base = ""
+		link_text = ""
+		rest = ""
+		on_base = True
+
+		if force:
+			on_base = False
+			base = ""
+			link_text = text
+			rest = ""
+		else:
+			for i in range(len(text)):
+				if text[i:i + 7] == "http://" or text[i:i + 4] == "www." or text[i:i + 8] == "https://":
+					on_base = False
+				if on_base:
+					base += text[i]
+				elif i == len(text) or text[i] in '\\) "\'':
+					rest = text[i:]
+					break
+				else:
+					link_text += text[i]
+
+		target_link = link_text
+		if replace:
+			link_text = replace
+
+		left = self.ddt.get_text_w(base, font)
+		right = self.ddt.get_text_w(base + link_text, font)
+
+		x = location[0]
+		y = location[1]
+
+		self.ddt.text((x, y), base, colour, font)
+		self.ddt.text((x + left, y), link_text, self.colours.link_text, font)
+		self.ddt.text((x + right, y), rest, colour, font)
+
+		tweak = font
+		while tweak > 100:
+			tweak -= 100
+
+		if self.gui.scale == 2:
+			tweak *= 2
+			tweak += 4
+		elif self.gui.scale != 1:
+			tweak = round(tweak * self.gui.scale)
+			tweak += 2
+
+		if self.system == "Windows":
+			tweak += 1
+
+		# self.ddt.line(x + left, y + tweak + 2, x + right, y + tweak + 2, alpha_mod(self.colours.link_text, 120))
+		self.ddt.rect((x + left, y + tweak + 2, right - left, round(1 * self.gui.scale)), alpha_mod(self.colours.link_text, 120))
+
+		return left, right - left, target_link
+
+	def draw_linked_text2(self, x: int, y: int, text: str, colour: ColoursClass, font: int, click: bool = False, replace: str = "") -> None:
+		link_pa = self.draw_linked_text(
+			(x, y), text, colour, font, replace=replace)
+		link_rect = [x + link_pa[0], y, link_pa[1], 18 * self.gui.scale]
+		if self.coll(link_rect):
+			if not click:
+				self.gui.cursor_want = 3
+			if click:
+				webbrowser.open(link_pa[2], new=2, autoraise=True)
+		self.fields.add(link_rect)
+
+	def link_activate(self, x: int, y: int, link_pa: str, click: bool | None = None) -> None:
+		link_rect = [x + link_pa[0], y - 2 * self.gui.scale, link_pa[1], 20 * self.gui.scale]
+
+		if click is None:
+			click = self.inp.mouse_click
+
+		self.fields.add(link_rect)
+		if self.coll(link_rect):
+			if not click:
+				self.gui.cursor_want = 3
+			if click:
+				webbrowser.open(link_pa[2], new=2, autoraise=True)
+				track_box = True
 
 	def trunc_line(self, line: str, font: str, px: int, dots: bool = True) -> str:
 		"""This old function is slow and should be avoided"""
@@ -11683,10 +11771,19 @@ class SearchOverlay:
 class MessageBox:
 
 	def __init__(self, tauon: Tauon) -> None:
+		bag = tauon.bag
+		self.tauon       = tauon
 		self.ddt         = tauon.bag.ddt
 		self.gui         = tauon.gui
 		self.inp         = tauon.gui.inp
 		self.window_size = tauon.bag.window_size
+		self.message_info_icon     = asset_loader(bag, bag.loaded_asset_dc, "notice.png")
+		self.message_warning_icon  = asset_loader(bag, bag.loaded_asset_dc, "warning.png")
+		self.message_tick_icon     = asset_loader(bag, bag.loaded_asset_dc, "done.png")
+		self.message_arrow_icon    = asset_loader(bag, bag.loaded_asset_dc, "ext.png")
+		self.message_error_icon    = asset_loader(bag, bag.loaded_asset_dc, "error.png")
+		self.message_bubble_icon   = asset_loader(bag, bag.loaded_asset_dc, "bubble.png")
+		self.message_download_icon = asset_loader(bag, bag.loaded_asset_dc, "ddl.png")
 
 	def get_rect(self) -> tuple[int, int, float, int]:
 		w1 = self.ddt.get_text_w(gui.message_text, 15) + 74 * gui.scale
@@ -11726,23 +11823,23 @@ class MessageBox:
 		ddt.text_background_colour = colours.message_box_bg
 
 		if gui.message_mode == "info":
-			message_info_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(message_info_icon.h / 2) - 1)
+			self.message_info_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(self.message_info_icon.h / 2) - 1)
 		elif gui.message_mode == "warning":
-			message_warning_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(message_info_icon.h / 2) - 1)
+			self.message_warning_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(self.message_info_icon.h / 2) - 1)
 		elif gui.message_mode == "done":
-			message_tick_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(message_info_icon.h / 2) - 1)
+			self.message_tick_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(self.message_info_icon.h / 2) - 1)
 		elif gui.message_mode == "arrow":
-			message_arrow_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(message_info_icon.h / 2) - 1)
+			self.message_arrow_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(self.message_info_icon.h / 2) - 1)
 		elif gui.message_mode == "download":
-			message_download_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(message_info_icon.h / 2) - 1)
+			self.message_download_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(self.message_info_icon.h / 2) - 1)
 		elif gui.message_mode == "error":
-			message_error_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(message_error_icon.h / 2) - 1)
+			self.message_error_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(self.message_error_icon.h / 2) - 1)
 		elif gui.message_mode == "bubble":
-			message_bubble_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(message_bubble_icon.h / 2) - 1)
+			self.message_bubble_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(self.message_bubble_icon.h / 2) - 1)
 		elif gui.message_mode == "link":
-			message_info_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(message_bubble_icon.h / 2) - 1)
+			self.message_info_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(self.message_bubble_icon.h / 2) - 1)
 		elif gui.message_mode == "confirm":
-			message_info_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(message_info_icon.h / 2) - 1)
+			self.message_info_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(self.message_info_icon.h / 2) - 1)
 			ddt.text((x + 62 * gui.scale, y + 9 * gui.scale), gui.message_text, colours.message_box_text, 15)
 			if draw.button("Yes", (w // 2 + x) - 70 * gui.scale, y + 32 * gui.scale, w=60*gui.scale):
 				gui.message_box_confirm_callback(*gui.message_box_confirm_reference)
@@ -11753,9 +11850,9 @@ class MessageBox:
 		if gui.message_subtext:
 			ddt.text((x + 62 * gui.scale, y + 11 * gui.scale), gui.message_text, colours.message_box_text, 15)
 			if gui.message_mode == "bubble" or gui.message_mode == "link":
-				link_pa = draw_linked_text((x + 63 * gui.scale, y + (9 + 22) * gui.scale), gui.message_subtext,
+				link_pa = self.tauon.draw_linked_text((x + 63 * gui.scale, y + (9 + 22) * gui.scale), gui.message_subtext,
 					colours.message_box_text, 12)
-				link_activate(x + 63 * gui.scale, y + (9 + 22) * gui.scale, link_pa)
+				self.tauon.link_activate(x + 63 * gui.scale, y + (9 + 22) * gui.scale, link_pa)
 			else:
 				ddt.text((x + 63 * gui.scale, y + (9 + 22) * gui.scale), gui.message_subtext, colours.message_box_text,
 					12)
@@ -11793,9 +11890,9 @@ class NagBox:
 		# 	ddt.rect(re, c)
 		# 	xx += 3
 
-		ddt.rect_a((x - 2 * self.gui.scale, y - 2 * self.gui.scale), (w + 4 * self.gui.scale, h + 4 * self.gui.scale),
+		self.ddt.rect_a((x - 2 * self.gui.scale, y - 2 * self.gui.scale), (w + 4 * self.gui.scale, h + 4 * self.gui.scale),
 			self.colours.box_text_border)
-		ddt.rect_a((x, y), (w, h), self.colours.message_box_bg)
+		self.ddt.rect_a((x, y), (w, h), self.colours.message_box_bg)
 
 		# if gui.level_2_click and not tauon.coll((x, y, w, h)):
 		# 	if tauon.core_timer.get() < 2:
@@ -11812,22 +11909,22 @@ class NagBox:
 		ddt.text((x, y), _("Welcome to v7.2.0!"), self.colours.message_box_text, 212)
 		y += round(20 * self.gui.scale)
 
-		link_pa = draw_linked_text(
+		link_pa = self.tauon.draw_linked_text(
 			(x, y),
 			_("You can check out the release notes on the https://") + "github.com/Taiko2k/TauonMusicBox/releases",
 			self.colours.message_box_text, 12, replace=_("Github release page."))
-		link_activate(x, y, link_pa, click=self.gui.level_2_click)
+		self.tauon.link_activate(x, y, link_pa, click=self.gui.level_2_click)
 
-		heart_notify_icon.render(x + round(425 * self.gui.scale), y + round(80 * self.gui.scale), [255, 90, 90, 255])
+		self.gui.heart_notify_icon.render(x + round(425 * self.gui.scale), y + round(80 * self.gui.scale), [255, 90, 90, 255])
 
 		y += round(30 * self.gui.scale)
-		ddt.text((x, y), _("New supporter bonuses!"), self.colours.message_box_text, 212)
+		self.ddt.text((x, y), _("New supporter bonuses!"), self.colours.message_box_text, 212)
 
 		y += round(20 * self.gui.scale)
 
-		ddt.text((x, y), _("A new supporter bonus theme is now available! Check it out at the above link!"),
+		self.ddt.text((x, y), _("A new supporter bonus theme is now available! Check it out at the above link!"),
 			self.colours.message_box_text, 12)
-		# link_activate(x, y, link_pa, click=gui.level_2_click)
+		# tauon.link_activate(x, y, link_pa, click=gui.level_2_click)
 
 		y += round(20 * self.gui.scale)
 		self.ddt.text((x, y), _("Your support means a lot! Love you!"), self.colours.message_box_text, 12)
@@ -11858,17 +11955,25 @@ class PowerTag:
 
 class Over:
 	def __init__(self, tauon: Tauon) -> None:
-		bag                  = tauon.bag
-		self.tauon           = tauon
-		self.platform_system = tauon.bag.platform_system
-		self.colours         = tauon.bag.colours
-		self.dirs            = tauon.bag.dirs
-		self.prefs           = tauon.bag.prefs
-		self.gui             = tauon.gui
-		self.inp             = tauon.gui.inp
-		self.ddt             = tauon.bag.ddt
-		self.window_size     = tauon.bag.window_size
-		self.init2done       = False
+		bag                      = tauon.bag
+		self.tauon               = tauon
+		self.t_version           = tauon.t_version
+		self.pctl                = tauon.pctl
+		self.system              = tauon.system
+		self.album_mode_art_size = tauon.bag.album_mode_art_size
+		self.platform_system     = tauon.bag.platform_system
+		self.colours             = tauon.bag.colours
+		self.dirs                = tauon.bag.dirs
+		self.prefs               = tauon.bag.prefs
+		self.gui                 = tauon.gui
+		self.inp                 = tauon.gui.inp
+		self.ddt                 = tauon.bag.ddt
+		self.window_size         = tauon.bag.window_size
+		self.wayland             = tauon.bag.wayland
+		self.macos               = tauon.macos
+		self.msys                = tauon.msys
+		self.user_directory      = tauon.user_directory
+		self.init2done           = False
 
 		self.about_image  = asset_loader(bag, bag.loaded_asset_dc, "v4-a.png")
 		self.about_image2 = asset_loader(bag, bag.loaded_asset_dc, "v4-b.png")
@@ -11961,9 +12066,9 @@ class Over:
 
 		y += 25 * gui.scale
 
-		self.toggle_square(x, y, toggle_auto_bg, _("Use album art as background"))
+		self.toggle_square(x, y, self.tauon.toggle_auto_bg, _("Use album art as background"))
 
-		self.toggle_square(x + round(280 * gui.scale), y, toggle_transparent_accent, _("Transparent accent"))
+		self.toggle_square(x + round(280 * gui.scale), y, self.tauon.toggle_transparent_accent, _("Transparent accent"))
 
 		y += 23 * gui.scale
 
@@ -11978,16 +12083,16 @@ class Over:
 					_("You can toggle this back off under Settings > Function"))
 		y += 23 * gui.scale
 
-		self.toggle_square(x + 10 * gui.scale, y, toggle_auto_bg_strong, _("Stronger"))
-		# self.toggle_square(x + 10 * gui.scale, y, toggle_auto_bg_strong1, _("Lo"))
-		# self.toggle_square(x + 54 * gui.scale, y, toggle_auto_bg_strong2, _("Md"))
-		# self.toggle_square(x + 105 * gui.scale, y, toggle_auto_bg_strong3, _("Hi"))
+		self.toggle_square(x + 10 * gui.scale, y, self.tauon.toggle_auto_bg_strong, _("Stronger"))
+		# self.toggle_square(x + 10 * gui.scale, y, self.tauon.toggle_auto_bg_strong1, _("Lo"))
+		# self.toggle_square(x + 54 * gui.scale, y, self.tauon.toggle_auto_bg_strong2, _("Md"))
+		# self.toggle_square(x + 105 * gui.scale, y, self.tauon.toggle_auto_bg_strong3, _("Hi"))
 
 		#y += 23 * gui.scale
-		self.toggle_square(x + 120 * gui.scale, y, toggle_auto_bg_blur, _("Blur"))
+		self.toggle_square(x + 120 * gui.scale, y, self.tauon.toggle_auto_bg_blur, _("Blur"))
 
 		y += 23 * gui.scale
-		self.toggle_square(x + 10 * gui.scale, y, toggle_auto_bg_showcase, _("Showcase only"))
+		self.toggle_square(x + 10 * gui.scale, y, self.tauon.toggle_auto_bg_showcase, _("Showcase only"))
 
 		y += 23 * gui.scale
 		# prefs.center_bg = self.toggle_square(x + 10 * gui.scale, y, prefs.center_bg, _("Always center"))
@@ -11996,7 +12101,7 @@ class Over:
 
 		y += 25 * gui.scale
 
-		self.toggle_square(x, y, toggle_auto_theme, _("Auto-theme from album art"))
+		self.toggle_square(x, y, self.tauon.toggle_auto_theme, _("Auto-theme from album art"))
 
 		y += 55 * gui.scale
 
@@ -12020,8 +12125,8 @@ class Over:
 			self.ddt.rect(rect, [5, 5, 5, 255])
 
 			rect = grow_rect(rect, 3)
-			tauon.fields.add(rect)
-			if tauon.coll(rect):
+			self.tauon.fields.add(rect)
+			if self.tauon.coll(rect):
 				hover_name = theme_name
 				if self.click:
 					prefs.theme = theme_number
@@ -12090,15 +12195,15 @@ class Over:
 			# x += 165 * gui.scale
 			# y += -19 * gui.scale
 
-			link_pa = draw_linked_text((x, y),
+			link_pa = self.tauon.draw_linked_text((x, y),
 			_("Based on") + " " + "https://love.holllo.cc/", self.colours.box_text_label, 312, replace="love.holllo.cc")
-			link_activate(x, y, link_pa, click=self.click)
+			self.tauon.link_activate(x, y, link_pa, click=self.click)
 
 	def rg(self, x0: int, y0: int, w0: int, h0: int) -> None:
 		y = y0 + 55 * self.gui.scale
 		x = x0 + 130 * self.gui.scale
 
-		if self.button(x - 110 * gui.scale, y + 180 * gui.scale, _("Return"), width=75 * self.gui.scale):
+		if self.button(x - 110 * self.gui.scale, y + 180 * self.gui.scale, _("Return"), width=75 * self.gui.scale):
 			self.rg_view = False
 
 		y = y0 + round(15 * self.gui.scale)
@@ -12370,25 +12475,25 @@ class Over:
 		self.lyrics_panel ^= True
 
 	def lyrics(self, x0: int, y0: int, w0: int, h0: int) -> None:
-		x = x0 + 25 * gui.scale
-		y = y0 - 10 * gui.scale
-		y += 30 * gui.scale
+		x = x0 + 25 * self.gui.scale
+		y = y0 - 10 * self.gui.scale
+		y += 30 * self.gui.scale
 
 		self.ddt.text_background_colour = self.colours.box_background
 
-		# self.toggle_square(x, y, toggle_auto_lyrics, _("Auto search lyrics"))
+		# self.toggle_square(x, y, self.tauon.toggle_auto_lyrics, _("Auto search lyrics"))
 		if self.prefs.auto_lyrics:
 			if self.prefs.auto_lyrics_checked:
 				if self.button(x, y, _("Reset failed list")):
 					self.prefs.auto_lyrics_checked.clear()
-			y += 30 * gui.scale
+			y += 30 * self.gui.scale
 
 
-		self.toggle_square(x, y, toggle_guitar_chords, _("Enable chord lyrics"))
+		self.toggle_square(x, y, self.tauon.toggle_guitar_chords, _("Enable chord lyrics"))
 
-		y += 40 * gui.scale
+		y += 40 * self.gui.scale
 		self.ddt.text((x, y), _("Sources:"), self.colours.box_text_label, 11)
-		y += 23 * gui.scale
+		y += 23 * self.gui.scale
 
 		for name in lyric_sources.keys():
 			enabled = name in self.prefs.lyrics_enables
@@ -12396,66 +12501,66 @@ class Over:
 			if name in uses_scraping:
 				title += "*"
 			new = self.toggle_square(x, y, enabled, title)
-			y += round(23 * gui.scale)
+			y += round(23 * self.gui.scale)
 			if new != enabled:
 				if enabled:
 					self.prefs.lyrics_enables.clear()
 				else:
 					self.prefs.lyrics_enables.append(name)
 
-		y += round(6 * gui.scale)
-		self.ddt.text((x + 12 * gui.scale, y), _("*Uses scraping. Enable at your own discretion."), self.colours.box_text_label, 11)
-		y += 20 * gui.scale
-		self.ddt.text((x + 12 * gui.scale, y), _("Tip: The order enabled will be the order searched."), self.colours.box_text_label, 11)
-		y += 20 * gui.scale
+		y += round(6 * self.gui.scale)
+		self.ddt.text((x + 12 * self.gui.scale, y), _("*Uses scraping. Enable at your own discretion."), self.colours.box_text_label, 11)
+		y += 20 * self.gui.scale
+		self.ddt.text((x + 12 * self.gui.scale, y), _("Tip: The order enabled will be the order searched."), self.colours.box_text_label, 11)
+		y += 20 * self.gui.scale
 
-	def view2(self, x0: int, y0: int, w0: int, h0: int):
-		x = x0 + 25 * gui.scale
-		y = y0 + 20 * gui.scale
+	def view2(self, x0: int, y0: int, w0: int, h0: int) -> None:
+		x = x0 + 25 * self.gui.scale
+		y = y0 + 20 * self.gui.scale
 
 		self.ddt.text_background_colour = self.colours.box_background
 
 		self.ddt.text((x, y), _("Metadata side panel"), self.colours.box_text_label, 12)
 
-		y += 25 * gui.scale
-		self.toggle_square(x, y, toggle_side_panel_layout, _("Use centered style"))
-		y += 25 * gui.scale
+		y += 25 * self.gui.scale
+		self.toggle_square(x, y, self.tauon.toggle_side_panel_layout, _("Use centered style"))
+		y += 25 * self.gui.scale
 		old = self.prefs.zoom_art
 		self.prefs.zoom_art = self.toggle_square(x, y, self.prefs.zoom_art, _("Zoom album art to fit"))
 		if self.prefs.zoom_art != old:
 			tauon.album_art_gen.clear_cache()
 
-		y += 35 * gui.scale
+		y += 35 * self.gui.scale
 		self.ddt.text((x, y), _("Gallery"), self.colours.box_text_label, 12)
 
-		y += 25 * gui.scale
-		# self.toggle_square(x, y, toggle_dim_albums, "Dim gallery when playing")
-		self.toggle_square(x, y, toggle_gallery_click, _("Single click to play"))
-		y += 25 * gui.scale
-		self.toggle_square(x, y, toggle_gallery_combine, _("Combine multi-discs"))
-		y += 25 * gui.scale
-		self.toggle_square(x, y, toggle_galler_text, _("Show titles"))
-		y += 25 * gui.scale
+		y += 25 * self.gui.scale
+		# self.toggle_square(x, y, self.tauon.toggle_dim_albums, "Dim gallery when playing")
+		self.toggle_square(x, y, self.tauon.toggle_gallery_click, _("Single click to play"))
+		y += 25 * self.gui.scale
+		self.toggle_square(x, y, self.tauon.toggle_gallery_combine, _("Combine multi-discs"))
+		y += 25 * self.gui.scale
+		self.toggle_square(x, y, self.tauon.toggle_galler_text, _("Show titles"))
+		y += 25 * self.gui.scale
 		# self.toggle_square(x, y, toggle_gallery_row_space, _("Increase row spacing"))
-		# y += 25 * gui.scale
+		# y += 25 * self.gui.scale
 		self.prefs.center_gallery_text = self.toggle_square(
-			x + round(10 * gui.scale), y, self.prefs.center_gallery_text, _("Center alignment"))
+			x + round(10 * self.gui.scale), y, self.prefs.center_gallery_text, _("Center alignment"))
 
-		y += 30 * gui.scale
+		y += 30 * self.gui.scale
 
-		# y += 25 * gui.scale
+		# y += 25 * self.gui.scale
 
-		x -= 80 * gui.scale
+		x -= 80 * self.gui.scale
 		x += self.ddt.get_text_w(_("Thumbnail size"), 312)
-		# x += 20 * gui.scale
+		# x += 20 * self.gui.scale
 
-		if bag.album_mode_art_size < 160:
-			self.toggle_square(x + 235 * gui.scale, y + 2 * gui.scale, toggle_gallery_thin, _("Prefer thinner padding"))
+		if self.album_mode_art_size < 160:
+			self.toggle_square(x + 235 * self.gui.scale, y + 2 * self.gui.scale, self.tauon.toggle_gallery_thin, _("Prefer thinner padding"))
 
 		# self.ddt.text((x, y), _("Gallery art size"), self.colours.grey(220), 11)
 
-		bag.album_mode_art_size = self.slide_control(
-			x + 25 * gui.scale, y, _("Thumbnail size"), "px", bag.album_mode_art_size, 70, 400, 10, img_slide_update_gall)
+		self.album_mode_art_size = self.slide_control(
+			x + 25 * self.gui.scale, y, _("Thumbnail size"), "px", self.album_mode_art_size, 70, 400, 10, img_slide_update_gall)
 
 	def funcs(self, x0: int, y0: int, w0: int, h0: int):
 		tauon   = self.tauon
@@ -12476,7 +12581,7 @@ class Over:
 				x, y, tauon.toggle_enable_web, _("Enable Listen Along"), subtitle=_("Start server for remote web playback"))
 
 			if tauon.toggle_enable_web(1):
-				link_pa2 = draw_linked_text(
+				link_pa2 = self.tauon.draw_linked_text(
 					(x + 300 * gui.scale, y - 1 * gui.scale),
 					f"http://localhost:{prefs.metadata_page_port!s}/listenalong",
 					colours.grey_blend_bg(190), 13)
@@ -12783,7 +12888,6 @@ class Over:
 			se = self.ddt.text((x + 20 * gui.scale, y + 14 * gui.scale), subtitle, colours.box_text_label, 13)
 			hit_rect = (x - 10 * gui.scale, y - 3 * gui.scale, max(le, se) + 30 * gui.scale, 34 * gui.scale)
 			y += round(8 * gui.scale)
-
 		else:
 			le = self.ddt.text((x + 20 * gui.scale, y - 1 * gui.scale), text, colours.box_text, 13)
 			hit_rect = (x - 10 * gui.scale, y - 3 * gui.scale, le + 30 * gui.scale, 22 * gui.scale)
@@ -12820,7 +12924,13 @@ class Over:
 
 		return active
 
-	def last_fm_box(self, x0: int, y0: int, w0: int, h0: int):
+	def last_fm_box(self, x0: int, y0: int, w0: int, h0: int) -> None:
+		tauon   = self.tauon
+		ddt     = self.ddt
+		gui     = self.gui
+		inp     = self.inp
+		prefs   = self.prefs
+		colours = self.colours
 		x = x0 + round(20 * gui.scale)
 		y = y0 + round(15 * gui.scale)
 
@@ -12831,19 +12941,19 @@ class Over:
 			text = "Libre.fm"
 		if self.button2(x, y, text, width=84 * gui.scale):
 			self.account_view = 1
-		self.toggle_square(x + 105 * gui.scale, y + 2 * gui.scale, toggle_lfm_auto, _("Enable"))
+		self.toggle_square(x + 105 * gui.scale, y + 2 * gui.scale, self.tauon.toggle_lfm_auto, _("Enable"))
 
 		y += 28 * gui.scale
 
 		if self.button2(x, y, "ListenBrainz", width=84 * gui.scale):
 			self.account_view = 2
-		self.toggle_square(x + 105 * gui.scale, y + 2 * gui.scale, toggle_lb, _("Enable"))
+		self.toggle_square(x + 105 * gui.scale, y + 2 * gui.scale, self.tauon.toggle_lb, _("Enable"))
 
 		y += 28 * gui.scale
 
 		if self.button2(x, y, "Maloja", width=84 * gui.scale):
 			self.account_view = 9
-		self.toggle_square(x + 105 * gui.scale, y + 2 * gui.scale, toggle_maloja, _("Enable"))
+		self.toggle_square(x + 105 * gui.scale, y + 2 * gui.scale, self.tauon.toggle_maloja, _("Enable"))
 
 		# if self.button2(x, y, "Discogs", width=84*gui.scale):
 		#     self.account_view = 3
@@ -12885,7 +12995,7 @@ class Over:
 
 		if self.account_view in (9, 2):
 			self.toggle_square(
-				x0 + 230 * gui.scale, y + 2 * gui.scale, toggle_scrobble_mark,
+				x0 + 230 * gui.scale, y + 2 * gui.scale, self.tauon.toggle_scrobble_mark,
 				_("Show threshold marker"))
 
 		x = x0 + 230 * gui.scale
@@ -12970,9 +13080,7 @@ class Over:
 					show_message(_("An operation is already running"))
 				else:
 					shooter(tau.get_playlist())
-
 		elif self.account_view == 9:
-
 			ddt.text((x, y), _("Maloja Server"), colours.box_sub_text, 213)
 			if self.button(x + 260 * gui.scale, y, _("?")):
 				show_message(
@@ -13021,7 +13129,6 @@ class Over:
 			y += round(35 * gui.scale)
 
 			if self.button(x, y, _("Test connectivity")):
-
 				if not prefs.maloja_url or not prefs.maloja_key:
 					show_message(_("One or more fields is missing."))
 				else:
@@ -13053,7 +13160,6 @@ class Over:
 			self.button(x + ws + round(12 * gui.scale), y, _("Clear"), self.clear_scrobble_counts, width=wcc)
 
 		if self.account_view == 8:
-
 			ddt.text((x, y), "Spotify", colours.box_sub_text, 213)
 
 			prefs.spot_mode = self.toggle_square(x + 80 * gui.scale, y + 2 * gui.scale, prefs.spot_mode, _("Enable"))
@@ -13132,7 +13238,6 @@ class Over:
 
 
 		if self.account_view == 7:
-
 			ddt.text((x, y), _("Airsonic/Subsonic network streaming"), colours.box_sub_text, 213)
 
 			if inp.key_tab_press:
@@ -13391,11 +13496,11 @@ class Over:
 
 			y += 22 * gui.scale
 			# . Limited space available. Limit 55 chars
-			link_pa2 = draw_linked_text(
+			link_pa2 = self.tauon.draw_linked_text(
 				(x + 0 * gui.scale, y),
 				_("They encourage you to contribute at {link}").format(link="https://fanart.tv"),
 				colours.box_text_label, 11)
-			link_activate(x, y, link_pa2)
+			self.tauon.link_activate(x, y, link_pa2)
 
 			y += 35 * gui.scale
 			prefs.enable_fanart_cover = self.toggle_square(
@@ -13436,7 +13541,7 @@ class Over:
 		#
 		#     y += hh
 		#     #y += 15 * gui.scale
-		#     link_pa2 = draw_linked_text((x + 0 * gui.scale, y), "https://www.discogs.com/settings/developers",colours.box_text_label, 12)
+		#     link_pa2 = self.tauon.draw_linked_text((x + 0 * gui.scale, y), "https://www.discogs.com/settings/developers",colours.box_text_label, 12)
 		#     link_rect2 = [x + 0 * gui.scale, y, link_pa2[1], 20 * gui.scale]
 		#     tauon.fields.add(link_rect2)
 		#     if tauon.coll(link_rect2):
@@ -13579,7 +13684,7 @@ class Over:
 				ddt.text((x + 0 * gui.scale, y - 0 * gui.scale), line, colours.box_input_text, 212)
 
 			y += 25 * gui.scale
-			link_pa2 = draw_linked_text(
+			link_pa2 = self.tauon.draw_linked_text(
 				(x + 0 * gui.scale, y), "https://listenbrainz.org/profile/", colours.box_sub_text, 12)
 			link_rect2 = [x + 0 * gui.scale, y, link_pa2[1], 20 * gui.scale]
 			tauon.fields.add(link_rect2)
@@ -13650,8 +13755,7 @@ class Over:
 		else:
 			show_message(_("A process is already running. Wait for it to finish."))
 
-	def get_user_love(self):
-
+	def get_user_love(self) -> None:
 		if not lastfm.scanning_friends and not lastfm.scanning_scrobbles and not lastfm.scanning_loves:
 			shoot_dl = threading.Thread(target=lastfm.dl_love)
 			shoot_dl.daemon = True
@@ -13659,7 +13763,12 @@ class Over:
 		else:
 			show_message(_("A process is already running. Wait for it to finish."))
 
-	def codec_config(self, x0: int, y0: int, w0: int, h0: int):
+	def codec_config(self, x0: int, y0: int, w0: int, h0: int) -> None:
+		tauon   = self.tauon
+		gui     = self.gui
+		ddt     = self.ddt
+		prefs   = self.prefs
+		colours = self.colours
 
 		x = x0 + round(25 * gui.scale)
 		y = y0
@@ -13766,17 +13875,17 @@ class Over:
 			self.sync_view = True
 
 		y += 40 * gui.scale
-		self.toggle_square(x, y, switch_flac, "FLAC")
+		self.toggle_square(x, y, self.tauon.switch_flac, "FLAC")
 		y += 25 * gui.scale
-		self.toggle_square(x, y, switch_opus, "OPUS")
+		self.toggle_square(x, y, self.tauon.switch_opus, "OPUS")
 		if prefs.transcode_codec == "opus":
-			self.toggle_square(x + 120 * gui.scale, y, switch_opus_ogg, _("Save opus as .ogg extension"))
+			self.toggle_square(x + 120 * gui.scale, y, self.tauon.switch_opus_ogg, _("Save opus as .ogg extension"))
 		y += 25 * gui.scale
-		self.toggle_square(x, y, switch_ogg, "OGG Vorbis")
+		self.toggle_square(x, y, self.tauon.switch_ogg, "OGG Vorbis")
 		y += 25 * gui.scale
 
 		# if not flatpak_mode:
-		self.toggle_square(x, y, switch_mp3, "MP3")
+		self.toggle_square(x, y, self.tauon.switch_mp3, "MP3")
 		# if prefs.transcode_codec == 'mp3' and not shutil.which("lame"):
 		#     ddt.draw_text((x + 90 * gui.scale, y - 3 * gui.scale), "LAME not detected!", [220, 110, 110, 255], 12)
 
@@ -13791,9 +13900,9 @@ class Over:
 		x = x0 + round(20 * gui.scale)
 		y = y0 + 215 * gui.scale
 
-		self.toggle_square(x, y, toggle_transcode_output, _("Save to output folder"))
+		self.toggle_square(x, y, self.tauon.toggle_transcode_output, _("Save to output folder"))
 		y += 25 * gui.scale
-		self.toggle_square(x, y, toggle_transcode_inplace, _("Save and overwrite files inplace"))
+		self.toggle_square(x, y, self.tauon.toggle_transcode_inplace, _("Save and overwrite files inplace"))
 
 	def previous_theme(self) -> None:
 		self.prefs.theme -= 1
@@ -13802,13 +13911,17 @@ class Over:
 			self.prefs.theme = len(get_themes())
 
 	def config_b(self, x0: int, y0: int, w0: int, h0: int) -> None:
+		gui     = self.gui
+		prefs   = self.prefs
+		colours = self.colours
+
 		self.ddt.text_background_colour = self.colours.box_background
 		x = x0 + round(25 * self.gui.scale)
 		y = y0 + round(20 * self.gui.scale)
 
 		# self.ddt.text((x, y), _("Window"),self.colours.box_text_label, 12)
 
-		if system == "Linux":
+		if self.system == "Linux":
 			self.toggle_square(x, y, self.tauon.toggle_notifications, _("Emit track change notifications"))
 
 		y += 25 * gui.scale
@@ -13819,7 +13932,7 @@ class Over:
 		#                                                 _("Restore window position on restart"))
 
 		y += 25 * gui.scale
-		if not tauon.draw_border:
+		if not self.tauon.draw_border:
 			self.toggle_square(x, y, self.tauon.toggle_titlebar_line, _("Show playing in titlebar"))
 
 		#y += 25 * gui.scale
@@ -13829,7 +13942,7 @@ class Over:
 		y += 25 * gui.scale
 		old = prefs.mini_mode_on_top
 		prefs.mini_mode_on_top = self.toggle_square(x, y, prefs.mini_mode_on_top, _("Mini-mode always on top"))
-		if wayland and prefs.mini_mode_on_top and prefs.mini_mode_on_top != old:
+		if self.wayland and prefs.mini_mode_on_top and prefs.mini_mode_on_top != old:
 			show_message(_("Always-on-top feature not yet implemented for Wayland mode"), _("You can enable the x11 setting below as a workaround"))
 
 		y += 25 * gui.scale
@@ -13843,7 +13956,7 @@ class Over:
 		# if not msys:
 		# y += round(15 * gui.scale)
 
-		ddt.text((x, y), _("UI scale for HiDPI displays"), colours.box_text_label, 12)
+		self.ddt.text((x, y), _("UI scale for HiDPI displays"), colours.box_text_label, 12)
 
 		y += round(25 * gui.scale)
 
@@ -13863,7 +13976,7 @@ class Over:
 		m2 = (x + ((2.0 - 0.5) / 3 * sw), y, sh, sh * 2)
 		m3 = (x + ((3.0 - 0.5) / 3 * sw), y, sh, sh * 2)
 
-		if tauon.coll(grow_rect(slider, round(16 * gui.scale))) and inp.mouse_down:
+		if self.tauon.coll(grow_rect(slider, round(16 * gui.scale))) and inp.mouse_down:
 			prefs.scale_want = ((inp.mouse_position[0] - x) / sw * 3) + 0.5
 			prefs.x_scale = False
 			gui.update_on_drag = True
@@ -13889,14 +14002,14 @@ class Over:
 		if not prefs.x_scale and (prefs.scale_want == 1.0 or prefs.scale_want == 2.0 or prefs.scale_want == 3.0):
 			font = 313
 
-		ddt.text((x + sw + round(14 * gui.scale), y - round(8 * gui.scale)), text, colours.box_sub_text, font)
-		# ddt.text((x + sw + round(14 * gui.scale), y + round(10 * gui.scale)), _("Restart app to apply any changes"), colours.box_text_label, 11)
+		self.ddt.text((x + sw + round(14 * gui.scale), y - round(8 * gui.scale)), text, colours.box_sub_text, font)
+		# self.ddt.text((x + sw + round(14 * gui.scale), y + round(10 * gui.scale)), _("Restart app to apply any changes"), colours.box_text_label, 11)
 
-		ddt.rect(slider, colours.box_text_border)
-		ddt.rect(m1, colours.box_text_border)
-		ddt.rect(m2, colours.box_text_border)
-		ddt.rect(m3, colours.box_text_border)
-		ddt.rect(grip, colours.box_text_label)
+		self.ddt.rect(slider, colours.box_text_border)
+		self.ddt.rect(m1, colours.box_text_border)
+		self.ddt.rect(m2, colours.box_text_border)
+		self.ddt.rect(m3, colours.box_text_border)
+		self.ddt.rect(grip, colours.box_text_label)
 
 		y += round(23 * gui.scale)
 		self.toggle_square(x, y, self.toggle_x_scale, _("Auto scale"))
@@ -13907,8 +14020,8 @@ class Over:
 				gui.update_layout = True
 
 		y += round(25 * gui.scale)
-		if not msys and not macos:
-			x11_path = str(user_directory / "x11")
+		if not self.msys and not self.macos:
+			x11_path = str(self.user_directory / "x11")
 			x11 = os.path.exists(x11_path)
 			old = x11
 			x11 = self.toggle_square(x, y, x11, _("Prefer x11 when running in Wayland"))
@@ -13926,6 +14039,10 @@ class Over:
 		self.gui.update_layout = True
 
 	def about(self, x0: int, y0: int, w0: int, h0: int) -> None:
+		gui     = self.gui
+		ddt     = self.ddt
+		pctl    = self.pctl
+		colours = self.colours
 		x = x0 + int(w0 * 0.3) - 10 * gui.scale
 		y = y0 + 85 * gui.scale
 
@@ -13960,7 +14077,7 @@ class Over:
 
 		credit_pages = 5
 
-		if self.click and tauon.coll(icon_rect) and self.ani_cred == 0:
+		if self.click and self.tauon.coll(icon_rect) and self.ani_cred == 0:
 			self.ani_cred = 1
 			self.ani_fade_on_timer.set()
 
@@ -13981,7 +14098,6 @@ class Over:
 			gui.update = 2
 
 		if self.ani_cred == 2:
-
 			t = self.ani_fade_on_timer.get()
 			fade = 255 - round(t / 0.7 * 255)
 			fade = max(fade, 0)
@@ -13995,59 +14111,54 @@ class Over:
 		block_y = y - 10 * gui.scale
 
 		if self.cred_page == 0:
-
-			ddt.text((x, y - 6 * gui.scale), t_version, colours.box_text_label, 313)
+			ddt.text((x, y - 6 * gui.scale), self.t_version, colours.box_text_label, 313)
 			y += 19 * gui.scale
 			ddt.text((x, y), "Copyright © 2015-2025 Taiko2k captain.gxj@gmail.com", colours.box_sub_text, 13)
 
 			y += 19 * gui.scale
-			link_pa = draw_linked_text(
+			link_pa = self.tauon.draw_linked_text(
 				(x, y), "https://tauonmusicbox.rocks", colours.box_sub_text, 12,
 				replace="tauonmusicbox.rocks")
 			link_rect = [x, y, link_pa[1], 18 * gui.scale]
-			if tauon.coll(link_rect):
+			if self.tauon.coll(link_rect):
 				if not self.click:
 					gui.cursor_want = 3
 				if self.click:
 					webbrowser.open(link_pa[2], new=2, autoraise=True)
 
-			tauon.fields.add(link_rect)
+			self.tauon.fields.add(link_rect)
 
 			y += 27 * gui.scale
 			ddt.text((x, y), _("This program comes with absolutely no warranty."), colours.box_text_label, 12)
 			y += 16 * gui.scale
 			link_gpl = "https://www.gnu.org/licenses/gpl-3.0.html"
-			link_pa = draw_linked_text(
+			link_pa = self.tauon.draw_linked_text(
 				(x, y), _("See the {link} license for details.").format(link=link_gpl),
 				colours.box_text_label, 12, replace="GNU GPLv3+")
 			link_rect = [x + link_pa[0], y, link_pa[1], 18 * gui.scale]
-			if tauon.coll(link_rect):
+			if self.tauon.coll(link_rect):
 				if not self.click:
 					gui.cursor_want = 3
 				if self.click:
 					webbrowser.open(link_pa[2], new=2, autoraise=True)
-			tauon.fields.add(link_rect)
-
+			self.tauon.fields.add(link_rect)
 		elif self.cred_page == 1:
-
 			y += 15 * gui.scale
 
 			ddt.text((x, y + 1 * gui.scale), _("Created by"), colours.box_text_label, 13)
 			ddt.text((x + 120 * gui.scale, y + 1 * gui.scale), "Taiko2k", colours.box_sub_text, 13)
 
 			y += 40 * gui.scale
-			link_pa = draw_linked_text(
+			link_pa = self.tauon.draw_linked_text(
 				(x, y), "https://github.com/Taiko2k/Tauon/graphs/contributors",
 				colours.box_sub_text, 12, replace=_("Contributors"))
 			link_rect = [x, y, link_pa[1], 18 * gui.scale]
-			if tauon.coll(link_rect):
+			if self.tauon.coll(link_rect):
 				if not self.click:
 					gui.cursor_want = 3
 				if self.click:
 					webbrowser.open(link_pa[2], new=2, autoraise=True)
-			tauon.fields.add(link_rect)
-
-
+			self.tauon.fields.add(link_rect)
 		elif self.cred_page == 2:
 			xx = x + round(160 * gui.scale)
 			xxx = x + round(240 * gui.scale)
@@ -14057,31 +14168,31 @@ class Over:
 			y += spacing
 			ddt.text((x, y), "Simple DirectMedia Layer", colours.box_sub_text, font)
 			ddt.text((xx, y), "zlib", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://www.libsdl.org/", colours.box_sub_text, font, click=self.click, replace="libsdl.org")
 
 			y += spacing
 			ddt.text((x, y), "Cairo Graphics", colours.box_sub_text, font)
 			ddt.text((xx, y), "MPL", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://www.cairographics.org/", colours.box_sub_text, font, click=self.click, replace="cairographics.org")
 
 			y += spacing
 			ddt.text((x, y), "Pango", colours.box_sub_text, font)
 			ddt.text((xx, y), "LGPL", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://pango.gnome.org/", colours.box_sub_text, font, click=self.click, replace="pango.gnome.org")
 
 			y += spacing
 			ddt.text((x, y), "FFmpeg", colours.box_sub_text, font)
 			ddt.text((xx, y), "GPL", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://ffmpeg.org/", colours.box_sub_text, font, click=self.click, replace="ffmpeg.org")
 
 			y += spacing
 			ddt.text((x, y), "Pillow", colours.box_sub_text, font)
 			ddt.text((xx, y), "PIL License", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://python-pillow.org/", colours.box_sub_text, font, click=self.click, replace="python-pillow.org")
 
 
@@ -14094,25 +14205,25 @@ class Over:
 			y += spacing
 			ddt.text((x, y), "PySDL3", colours.box_sub_text, font)
 			ddt.text((xx, y), _("Public Domain"), colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://github.com/Aermoss/PySDL3", colours.box_sub_text, font, click=self.click, replace="github")
 
 			y += spacing
 			ddt.text((x, y), "Tekore", colours.box_sub_text, font)
 			ddt.text((xx, y), "MIT", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://github.com/felix-hilden/tekore", colours.box_sub_text, font, click=self.click, replace="github")
 
 			y += spacing
 			ddt.text((x, y), "pyLast", colours.box_sub_text, font)
 			ddt.text((xx, y), "Apache 2.0", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://github.com/pylast/pylast", colours.box_sub_text, font, click=self.click, replace="github")
 
 			y += spacing
 			ddt.text((x, y), "Noto Sans font", colours.box_sub_text, font)
 			ddt.text((xx, y), "Apache 2.0", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://fonts.google.com/specimen/Noto+Sans", colours.box_sub_text, font, click=self.click, replace="fonts.google.com")
 
 			# y += spacing
@@ -14123,9 +14234,8 @@ class Over:
 			y += spacing
 			ddt.text((x, y), "KISS FFT", colours.box_sub_text, font)
 			ddt.text((xx, y), "New BSD License", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://github.com/mborgerding/kissfft", colours.box_sub_text, font, click=self.click, replace="github")
-
 		elif self.cred_page == 3:
 			xx = x + round(130 * gui.scale)
 			xxx = x + round(240 * gui.scale)
@@ -14135,38 +14245,37 @@ class Over:
 			y += spacing
 			ddt.text((x, y), "libFLAC", colours.box_sub_text, font)
 			ddt.text((xx, y), "New BSD License", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://xiph.org/flac/", colours.box_sub_text, font, click=self.click, replace="xiph.org")
 
 			y += spacing
 			ddt.text((x, y), "libvorbis", colours.box_sub_text, font)
 			ddt.text((xx, y), "BSD License", colours.box_text_label, font)
-			draw_linked_text2(xxx, y, "https://xiph.org/vorbis/", colours.box_sub_text, font, click=self.click, replace="xiph.org")
+			self.tauon.draw_linked_text2(xxx, y, "https://xiph.org/vorbis/", colours.box_sub_text, font, click=self.click, replace="xiph.org")
 
 			y += spacing
 			ddt.text((x, y), "opusfile", colours.box_sub_text, font)
 			ddt.text((xx, y), "New BSD license", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://opus-codec.org/", colours.box_sub_text, font, click=self.click, replace="opus-codec.org")
 
 			y += spacing
 			ddt.text((x, y), "mpg123", colours.box_sub_text, font)
 			ddt.text((xx, y), "LGPL 2.1", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://www.mpg123.de/", colours.box_sub_text, font, click=self.click, replace="mpg123.de")
 
 			y += spacing
 			ddt.text((x, y), "Secret Rabbit Code", colours.box_sub_text, font)
 			ddt.text((xx, y), "BSD 2-Clause", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "http://www.mega-nerd.com/SRC/index.html", colours.box_sub_text, font, click=self.click, replace="mega-nerd.com")
 
 			y += spacing
 			ddt.text((x, y), "libopenmpt", colours.box_sub_text, font)
 			ddt.text((xx, y), "New BSD License", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://lib.openmpt.org/libopenmpt", colours.box_sub_text, font, click=self.click, replace="lib.openmpt.org")
-
 		elif self.cred_page == 5:
 			xx = x + round(130 * gui.scale)
 			xxx = x + round(240 * gui.scale)
@@ -14176,37 +14285,37 @@ class Over:
 			y += spacing
 			ddt.text((x, y), "Mutagen", colours.box_sub_text, font)
 			ddt.text((xx, y), "GPLv2+", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://github.com/quodlibet/mutagen", colours.box_sub_text, font, click=self.click, replace="github")
 
 			y += spacing
 			ddt.text((x, y), "unidecode", colours.box_sub_text, font)
 			ddt.text((xx, y), "GPL-2.0+", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://github.com/avian2/unidecode", colours.box_sub_text, font, click=self.click, replace="github")
 
 			y += spacing
 			ddt.text((x, y), "pypresence", colours.box_sub_text, font)
 			ddt.text((xx, y), "MIT", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://github.com/qwertyquerty/pypresence", colours.box_sub_text, font, click=self.click, replace="github")
 
 			y += spacing
 			ddt.text((x, y), "musicbrainzngs", colours.box_sub_text, font)
 			ddt.text((xx, y), "Simplified BSD", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://github.com/alastair/python-musicbrainzngs", colours.box_sub_text, font, click=self.click, replace="github")
 
 			y += spacing
 			ddt.text((x, y), "Send2Trash", colours.box_sub_text, font)
 			ddt.text((xx, y), "New BSD License", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://github.com/arsenetar/send2trash", colours.box_sub_text, font, click=self.click, replace="github")
 
 			y += spacing
 			ddt.text((x, y), "GTK/PyGObject", colours.box_sub_text, font)
 			ddt.text((xx, y), "LGPLv2.1+", colours.box_text_label, font)
-			draw_linked_text2(
+			self.tauon.draw_linked_text2(
 				xxx, y, "https://gitlab.gnome.org/GNOME/pygobject", colours.box_sub_text, font, click=self.click, replace="gitlab.gnome.org")
 
 		ddt.rect((x, block_y, 369 * gui.scale, 140 * gui.scale), alpha_mod(colours.box_background, fade))
@@ -14354,7 +14463,13 @@ class Over:
 		if self.button(x, y, _("Return"), width=75 * gui.scale):
 			self.chart_view = 0
 
-	def stats(self, x0: int, y0: int, w0: int, h0: int):
+	def stats(self, x0: int, y0: int, w0: int, h0: int) -> None:
+		tauon   = self.tauon
+		gui     = self.gui
+		ddt     = self.ddt
+		pctl    = self.pctl
+		colours = self.colours
+		strings = self.tauon.strings
 		x = x0 + 10 * self.gui.scale
 		y = y0
 
@@ -14363,7 +14478,7 @@ class Over:
 			return
 
 		ww = ddt.get_text_w(_("Chart generator..."), 211) + 30 * gui.scale
-		if system == "Linux" and self.button(x0 + w0 - ww, y + 15 * gui.scale, _("Chart generator...")):
+		if self.system == "Linux" and self.button(x0 + w0 - ww, y + 15 * gui.scale, _("Chart generator...")):
 			self.chart_view = 1
 
 		ddt.text_background_colour = colours.box_background
@@ -14506,6 +14621,7 @@ class Over:
 		gui     = self.gui
 		ddt     = self.ddt
 		colours = self.colours
+		prefs   = self.prefs
 		self.ddt.text_background_colour = self.colours.box_background
 
 		x = x0 + self.item_x_offset
@@ -14517,7 +14633,7 @@ class Over:
 		y += round(35 * gui.scale)
 
 		self.toggle_square(x, y, self.tauon.heart_toggle, "     ")
-		heart_row_icon.render(x + round(23 * gui.scale), y + round(2 * gui.scale), colours.box_text)
+		gui.heart_row_icon.render(x + round(23 * gui.scale), y + round(2 * gui.scale), colours.box_text)
 		rect = (x, y + round(2 * gui.scale), 40 * gui.scale, 15 * gui.scale)
 		self.tauon.fields.add(rect)
 		if self.tauon.coll(rect):
@@ -14525,10 +14641,10 @@ class Over:
 
 		x += (55 * gui.scale)
 		self.toggle_square(x, y, self.tauon.star_toggle, "     ")
-		star_row_icon.render(x + round(22 * gui.scale), y + round(0 * gui.scale), colours.box_text)
+		gui.star_row_icon.render(x + round(22 * gui.scale), y + round(0 * gui.scale), colours.box_text)
 		rect = (x, y + round(2 * gui.scale), 40 * gui.scale, 15 * gui.scale)
-		tauon.fields.add(rect)
-		if tauon.coll(rect):
+		self.tauon.fields.add(rect)
+		if self.tauon.coll(rect):
 			ex_tool_tip(x + round(35 * gui.scale), y - 20 * gui.scale, 0, _("Represent playtime as stars"), 12)
 
 		x += (55 * gui.scale)
@@ -14537,8 +14653,8 @@ class Over:
 			(x + round(21 * gui.scale), y + round(6 * gui.scale), round(15 * gui.scale), round(1 * gui.scale)),
 			colours.box_text)
 		rect = (x, y + round(2 * gui.scale), 40 * gui.scale, 15 * gui.scale)
-		tauon.fields.add(rect)
-		if tauon.coll(rect):
+		self.tauon.fields.add(rect)
+		if self.tauon.coll(rect):
 			ex_tool_tip(x + round(35 * gui.scale), y - 20 * gui.scale, 0, _("Represent playcount as lines"), 12)
 
 		x = x0 + self.item_x_offset
@@ -18622,7 +18738,7 @@ class StandardPlaylist:
 									for count in range(8):
 										if star < count or rr > wid + round(6 * gui.scale):
 											break
-										star_pc_icon.render(sx, sy, colour)
+										gui.star_pc_icon.render(sx, sy, colour)
 										sx += round(13) * gui.scale
 										rr += round(13) * gui.scale
 
@@ -18805,10 +18921,10 @@ class StandardPlaylist:
 							count = 0
 							for name in n_track.lfm_friend_likes:
 								spacing = 6 * gui.scale
-								if u + (heart_row_icon.w + spacing) * count > wid + 7 * gui.scale:
+								if u + (gui.heart_row_icon.w + spacing) * count > wid + 7 * gui.scale:
 									break
 
-								x = run + u + (heart_row_icon.w + spacing) * count
+								x = run + u + (gui.heart_row_icon.w + spacing) * count
 
 								j = 0  # justify right
 								if run < start + 100 * gui.scale:
@@ -24875,6 +24991,7 @@ class Bag:
 	draw_max_button:        bool
 	last_fm_enable:         bool
 	de_notify_support:      bool
+	wayland:                bool
 	desktop:                str | None
 	system:                 str
 	launch_prefix:          str
@@ -27411,87 +27528,6 @@ def draw_internel_link(x, y, text, colour, font):
 		if inp.mouse_click:
 			return True
 	return False
-
-def draw_linked_text(location, text, colour, font, force=False, replace=""):
-	base = ""
-	link_text = ""
-	rest = ""
-	on_base = True
-
-	if force:
-		on_base = False
-		base = ""
-		link_text = text
-		rest = ""
-	else:
-		for i in range(len(text)):
-			if text[i:i + 7] == "http://" or text[i:i + 4] == "www." or text[i:i + 8] == "https://":
-				on_base = False
-			if on_base:
-				base += text[i]
-			elif i == len(text) or text[i] in '\\) "\'':
-				rest = text[i:]
-				break
-			else:
-				link_text += text[i]
-
-	target_link = link_text
-	if replace:
-		link_text = replace
-
-	left = ddt.get_text_w(base, font)
-	right = ddt.get_text_w(base + link_text, font)
-
-	x = location[0]
-	y = location[1]
-
-	ddt.text((x, y), base, colour, font)
-	ddt.text((x + left, y), link_text, colours.link_text, font)
-	ddt.text((x + right, y), rest, colour, font)
-
-	tweak = font
-	while tweak > 100:
-		tweak -= 100
-
-	if gui.scale == 2:
-		tweak *= 2
-		tweak += 4
-	elif gui.scale != 1:
-		tweak = round(tweak * gui.scale)
-		tweak += 2
-
-	if system == "Windows":
-		tweak += 1
-
-	# ddt.line(x + left, y + tweak + 2, x + right, y + tweak + 2, alpha_mod(colours.link_text, 120))
-	ddt.rect((x + left, y + tweak + 2, right - left, round(1 * gui.scale)), alpha_mod(colours.link_text, 120))
-
-	return left, right - left, target_link
-
-def draw_linked_text2(x, y, text, colour, font, click=False, replace=""):
-	link_pa = draw_linked_text(
-		(x, y), text, colour, font, replace=replace)
-	link_rect = [x + link_pa[0], y, link_pa[1], 18 * gui.scale]
-	if tauon.coll(link_rect):
-		if not click:
-			gui.cursor_want = 3
-		if click:
-			webbrowser.open(link_pa[2], new=2, autoraise=True)
-	tauon.fields.add(link_rect)
-
-def link_activate(x, y, link_pa, click=None):
-	link_rect = [x + link_pa[0], y - 2 * gui.scale, link_pa[1], 20 * gui.scale]
-
-	if click is None:
-		click = inp.mouse_click
-
-	tauon.fields.add(link_rect)
-	if tauon.coll(link_rect):
-		if not click:
-			gui.cursor_want = 3
-		if click:
-			webbrowser.open(link_pa[2], new=2, autoraise=True)
-			track_box = True
 
 def pixel_to_logical(x):
 	return round((x / window_size[0]) * logical_size[0])
@@ -34226,7 +34262,7 @@ def draw_rating_widget(x: int, y: int, n_track: TrackClass, album: bool = False)
 		elif pp > 70 * gui.scale:
 			rat = 10
 		else:
-			rat = pp // (star_row_icon.w // 2)
+			rat = pp // (gui.star_row_icon.w // 2)
 
 		if inp.mouse_click:
 			rat = min(rat, 10)
@@ -34253,25 +34289,25 @@ def draw_rating_widget(x: int, y: int, n_track: TrackClass, album: bool = False)
 
 	for ss in range(5):
 
-		xx = x + ss * star_row_icon.w
+		xx = x + ss * gui.star_row_icon.w
 
 		if playtime_stars:
 			if playtime_stars - 1 < ss * 2:
-				star_row_icon.render(xx, y, bg)
+				gui.star_row_icon.render(xx, y, bg)
 			elif playtime_stars - 1 == ss * 2:
-				star_row_icon.render(xx, y, bg)
-				star_half_row_icon.render(xx, y, fg2)
+				gui.star_row_icon.render(xx, y, bg)
+				gui.star_half_row_icon.render(xx, y, fg2)
 			else:
-				star_row_icon.render(xx, y, fg2)
+				gui.star_row_icon.render(xx, y, fg2)
 		else:
 
 			if rat - 1 < ss * 2:
-				star_row_icon.render(xx, y, bg)
+				gui.star_row_icon.render(xx, y, bg)
 			elif rat - 1 == ss * 2:
-				star_row_icon.render(xx, y, bg)
-				star_half_row_icon.render(xx, y, fg)
+				gui.star_row_icon.render(xx, y, bg)
+				gui.star_half_row_icon.render(xx, y, fg)
 			else:
-				star_row_icon.render(xx, y, fg)
+				gui.star_row_icon.render(xx, y, fg)
 
 def love_deco():
 	if love(False):
@@ -37168,7 +37204,7 @@ def line_render(n_track: TrackClass, p_track: TrackClass, y, this_line_playing, 
 				#     if rated_star >= count:
 				#         colour = (220, 200, 60, 255)
 
-				star_pc_icon.render(sx, sy, colour)
+				gui.star_pc_icon.render(sx, sy, colour)
 
 		if gui.show_hearts:
 
@@ -37194,11 +37230,11 @@ def line_render(n_track: TrackClass, p_track: TrackClass, y, this_line_playing, 
 
 			if "spotify-liked" in pctl.master_library[index].misc:
 
-				x = width + start_x - 52 * gui.scale - offset_font_extra - (heart_row_icon.w + spacing) * count - xxx
+				x = width + start_x - 52 * gui.scale - offset_font_extra - (gui.heart_row_icon.w + spacing) * count - xxx
 
 				f_store.store(display_spot_heart, (x, yy))
 
-				star_x += heart_row_icon.w + spacing + 2
+				star_x += gui.heart_row_icon.w + spacing + 2
 
 			for name in pctl.master_library[index].lfm_friend_likes:
 
@@ -37209,13 +37245,13 @@ def line_render(n_track: TrackClass, p_track: TrackClass, y, this_line_playing, 
 				elif count > 4:
 					break
 
-				x = width + start_x - 52 * gui.scale - offset_font_extra - (heart_row_icon.w + spacing) * count - xxx
+				x = width + start_x - 52 * gui.scale - offset_font_extra - (gui.heart_row_icon.w + spacing) * count - xxx
 
 				f_store.store(display_friend_heart, (x, yy, name))
 
 				count += 1
 
-				star_x += heart_row_icon.w + spacing + 2
+				star_x += gui.heart_row_icon.w + spacing + 2
 
 		# Draw track number/index
 		display_queue = False
@@ -37655,7 +37691,7 @@ def display_you_heart(x: int, yy: int, just: int = 0) -> None:
 		ddt.rect((tx - 5 * gui.scale, ty, w + 20 * gui.scale, 24 * gui.scale), [35, 35, 35, 255])
 		ddt.text((tx + 5 * gui.scale, ty + 4 * gui.scale), _("You"), [250, 250, 250, 255], 13, bg=[15, 15, 15, 255])
 
-	heart_row_icon.render(x, yy, [244, 100, 100, 255])
+	gui.heart_row_icon.render(x, yy, [244, 100, 100, 255])
 
 def display_spot_heart(x: int, yy: int, just: int = 0) -> None:
 	rect = [x - 1 * gui.scale, yy - 4 * gui.scale, 15 * gui.scale, 17 * gui.scale]
@@ -37680,10 +37716,10 @@ def display_spot_heart(x: int, yy: int, just: int = 0) -> None:
 		ddt.rect((tx - 5 * gui.scale, ty, w + 20 * gui.scale, 24 * gui.scale), [35, 35, 35, 255])
 		ddt.text((tx + 5 * gui.scale, ty + 4 * gui.scale), _("Liked on Spotify"), [250, 250, 250, 255], 13, bg=[15, 15, 15, 255])
 
-	heart_row_icon.render(x, yy, [100, 244, 100, 255])
+	gui.heart_row_icon.render(x, yy, [100, 244, 100, 255])
 
 def display_friend_heart(x: int, yy: int, name: str, just: int = 0) -> None:
-	heart_row_icon.render(x, yy, heart_colours.get(name))
+	gui.heart_row_icon.render(x, yy, heart_colours.get(name))
 
 	rect = [x - 1, yy - 4, 15 * gui.scale, 17 * gui.scale]
 	gui.heart_fields.append(rect)
@@ -39317,6 +39353,7 @@ def main(holder: Holder) -> None:
 		#sdl_syswminfo=sss,
 		system=system,
 		pump=True,
+		wayland=wayland,
 		# de_notify_support = desktop == 'GNOME' or desktop == 'KDE'
 		de_notify_support=False,
 		draw_min_button=draw_min_button,
@@ -40488,14 +40525,6 @@ def main(holder: Holder) -> None:
 	asbp = 50
 	album_scroll_hold = False
 
-	message_info_icon = asset_loader(bag, loaded_asset_dc, "notice.png")
-	message_warning_icon = asset_loader(bag, loaded_asset_dc, "warning.png")
-	message_tick_icon = asset_loader(bag, loaded_asset_dc, "done.png")
-	message_arrow_icon = asset_loader(bag, loaded_asset_dc, "ext.png")
-	message_error_icon = asset_loader(bag, loaded_asset_dc, "error.png")
-	message_bubble_icon = asset_loader(bag, loaded_asset_dc, "bubble.png")
-	message_download_icon = asset_loader(bag, loaded_asset_dc, "ddl.png")
-
 
 
 
@@ -41234,26 +41263,17 @@ def main(holder: Holder) -> None:
 	# extra_menu.add('Toggle Random', toggle_random, hint='PERIOD')
 	extra_menu.add(MenuItem(_("Clear Queue"), clear_queue, queue_deco, hint="Alt+Shift+Q"))
 
-	heart_icon = MenuIcon(asset_loader(bag, loaded_asset_dc, "heart-menu.png", True))
-	heart_row_icon = asset_loader(bag, loaded_asset_dc, "heart-track.png", True)
-	heart_notify_icon = asset_loader(bag, loaded_asset_dc, "heart-notify.png", True)
-	heart_notify_break_icon = asset_loader(bag, loaded_asset_dc, "heart-notify-break.png", True)
-	# spotify_row_icon = asset_loader(bag, loaded_asset_dc, "spotify-row.png", True)
-	star_pc_icon = asset_loader(bag, loaded_asset_dc, "star-pc.png", True)
-	star_row_icon = asset_loader(bag, loaded_asset_dc, "star.png", True)
-	star_half_row_icon = asset_loader(bag, loaded_asset_dc, "star-half.png", True)
-
 	heart_colours = ColourGenCache(0.7, 0.7)
 
-	heart_icon.colour = [245, 60, 60, 255]
-	heart_icon.xoff = 3
-	heart_icon.yoff = 0
+	gui.heart_icon.colour = [245, 60, 60, 255]
+	gui.heart_icon.xoff = 3
+	gui.heart_icon.yoff = 0
 
 	if gui.scale == 1.25:
-		heart_icon.yoff = 1
+		gui.heart_icon.yoff = 1
 
-	heart_icon.colour_callback = heart_menu_colour
-	extra_menu.add(MenuItem("Love", bar_love_notify, love_deco, icon=heart_icon))
+	gui.heart_icon.colour_callback = heart_menu_colour
+	extra_menu.add(MenuItem("Love", bar_love_notify, love_deco, icon=gui.heart_icon))
 	extra_menu.add(MenuItem(_("Global Search"), activate_search_overlay, hint="Ctrl+G"))
 	extra_menu.add(MenuItem(_("Locate Artist"), locate_artist))
 	extra_menu.add(MenuItem(_("Go To Playing"), goto_playing_extra, hint="'"))
@@ -44415,7 +44435,7 @@ def main(holder: Holder) -> None:
 							#
 							#     break
 							if line == "❤":
-								heart_row_icon.render(box[0] + 9 * gui.scale, top + 8 * gui.scale, colours.column_bar_text)
+								gui.heart_row_icon.render(box[0] + 9 * gui.scale, top + 8 * gui.scale, colours.column_bar_text)
 							else:
 								ddt.text(
 									(box[0] + 10 * gui.scale, top + 4 * gui.scale), line, colours.column_bar_text, 312,
@@ -45391,7 +45411,7 @@ def main(holder: Holder) -> None:
 									"http://" in tc.comment or "www." in tc.comment or "https://" in tc.comment) and ddt.get_text_w(
 									tc.comment, 12) < 335 * gui.scale:
 
-								link_pa = draw_linked_text((x2, y1), tc.comment, value_colour, 12)
+								link_pa = tauon.draw_linked_text((x2, y1), tc.comment, value_colour, 12)
 								link_rect = [x + 98 * gui.scale + link_pa[0], y1 - 2 * gui.scale, link_pa[1], 20 * gui.scale]
 
 								tauon.fields.add(link_rect)
@@ -45884,10 +45904,10 @@ def main(holder: Holder) -> None:
 
 					if gui.toast_love_added:
 						text = _("Loved track")
-						heart_notify_icon.render(rect[0] + 9 * gui.scale, rect[1] + 8 * gui.scale, [250, 100, 100, 255])
+						gui.heart_notify_icon.render(rect[0] + 9 * gui.scale, rect[1] + 8 * gui.scale, [250, 100, 100, 255])
 					else:
 						text = _("Un-Loved track")
-						heart_notify_break_icon.render(
+						gui.heart_notify_break_icon.render(
 							rect[0] + 9 * gui.scale, rect[1] + 7 * gui.scale,
 							[150, 150, 150, 255])
 
