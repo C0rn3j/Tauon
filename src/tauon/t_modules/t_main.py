@@ -39532,7 +39532,7 @@ def main(holder: Holder) -> None:
 			folder_image_offsets = save[14]
 			# lfm_username = save[15]
 			# lfm_hash = save[16]
-			bag.view_prefs = save[18]
+			prefs.view_prefs = save[18]
 			# window_size = save[19]
 			gui.save_size = copy.copy(save[19])
 			gui.rspw = save[20]
@@ -40027,19 +40027,19 @@ def main(holder: Holder) -> None:
 	scale_assets(bag=bag, scale_want=prefs.scale_want)
 
 	try:
-		prefs.update_title  = bag.view_prefs["update-title"]
-		prefs.prefer_side   = bag.view_prefs["side-panel"]
+		prefs.update_title  = prefs.view_prefs["update-title"]
+		prefs.prefer_side   = prefs.view_prefs["side-panel"]
 		prefs.dim_art       = False  # view_prefs['dim-art']
 		#pl_follow          = view_prefs['pl-follow']
-		prefs.scroll_enable = bag.view_prefs["scroll-enable"]
-		if "break-enable" in bag.view_prefs:
-			prefs.break_enable = bag.view_prefs["break-enable"]
+		prefs.scroll_enable = prefs.view_prefs["scroll-enable"]
+		if "break-enable" in prefs.view_prefs:
+			prefs.break_enable = prefs.view_prefs["break-enable"]
 		else:
 			logging.warning("break-enable not found in view_prefs[] when trying to load settings! First run?")
 		#custom_line_mode  = view_prefs['custom-line']
 		#thick_lines       = view_prefs['thick-lines']
-		if "append-date" in bag.view_prefs:
-			prefs.append_date = bag.view_prefs["append-date"]
+		if "append-date" in prefs.view_prefs:
+			prefs.append_date = prefs.view_prefs["append-date"]
 		else:
 			logging.warning("append-date not found in view_prefs[] when trying to load settings! First run?")
 	except KeyError:
