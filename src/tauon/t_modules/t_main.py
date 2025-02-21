@@ -5607,7 +5607,7 @@ class Tauon:
 		else:
 			target = self.pctl.multi_playlist[pl].playlist_ids
 
-		if use_natsort and False:
+		if self.bag.use_natsort and False:
 			target[:] = natsort.os_sorted(target, key=self.key_fullpath)
 		else:
 			target.sort(key=self.key_filepath)
@@ -24992,6 +24992,8 @@ class Bag:
 	last_fm_enable:         bool
 	de_notify_support:      bool
 	wayland:                bool
+	use_natsort:            bool
+	should_save_state:      bool
 	desktop:                str | None
 	system:                 str
 	launch_prefix:          str
@@ -33639,12 +33641,12 @@ def sort_ass(h, invert=False, custom_list=None, custom_name=""):
 
 	if name == "Filepath":
 		key = tauon.key_filepath
-		if use_natsort:
+		if tauon.bag.use_natsort:
 			key = tauon.key_fullpath
 			ns = True
 	if name == "Filename":
 		key = tauon.key_filepath  # tauon.key_filename
-		if use_natsort:
+		if tauon.bag.use_natsort:
 			key = tauon.key_fullpath
 			ns = True
 	if name == "Artist":
@@ -36195,13 +36197,13 @@ def worker1(tauon: Tauon) -> None:
 				return
 			gui.update = 3
 
-	def gets(direc, force_scan=False):
+	def gets(direc: str, force_scan: bool = False) -> None:
 		if os.path.basename(direc) == "__MACOSX":
 			return
 
 		try:
 			items_in_dir = os.listdir(direc)
-			if use_natsort:
+			if tauon.bag.use_natsort:
 				items_in_dir = natsort.os_sorted(items_in_dir)
 			else:
 				items_in_dir.sort()
@@ -38317,7 +38319,7 @@ def window_is_focused(t_window) -> bool:
 	return False
 
 def save_state() -> None:
-	if should_save_state:
+	if bag.should_save_state:
 		logging.info("Writing database to disk... ")
 	else:
 		logging.warning("Dev mode, not saving state... ")
@@ -39362,6 +39364,8 @@ def main(holder: Holder) -> None:
 		macos=macos,
 		msys=msys,
 		phone=phone,
+		use_natsort=use_natsort,
+		should_save_state=should_save_state,
 		xdpi=xdpi,
 		desktop=desktop,
 		platform_system=platform_system,
@@ -41192,13 +41196,11 @@ def main(holder: Holder) -> None:
 
 	if dev_mode:
 		def dev_mode_enable_save_state() -> None:
-			global should_save_state
-			should_save_state = True
+			bag.should_save_state = True
 			show_message(_("Enabled saving state"))
 
 		def dev_mode_disable_save_state() -> None:
-			global should_save_state
-			should_save_state = False
+			bag.should_save_state = False
 			show_message(_("Disabled saving state"))
 
 		x_menu.add_sub(_("Dev Mode"), 190)
@@ -46519,7 +46521,7 @@ def main(holder: Holder) -> None:
 		# Auto save play times to disk
 		if pctl.total_playtime - time_last_save > 600:
 			try:
-				if should_save_state:
+				if bag.should_save_state:
 					logging.info("Auto save playtime")
 					with (user_directory / "star.p").open("wb") as file:
 						pickle.dump(star_store.db, file, protocol=pickle.HIGHEST_PROTOCOL)
@@ -46571,7 +46573,7 @@ def main(holder: Holder) -> None:
 		logging.info("Saving play state...")
 		prefs.reload_state = (pctl.playing_state, pctl.playing_time)
 
-	if should_save_state:
+	if bag.should_save_state:
 		with (user_directory / "star.p").open("wb") as file:
 			pickle.dump(star_store.db, file, protocol=pickle.HIGHEST_PROTOCOL)
 		with (user_directory / "album-star.p").open("wb") as file:
@@ -46581,7 +46583,7 @@ def main(holder: Holder) -> None:
 	save_state()
 
 	date = datetime.date.today()
-	if should_save_state:
+	if bag.should_save_state:
 		with (user_directory / "star.p.backup").open("wb") as file:
 			pickle.dump(star_store.db, file, protocol=pickle.HIGHEST_PROTOCOL)
 		with (user_directory / f"star.p.backup{str(date.month)}").open("wb") as file:
