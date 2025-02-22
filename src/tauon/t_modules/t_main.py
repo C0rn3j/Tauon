@@ -1854,12 +1854,12 @@ class PlayerCtl:
 				self.radio_playlists = [RadioPlaylist(uid=uid_gen(),name="Default", stations=[])]
 			return
 
-		if check_lock and pl_is_locked(index):
+		if check_lock and self.tauon.pl_is_locked(index):
 			self.show_message(_("Playlist is locked to prevent accidental deletion"))
 			return
 
 		if not force:
-			if pl_is_locked(index):
+			if self.tauon.pl_is_locked(index):
 				self.show_message(_("Playlist is locked to prevent accidental deletion"))
 				return
 
@@ -5627,6 +5627,41 @@ class Tauon:
 
 		self.gui.pl_update += 1
 		self.thread_manager.ready("worker")
+
+	def edit_generator_box(self, index: int) -> None:
+		self.rename_playlist(index, generator=True)
+
+	def pin_playlist_toggle(self, pl: int) -> None:
+		self.pctl.multi_playlist[pl].hidden ^= True
+
+	def pl_pin_deco(self, pl: int):
+		# if pctl.multi_playlist[pl].hidden == True and tauon.tab_menu.pos[1] >
+		if self.pctl.multi_playlist[pl].hidden == True:
+			return [self.colours.menu_text, self.colours.menu_background, _("Pin")]
+		return [self.colours.menu_text, self.colours.menu_background, _("Unpin")]
+
+	def pl_lock_deco(self, pl: int):
+		if self.pctl.multi_playlist[pl].locked == True:
+			return [self.colours.menu_text, self.colours.menu_background, _("Unlock")]
+		return [self.colours.menu_text, self.colours.menu_background, _("Lock")]
+
+	def view_pl_is_locked(self, _) -> bool:
+		return self.pctl.multi_playlist[self.pctl.active_playlist_viewing].locked
+
+	def pl_is_locked(self, pl: int) -> bool:
+		if not self.pctl.multi_playlist:
+			return False
+		return self.pctl.multi_playlist[pl].locked
+
+	def lock_playlist_toggle(self, pl: int) -> None:
+		self.pctl.multi_playlist[pl].locked ^= True
+
+	def lock_colour_callback(self) -> list[int] | None:
+		if self.pctl.multi_playlist[self.gui.tab_menu_pl].locked:
+			if self.colours.lm:
+				return [230, 180, 60, 255]
+			return [240, 190, 10, 255]
+		return None
 
 	def reload_metadata_selection(self) -> None:
 		self.pctl.cargo = []
@@ -20858,7 +20893,7 @@ class StandardPlaylist:
 							inp.quick_drag = True
 							gui.set_drag_source()
 
-							if not pl_is_locked(pctl.active_playlist_viewing) or inp.key_shift_down:
+							if not tauon.pl_is_locked(pctl.active_playlist_viewing) or inp.key_shift_down:
 								gui.playlist_hold = True
 
 							gui.selection_stage = 1
@@ -20969,7 +21004,7 @@ class StandardPlaylist:
 
 			# # Begin drag block selection
 			# if inp.mouse_down and line_over and track_position in gui.shift_selection and len(gui.shift_selection) > 1:
-			#     if not pl_is_locked(pctl.active_playlist_viewing):
+			#     if not tauon.pl_is_locked(pctl.active_playlist_viewing):
 			#         gui.playlist_hold = True
 			#     elif inp.key_shift_down:
 			#         gui.playlist_hold = True
@@ -21074,12 +21109,12 @@ class StandardPlaylist:
 						pctl.selected_in_playlist = track_position
 						gui.shift_selection = [pctl.selected_in_playlist]
 
-				if not pl_is_locked(pctl.active_playlist_viewing) or inp.key_shift_down:
+				if not tauon.pl_is_locked(pctl.active_playlist_viewing) or inp.key_shift_down:
 					gui.playlist_hold = True
 					gui.playlist_hold_position = track_position
 
 			# Activate drag if shift key down
-			if inp.quick_drag and pl_is_locked(pctl.active_playlist_viewing) and inp.mouse_down:
+			if inp.quick_drag and tauon.pl_is_locked(pctl.active_playlist_viewing) and inp.mouse_down:
 				if inp.key_shift_down:
 					gui.playlist_hold = True
 				else:
@@ -31276,41 +31311,6 @@ def parse_template(string, track_object: TrackClass, up_ext: bool = False, stric
 	# Attempt to ensure the output text is filename safe
 	return filename_safe(output)
 
-def edit_generator_box(index: int) -> None:
-	tauon.rename_playlist(index, generator=True)
-
-def pin_playlist_toggle(pl: int) -> None:
-	pctl.multi_playlist[pl].hidden ^= True
-
-def pl_pin_deco(pl: int):
-	# if pctl.multi_playlist[pl].hidden == True and tauon.tab_menu.pos[1] >
-	if pctl.multi_playlist[pl].hidden == True:
-		return [colours.menu_text, colours.menu_background, _("Pin")]
-	return [colours.menu_text, colours.menu_background, _("Unpin")]
-
-def pl_lock_deco(pl: int):
-	if pctl.multi_playlist[pl].locked == True:
-		return [colours.menu_text, colours.menu_background, _("Unlock")]
-	return [colours.menu_text, colours.menu_background, _("Lock")]
-
-def view_pl_is_locked(_) -> bool:
-	return pctl.multi_playlist[pctl.active_playlist_viewing].locked
-
-def pl_is_locked(pl: int) -> bool:
-	if not pctl.multi_playlist:
-		return False
-	return pctl.multi_playlist[pl].locked
-
-def lock_playlist_toggle(pl: int) -> None:
-	pctl.multi_playlist[pl].locked ^= True
-
-def lock_colour_callback():
-	if pctl.multi_playlist[gui.tab_menu_pl].locked:
-		if colours.lm:
-			return [230, 180, 60, 255]
-		return [240, 190, 10, 255]
-	return None
-
 def export_m3u(pl: int, direc: str | None = None, relative: bool = False, show: bool = True) -> int | str:
 	if len(pctl.multi_playlist[pl].playlist_ids) < 1:
 		self.show_message(_("There are no tracks in this playlist. Nothing to export"))
@@ -31414,7 +31414,7 @@ def reload(tauon: Tauon) -> None:
 	#	 combo_pl_render.prep()
 
 def clear_playlist(tauon: Tauon, index: int) -> None:
-	if pl_is_locked(index):
+	if tauon.pl_is_locked(index):
 		self.show_message(_("Playlist is locked to prevent accidental erasure"))
 		return
 
@@ -31704,7 +31704,7 @@ def export_stats(pl: int) -> None:
 		subprocess.call(["xdg-open", target])
 
 def imported_sort(pl: int) -> None:
-	if pl_is_locked(pl):
+	if tauon.pl_is_locked(pl):
 		self.show_message(_("Playlist is locked"))
 		return
 
@@ -31715,7 +31715,7 @@ def imported_sort(pl: int) -> None:
 	tauon.tree_view_box.clear_target_pl(pl)
 
 def imported_sort_folders(pl: int) -> None:
-	if pl_is_locked(pl):
+	if tauon.pl_is_locked(pl):
 		self.show_message(_("Playlist is locked"))
 		return
 
@@ -31734,7 +31734,7 @@ def imported_sort_folders(pl: int) -> None:
 	tauon.tree_view_box.clear_target_pl(pl)
 
 def standard_sort(pl: int) -> None:
-	if pl_is_locked(pl):
+	if tauon.pl_is_locked(pl):
 		self.show_message(_("Playlist is locked"))
 		return
 
@@ -35131,7 +35131,7 @@ def key_hl(index: int) -> int:
 
 def sort_ass(h, invert=False, custom_list=None, custom_name=""):
 	if custom_list is None:
-		if pl_is_locked(pctl.active_playlist_viewing):
+		if tauon.pl_is_locked(pctl.active_playlist_viewing):
 			self.show_message(_("Playlist is locked"))
 			return
 
@@ -37123,7 +37123,7 @@ def worker1(tauon: Tauon) -> None:
 					code = pctl.gen_codes[pctl.pl_to_id(i)]
 					try:
 						if tauon.check_auto_update_okay(code, pl=i):
-							if not pl_is_locked(i):
+							if not tauon.pl_is_locked(i):
 								logging.info("Reloading smart playlist: " + plist.title)
 								regenerate_playlist(i, silent=True)
 								time.sleep(0.02)
@@ -40642,17 +40642,17 @@ def main(holder: Holder) -> None:
 
 	radio_tab_menu = Menu(tauon, 160, show_icons=True)
 	radio_tab_menu.add(MenuItem(_("Rename"), tauon.rename_playlist, pass_ref=True, hint="Ctrl+R"))
-	tab_menu.add(MenuItem("Pin", pin_playlist_toggle, pl_pin_deco, pass_ref=True, pass_ref_deco=True))
+	tab_menu.add(MenuItem("Pin", tauon.pin_playlist_toggle, tauon.pl_pin_deco, pass_ref=True, pass_ref_deco=True))
 
 	lock_asset = asset_loader(bag, loaded_asset_dc, "lock.png", True)
 	lock_icon = MenuIcon(lock_asset)
 	lock_icon.base_asset_mod = asset_loader(bag, loaded_asset_dc, "unlock.png", True)
 	lock_icon.colour = [240, 190, 10, 255]
-	lock_icon.colour_callback = lock_colour_callback
+	lock_icon.colour_callback = tauon.lock_colour_callback
 	lock_icon.xoff = 4
 	lock_icon.yoff = -1
 
-	tab_menu.add(MenuItem(_("Lock"), lock_playlist_toggle, pl_lock_deco,
+	tab_menu.add(MenuItem(_("Lock"), tauon.lock_playlist_toggle, tauon.pl_lock_deco,
 		pass_ref=True, pass_ref_deco=True, icon=lock_icon, show_test=inp.test_shift))
 
 	# Clear playlist
@@ -40748,7 +40748,7 @@ def main(holder: Holder) -> None:
 	# tab_menu.add_to_sub(_('Quick Export XSPF'), 2, export_xspf, pass_ref=True)
 	# tab_menu.add_to_sub(_('Quick Export M3U'), 2, export_m3u, pass_ref=True)
 	tab_menu.add_to_sub(2, MenuItem(_("Toggle Breaks"), tauon.pl_toggle_playlist_break, pass_ref=True))
-	tab_menu.add_to_sub(2, MenuItem(_("Edit Generator..."), edit_generator_box, pass_ref=True))
+	tab_menu.add_to_sub(2, MenuItem(_("Edit Generator..."), tauon.edit_generator_box, pass_ref=True))
 	tab_menu.add_to_sub(2, MenuItem(_("Engage Gallery Quick Add"), start_quick_add, pass_ref=True))
 	tab_menu.add_to_sub(2, MenuItem(_("Set as Sync Playlist"), set_sync_playlist, sync_playlist_deco, pass_ref_deco=True, pass_ref=True))
 	tab_menu.add_to_sub(2, MenuItem(_("Set as Downloads Playlist"), set_download_playlist, set_download_deco, pass_ref_deco=True, pass_ref=True))
@@ -41058,8 +41058,8 @@ def main(holder: Holder) -> None:
 	_("Time")
 	_("Filepath")
 
-	# set_menu.add(_("Sort Ascending"), sort_ass, pass_ref=True, disable_test=view_pl_is_locked, pass_ref_deco=True)
-	# set_menu.add(_("Sort Decending"), sort_dec, pass_ref=True, disable_test=view_pl_is_locked, pass_ref_deco=True)
+	# set_menu.add(_("Sort Ascending"), sort_ass, pass_ref=True, disable_test=tauon.view_pl_is_locked, pass_ref_deco=True)
+	# set_menu.add(_("Sort Decending"), sort_dec, pass_ref=True, disable_test=tauon.view_pl_is_locked, pass_ref_deco=True)
 	# set_menu.br()
 	set_menu.add(MenuItem(_("Auto Resize"), auto_size_columns))
 	set_menu.add(MenuItem(_("Hide bar"), hide_set_bar))
@@ -42319,7 +42319,7 @@ def main(holder: Holder) -> None:
 					# standard_size()
 					if len(pctl.track_queue) > 0:
 						gui.quick_search_mode = True
-						search_text.text = ""
+						search_over.search_text.text = ""
 						input_text = pctl.playing_object().artist
 
 				if keymaps.test("show-encode-folder"):
@@ -42553,11 +42553,11 @@ def main(holder: Holder) -> None:
 				tauon.new_playlist()
 
 			if keymaps.test("edit-generator"):
-				edit_generator_box(pctl.active_playlist_viewing)
+				tauon.edit_generator_box(pctl.active_playlist_viewing)
 
 			if keymaps.test("new-generator-playlist"):
 				tauon.new_playlist()
-				edit_generator_box(pctl.active_playlist_viewing)
+				tauon.edit_generator_box(pctl.active_playlist_viewing)
 
 			if keymaps.test("delete-playlist"):
 				delete_playlist(pctl.active_playlist_viewing)
@@ -43419,7 +43419,7 @@ def main(holder: Holder) -> None:
 												elif inp.mouse_down and not m_in:
 													info = tauon.get_album_info(tauon.album_dex[album_on])
 													inp.quick_drag = True
-													if not pl_is_locked(pctl.active_playlist_viewing) or inp.key_shift_down:
+													if not tauon.pl_is_locked(pctl.active_playlist_viewing) or inp.key_shift_down:
 														gui.playlist_hold = True
 													gui.shift_selection = info[1]
 													gui.pl_update += 1
@@ -45457,28 +45457,29 @@ def main(holder: Holder) -> None:
 				# 	tauon.search_over.active = True
 
 				tauon.search_over.render()
+				search_over = tauon.search_over
 
 				if keymaps.test("quick-find") and gui.quick_search_mode is False:
 					if not tauon.search_over.active and not gui.box_over:
 						gui.quick_search_mode = True
 					if tauon.search_clear_timer.get() > 3:
-						search_text.text = ""
+						search_over.search_text.text = ""
 					input_text = ""
 				elif (keymaps.test("quick-find") or (
 						inp.key_esc_press and len(gui.editline) == 0)) or (inp.mouse_click and gui.quick_search_mode is True):
 					gui.quick_search_mode = False
-					search_text.text = ""
+					search_over.search_text.text = ""
 
 				# if (key_backslash_press or (inp.key_ctrl_down and key_f_press)) and gui.quick_search_mode is False:
 				# 	if not tauon.search_over.active:
 				# 		gui.quick_search_mode = True
 				# 	if tauon.search_clear_timer.get() > 3:
-				# 		search_text.text = ""
+				# 		search_over.search_text.text = ""
 				# 	input_text = ""
 				# elif ((key_backslash_press or (inp.key_ctrl_down and key_f_press)) or (
 				# 		inp.key_esc_press and len(gui.editline) == 0)) or input.mouse_click and gui.quick_search_mode is True:
 				# 	gui.quick_search_mode = False
-				# 	search_text.text = ""
+				# 	search_over.search_text.text = ""
 
 				if gui.quick_search_mode is True:
 					rect2 = [0, window_size[1] - 85 * gui.scale, 420 * gui.scale, 25 * gui.scale]
@@ -45497,21 +45498,21 @@ def main(holder: Holder) -> None:
 					if len(input_text) > 0:
 						gui.search_index = -1
 
-					if inp.backspace_press and search_text.text == "":
+					if inp.backspace_press and search_over.search_text.text == "":
 						gui.quick_search_mode = False
 
-					if len(search_text.text) == 0:
+					if len(search_over.search_text.text) == 0:
 						gui.search_error = False
 
-					if len(search_text.text) != 0 and search_text.text[0] == "/":
-						# if "/love" in search_text.text:
+					if len(search_over.search_text.text) != 0 and search_over.search_text.text[0] == "/":
+						# if "/love" in search_over.search_text.text:
 						#     line = "last.fm loved tracks from user. Format: /love <username>"
 						# else:
 						line = _("Folder filter mode. Enter path segment.")
 						ddt.text((rect[0] + 23 * gui.scale, window_size[1] - 87 * gui.scale), line, (220, 220, 220, 100), 312)
 					else:
 						line = _("UP / DOWN to navigate. SHIFT + RETURN for new playlist.")
-						if len(search_text.text) == 0:
+						if len(search_over.search_text.text) == 0:
 							line = _("Quick find")
 						ddt.text((rect[0] + int(rect[2] / 2), window_size[1] - 87 * gui.scale, 2), line, colours.box_text_label, 312)
 
@@ -45521,7 +45522,7 @@ def main(holder: Holder) -> None:
 					# if len(pctl.track_queue) > 0:
 
 					# if input_text == 'A':
-					#     search_text.text = pctl.playing_object().artist
+					#     search_over.search_text.text = pctl.playing_object().artist
 					#     input_text = ""
 
 					if gui.search_error:
@@ -45530,39 +45531,39 @@ def main(holder: Holder) -> None:
 					# if input.backspace_press:
 					#     gui.search_error = False
 
-					search_text.draw(rect[0] + 8 * gui.scale, rect[1] + 6 * gui.scale, colours.grey(250), font=213)
+					search_over.search_text.draw(rect[0] + 8 * gui.scale, rect[1] + 6 * gui.scale, colours.grey(250), font=213)
 
 					if (inp.key_shift_down or (
-							len(search_text.text) > 0 and search_text.text[0] == "/")) and inp.key_return_press:
+							len(search_over.search_text.text) > 0 and search_over.search_text.text[0] == "/")) and inp.key_return_press:
 						inp.key_return_press = False
 						playlist = []
-						if len(search_text.text) > 0:
-							if search_text.text[0] == "/":
+						if len(search_over.search_text.text) > 0:
+							if search_over.search_text.text[0] == "/":
 
-								if search_text.text.lower() == "/random" or search_text.text.lower() == "/shuffle":
+								if search_over.search_text.text.lower() == "/random" or search_over.search_text.text.lower() == "/shuffle":
 									gen_500_random(pctl.active_playlist_viewing)
-								elif search_text.text.lower() == "/top" or search_text.text.lower() == "/most":
+								elif search_over.search_text.text.lower() == "/top" or search_over.search_text.text.lower() == "/most":
 									gen_top_100(pctl.active_playlist_viewing)
-								elif search_text.text.lower() == "/length" or search_text.text.lower() == "/duration" \
-										or search_text.text.lower() == "/len":
+								elif search_over.search_text.text.lower() == "/length" or search_over.search_text.text.lower() == "/duration" \
+										or search_over.search_text.text.lower() == "/len":
 									gen_sort_len(pctl.active_playlist_viewing)
 								else:
 
-									if search_text.text[-1] == "/":
-										tt_title = search_text.text.replace("/", "")
+									if search_over.search_text.text[-1] == "/":
+										tt_title = search_over.search_text.text.replace("/", "")
 									else:
-										search_text.text = search_text.text.replace("/", "")
-										tt_title = search_text.text
-									search_text.text = search_text.text.lower()
+										search_over.search_text.text = search_over.search_text.text.replace("/", "")
+										tt_title = search_over.search_text.text
+									search_over.search_text.text = search_over.search_text.text.lower()
 									for item in pctl.default_playlist:
-										if search_text.text in pctl.master_library[item].parent_folder_path.lower():
+										if search_over.search_text.text in pctl.master_library[item].parent_folder_path.lower():
 											playlist.append(item)
 									if len(playlist) > 0:
 										pctl.multi_playlist.append(pl_gen(title=tt_title, playlist_ids=copy.deepcopy(playlist)))
 										pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 
 							else:
-								search_terms = search_text.text.lower().split()
+								search_terms = search_over.search_text.text.lower().split()
 								for item in pctl.default_playlist:
 									tr = pctl.get_track(item)
 									line = " ".join(
@@ -45570,7 +45571,7 @@ def main(holder: Holder) -> None:
 											tr.title, tr.artist, tr.album, tr.fullpath,
 											tr.composer, tr.comment, tr.album_artist, tr.misc.get("artist_sort", "")]).lower()
 
-									# if prefs.diacritic_search and all([ord(c) < 128 for c in search_text.text]):
+									# if prefs.diacritic_search and all([ord(c) < 128 for c in search_over.search_text.text]):
 									#     line = str(unidecode(line))
 
 									if all(word in line for word in search_terms):
@@ -45580,9 +45581,9 @@ def main(holder: Holder) -> None:
 										title=_("Search Results"),
 										playlist_ids=copy.deepcopy(playlist)))
 									pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[
-										pctl.active_playlist_viewing].title + "\" f\"" + search_text.text + "\""
+										pctl.active_playlist_viewing].title + "\" f\"" + search_over.search_text.text + "\""
 									pctl.switch_playlist(len(pctl.multi_playlist) - 1)
-							search_text.text = ""
+							search_over.search_text.text = ""
 							gui.quick_search_mode = False
 
 					if (len(input_text) > 0 and not gui.search_error) or inp.key_down_press is True or inp.backspace_press \
@@ -45596,7 +45597,7 @@ def main(holder: Holder) -> None:
 						if inp.backspace_press:
 							gui.search_index = 0
 
-						if len(search_text.text) > 0 and search_text.text[0] != "/":
+						if len(search_over.search_text.text) > 0 and search_over.search_text.text[0] != "/":
 							oi = gui.search_index
 
 							while gui.search_index < len(pctl.default_playlist) - 1:
@@ -45604,13 +45605,13 @@ def main(holder: Holder) -> None:
 								if gui.search_index > len(pctl.default_playlist) - 1:
 									gui.search_index = 0
 
-								search_terms = search_text.text.lower().split()
+								search_terms = search_over.search_text.text.lower().split()
 								tr = pctl.get_track(pctl.default_playlist[gui.search_index])
 								line = " ".join(
 									[tr.title, tr.artist, tr.album, tr.fullpath, tr.composer, tr.comment,
 									tr.album_artist, tr.misc.get("artist_sort", "")]).lower()
 
-								# if prefs.diacritic_search and all([ord(c) < 128 for c in search_text.text]):
+								# if prefs.diacritic_search and all([ord(c) < 128 for c in search_over.search_text.text]):
 								#     line = str(unidecode(line))
 
 								if all(word in line for word in search_terms):
@@ -45652,13 +45653,13 @@ def main(holder: Holder) -> None:
 						while gui.search_index > 1:
 							gui.search_index -= 1
 							gui.search_index = min(gui.search_index, len(pctl.default_playlist) - 1)
-							search_terms = search_text.text.lower().split()
+							search_terms = search_over.search_text.text.lower().split()
 							line = pctl.master_library[pctl.default_playlist[gui.search_index]].title.lower() + \
 								pctl.master_library[pctl.default_playlist[gui.search_index]].artist.lower() \
 								+ pctl.master_library[pctl.default_playlist[gui.search_index]].album.lower() + \
 								pctl.master_library[pctl.default_playlist[gui.search_index]].filename.lower()
 
-							if prefs.diacritic_search and all([ord(c) < 128 for c in search_text.text]):
+							if prefs.diacritic_search and all([ord(c) < 128 for c in search_over.search_text.text]):
 								line = str(unidecode(line))
 
 							if all(word in line for word in search_terms):
