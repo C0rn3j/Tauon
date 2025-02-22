@@ -5330,6 +5330,7 @@ class Tauon:
 		#TODO(Martin) : Fix this by moving the class to root of the module
 		self.cachement:  player4.Cachement | None = None
 		self.dummy_event:          sdl3.SDL_Event = sdl3.SDL_Event()
+		self.temp_dest                            = sdl3.SDL_FRect(0, 0)
 		self.translate                            = _
 		self.strings                              = Strings()
 		self.gui:                          GuiVar = gui
@@ -10716,6 +10717,7 @@ class AlbumArt:
 		self.msys                 = tauon.msys
 		self.macos                = tauon.macos
 		self.system               = tauon.system
+		self.temp_dest            = tauon.temp_dest
 		self.inp                  = tauon.inp
 		self.gui                  = tauon.gui
 		self.prefs                = tauon.prefs
@@ -10874,41 +10876,41 @@ class AlbumArt:
 
 		unit = found_unit
 
-		temp_dest.x = round(location[0])
-		temp_dest.y = round(location[1])
+		self.temp_dest.x = round(location[0])
+		self.temp_dest.y = round(location[1])
 
-		temp_dest.w = unit.original_size[0]  # round(box[0])
-		temp_dest.h = unit.original_size[1]  # round(box[1])
+		self.temp_dest.w = unit.original_size[0]  # round(box[0])
+		self.temp_dest.h = unit.original_size[1]  # round(box[1])
 
 		bh = round(box[1])
 		bw = round(box[0])
 
 		if self.prefs.zoom_art:
-			temp_dest.w, temp_dest.h = fit_box((unit.original_size[0], unit.original_size[1]), box)
+			self.temp_dest.w, self.temp_dest.h = fit_box((unit.original_size[0], unit.original_size[1]), box)
 		else:
 			# Constrain image to given box
-			if temp_dest.w > bw:
-				temp_dest.w = bw
-				temp_dest.h = int(bw * (unit.original_size[1] / unit.original_size[0]))
+			if self.temp_dest.w > bw:
+				self.temp_dest.w = bw
+				self.temp_dest.h = int(bw * (unit.original_size[1] / unit.original_size[0]))
 
-			if temp_dest.h > bh:
-				temp_dest.h = bh
-				temp_dest.w = int(temp_dest.h * (unit.original_size[0] / unit.original_size[1]))
+			if self.temp_dest.h > bh:
+				self.temp_dest.h = bh
+				self.temp_dest.w = int(self.temp_dest.h * (unit.original_size[0] / unit.original_size[1]))
 
 			# prevent scaling larger than original image size
-			if temp_dest.w > unit.original_size[0] or temp_dest.h > unit.original_size[1]:
-				temp_dest.w = unit.original_size[0]
-				temp_dest.h = unit.original_size[1]
+			if self.temp_dest.w > unit.original_size[0] or self.temp_dest.h > unit.original_size[1]:
+				self.temp_dest.w = unit.original_size[0]
+				self.temp_dest.h = unit.original_size[1]
 
 		# center the image
-		temp_dest.x = int((box[0] - temp_dest.w) / 2) + temp_dest.x
-		temp_dest.y = int((box[1] - temp_dest.h) / 2) + temp_dest.y
+		self.temp_dest.x = int((box[0] - self.temp_dest.w) / 2) + self.temp_dest.x
+		self.temp_dest.y = int((box[1] - self.temp_dest.h) / 2) + self.temp_dest.y
 
 		# render the image
-		sdl3.SDL_RenderTexture(self.renderer, unit.texture, None, temp_dest)
-		self.style_overlay.hole_punches.append(temp_dest)
+		sdl3.SDL_RenderTexture(self.renderer, unit.texture, None, self.temp_dest)
+		self.style_overlay.hole_punches.append(self.temp_dest)
 
-		self.gui.art_drawn_rect = (temp_dest.x, temp_dest.y, temp_dest.w, temp_dest.h)
+		self.gui.art_drawn_rect = (self.temp_dest.x, self.temp_dest.y, self.temp_dest.w, self.temp_dest.h)
 
 		return 0
 
@@ -40457,8 +40459,6 @@ def main(holder: Holder) -> None:
 	rename_folder.text = prefs.rename_folder_template
 	if rename_folder_previous:
 		rename_folder.text = rename_folder_previous
-
-	temp_dest = sdl3.SDL_FRect(0, 0)
 
 	album_art_gen = tauon.album_art_gen
 
