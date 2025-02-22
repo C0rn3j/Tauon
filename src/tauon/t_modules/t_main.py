@@ -5365,6 +5365,8 @@ class Tauon:
 		self.strings                              = Strings()
 		self.gui:                          GuiVar = gui
 		self.prefs:                         Prefs = bag.prefs
+		self.snap_mode:                      bool = bag.snap_mode
+		self.flatpak_mode:                   bool = bag.flatpak_mode
 		self.core_use: int                        = 0
 		self.dl_use: int                          = 0
 		self.latest_db_version                    = bag.latest_db_version
@@ -5519,7 +5521,6 @@ class Tauon:
 		self.album_info_cache                     = {}
 		self.album_info_cache_key                 = (-1, -1)
 		self.album_mode:                     bool = False
-		self.snap_mode:                      bool = bag.snap_mode
 		self.console                              = bag.console
 		self.TrackClass                           = TrackClass
 		self.pl_gen                               = pl_gen
@@ -5535,7 +5536,7 @@ class Tauon:
 		self.listen_alongers                      = {}
 		self.encode_folder_name                   = encode_folder_name
 		self.encode_track_name                    = encode_track_name
-
+		self.todo:                           list = []
 
 		self.tray_lock = threading.Lock()
 		self.tray_releases = 0
@@ -5587,6 +5588,232 @@ class Tauon:
 		self.subsonic          = self.album_star_store.subsonic
 
 		self.tls_context = bag.tls_context
+
+	def reload_metadata(self, input: int | list, keep_star: bool = True) -> None:
+		# vacuum_playtimes(index)
+		# return
+		self.todo = []
+
+		if isinstance(input, list):
+			self.todo = input
+		else:
+			for k in self.pctl.default_playlist:
+				if self.pctl.master_library[input].parent_folder_path == self.pctl.master_library[k].parent_folder_path:
+					todo.append(pctl.master_library[k])
+
+		for i in reversed(range(len(self.todo))):
+			if self.todo[i].is_cue:
+				del self.todo[i]
+
+		for track in self.todo:
+			self.search_string_cache.pop(track.index, None)
+			self.search_dia_string_cache.pop(track.index, None)
+
+			#logging.info('Reloading Metadata for ' + track.filename)
+			if keep_star:
+				self.to_scan.append(track.index)
+			else:
+				# if keep_star:
+				# 	star = self.star_store.full_get(track.index)
+				# 	self.star_store.remove(track.index)
+
+				self.pctl.master_library[track.index] = self.tag_scan(track)
+
+				# if keep_star:
+				# 	if star is not None and (star[0] > 0 or star[1] or star[2] > 0):
+				# 		self.star_store.merge(track.index, star)
+
+				self.pctl.notify_change()
+
+		self.gui.pl_update += 1
+		self.thread_manager.ready("worker")
+
+	def reload_metadata_selection(self) -> None:
+		self.pctl.cargo = []
+		for item in self.gui.shift_selection:
+			self.pctl.cargo.append(self.pctl.default_playlist[item])
+
+		for k in self.pctl.cargo:
+			if self.pctl.master_library[k].is_cue == False:
+				self.to_scan.append(k)
+		self.thread_manager.ready("worker")
+
+	def editor(self, index: int | None) -> None:
+		todo = []
+		obs = []
+
+		if self.inp.key_shift_down and index is not None:
+			todo = [index]
+			obs = [self.pctl.master_library[index]]
+		elif index is None:
+			for item in self.gui.shift_selection:
+				todo.append(self.pctl.default_playlist[item])
+				obs.append(self.pctl.master_library[self.pctl.default_playlist[item]])
+			if len(todo) > 0:
+				index = todo[0]
+		else:
+			for k in self.pctl.default_playlist:
+				if self.pctl.master_library[index].parent_folder_path == self.pctl.master_library[k].parent_folder_path:
+					if self.pctl.master_library[k].is_cue == False:
+						todo.append(k)
+						obs.append(self.pctl.master_library[k])
+
+		# Keep copy of play times
+		old_stars = []
+		for track in todo:
+			item = []
+			item.append(self.pctl.get_track(track))
+			item.append(self.star_store.key(track))
+			item.append(self.star_store.full_get(track))
+			old_stars.append(item)
+
+		file_line = ""
+		for track in todo:
+			file_line += ' "'
+			file_line += self.pctl.master_library[track].fullpath
+			file_line += '"'
+
+		if self.system == "Windows" or self.msys:
+			file_line = file_line.replace("/", "\\")
+
+		prefix = ""
+		app = self.prefs.tag_editor_target
+
+		if (self.system == "Windows" or self.msys) and app:
+			if app[0] != '"':
+				app = '"' + app
+			if app[-1] != '"':
+				app = app + '"'
+
+		app_switch = ""
+
+		ok = False
+
+		prefix = launch_prefix
+
+		if self.system == "Linux":
+			ok = whicher(self.prefs.tag_editor_target, self.flatpak_mode)
+		else:
+			if not os.path.isfile(self.prefs.tag_editor_target.strip('"')):
+				logging.info(self.prefs.tag_editor_target)
+				self.show_message(_("Application not found"), self.prefs.tag_editor_target, mode="info")
+				return
+
+			ok = True
+
+		if not ok:
+			self.show_message(_("Tag editor app does not appear to be installed."), mode="warning")
+
+			if self.flatpak_mode:
+				self.show_message(
+					_("App not found on host OR insufficient Flatpak permissions."),
+					_(" For details, see {link}").format(link="https://github.com/Taiko2k/Tauon/wiki/Flatpak-Extra-Steps"),
+					mode="bubble")
+
+			return
+
+		if "picard" in self.prefs.tag_editor_target:
+			app_switch = " --d "
+
+		line = prefix + app + app_switch + file_line
+
+		self.show_message(
+			self.refs.tag_editor_name + " launched.", "Fields will be updated once application is closed.", mode="arrow")
+		self.gui.update = 1
+
+		complete = subprocess.run(shlex.split(line), stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+
+		if "picard" in self.prefs.tag_editor_target:
+			r = complete.stderr.decode()
+			for line in r.split("\n"):
+				if "file._rename" in line and " Moving file " in line:
+					a, b = line.split(" Moving file ")[1].split(" => ")
+					a = a.strip("'").strip('"')
+					b = b.strip("'").strip('"')
+
+					for track in todo:
+						if self.pctl.master_library[track].fullpath == a:
+							self.pctl.master_library[track].fullpath = b
+							self.pctl.master_library[track].filename = os.path.basename(b)
+							logging.info("External Edit: File rename detected.")
+							logging.info("    Renaming: " + a)
+							logging.info("          To: " + b)
+							break
+					else:
+						logging.warning("External Edit: A file rename was detected but track was not found.")
+
+		self.gui.message_box = False
+		self.reload_metadata(obs, keep_star=False)
+
+		# Re apply playtime data in case file names change
+		for item in old_stars:
+			old_key = item[1]
+			old_value = item[2]
+
+			if not old_value:  # ignore if there was no old playcount metadata
+				continue
+
+			new_key = self.star_store.object_key(item[0])
+			new_value = self.star_store.full_get(item[0].index)
+
+			if old_key == new_key:
+				continue
+
+			if new_value is None:
+				new_value = [0, "", 0]
+
+			new_value[0] += old_value[0]
+			new_value[1] = "".join(set(new_value[1] + old_value[1]))
+
+			if old_key in self.star_store.db:
+				del self.star_store.db[old_key]
+
+			self.star_store.db[new_key] = new_value
+
+		self.gui.pl_update = 1
+		self.gui.update = 1
+		self.pctl.notify_change()
+
+	def launch_editor(self, index: int) -> bool:
+		if self.snap_mode:
+			self.show_message(_("Sorry, this feature isn't (yet) available with Snap."))
+			return
+
+		if self.launch_editor_disable_test(index):
+			self.show_message(_("Cannot edit tags of a network track."))
+			return
+
+		mini_t = threading.Thread(target=self.editor, args=[index])
+		mini_t.daemon = True
+		mini_t.start()
+
+	def launch_editor_selection_disable_test(self, index: int) -> bool:
+		for position in self.gui.shift_selection:
+			if self.pctl.get_track(pctl.default_playlist[position]).is_network:
+				return True
+		return False
+
+	def launch_editor_selection(self, index: int) -> None:
+		if self.launch_editor_selection_disable_test(index):
+			self.show_message(_("Cannot edit tags of a network track."))
+			return
+
+		mini_t = threading.Thread(target=self.editor, args=[None])
+		mini_t.daemon = True
+		mini_t.start()
+
+	def edit_deco(self, index: int) -> list[list[int] | str | None]:
+		if self.inp.key_shift_down or self.inp.key_shiftr_down:
+			return [self.colours.menu_text, self.colours.menu_background, self.prefs.tag_editor_name + " (Single track)"]
+		return [self.colours.menu_text, self.colours.menu_background, _("Edit with ") + self.prefs.tag_editor_name]
+
+	def launch_editor_disable_test(self, index: int) -> bool:
+		return self.pctl.get_track(index).is_network
+
+	def show_lyrics_menu(self, index: int) -> None:
+		self.gui.track_box = False
+		enter_showcase_view(track_id=self.pctl.r_menu_index)
+		self.inp.mouse_click = False
 
 	def show_message(self, line1: str, line2: str ="", line3: str = "", mode: str = "info") -> None:
 		self.gui.message_box = True
@@ -8913,7 +9140,7 @@ class Tauon:
 		else:
 			self.gui.drop_playlist_target = self.pctl.active_playlist_viewing
 
-		if not os.path.exists(target) and flatpak_mode:
+		if not os.path.exists(target) and self.flatpak_mode:
 			self.show_message(
 				_("Could not access! Possible insufficient Flatpak permissions."),
 				_(" For details, see {link}").format(link="https://github.com/Taiko2k/TauonMusicBox/wiki/Flatpak-Extra-Steps"),
@@ -14453,6 +14680,7 @@ class Over:
 		self.t_version           = tauon.t_version
 		self.pctl                = tauon.pctl
 		self.system              = tauon.system
+		self.flatpak_mode        = tauon.flatpak_mode
 		self.album_mode_art_size = tauon.album_mode_art_size
 		self.platform_system     = tauon.bag.platform_system
 		self.colours             = tauon.colours
@@ -15251,8 +15479,8 @@ class Over:
 
 			if tauon.update_play_lock is None:
 				prefs.block_suspend = False
-				# if flatpak_mode:
-				#     self.show_message("Sandbox support not implemented")
+				# if self.flatpak_mode:
+				# 	self.show_message("Sandbox support not implemented")
 			elif old != prefs.block_suspend:
 				tauon.update_play_lock()
 
@@ -15262,7 +15490,7 @@ class Over:
 			old = prefs.discord_enable
 			prefs.discord_enable = self.toggle_square(x, y, prefs.discord_enable, _("Enable Discord Rich Presence"))
 
-			if flatpak_mode:
+			if self.flatpak_mode:
 				if self.button(x + 215 * gui.scale, y, _("?")):
 					self.show_message(
 						_("For troubleshooting Discord RP"),
@@ -16373,7 +16601,7 @@ class Over:
 		self.toggle_square(x, y, self.tauon.switch_ogg, "OGG Vorbis")
 		y += 25 * gui.scale
 
-		# if not flatpak_mode:
+		# if not self.flatpak_mode:
 		self.toggle_square(x, y, self.tauon.switch_mp3, "MP3")
 		# if prefs.transcode_codec == 'mp3' and not shutil.which("lame"):
 		#     ddt.draw_text((x + 90 * gui.scale, y - 3 * gui.scale), "LAME not detected!", [220, 110, 110, 255], 12)
@@ -16425,7 +16653,7 @@ class Over:
 			self.toggle_square(x, y, self.tauon.toggle_titlebar_line, _("Show playing in titlebar"))
 
 		#y += 25 * gui.scale
-		# if system != 'windows' and (flatpak_mode or snap_mode):
+		# if system != 'windows' and (self.flatpak_mode or snap_mode):
 		#     self.toggle_square(x, y, self.tauon.toggle_force_subpixel, _("Enable RGB text antialiasing"))
 
 		y += 25 * gui.scale
@@ -27424,6 +27652,7 @@ class Bag:
 	phone:                  bool
 	pump:                   bool
 	snap_mode:              bool
+	flatpak_mode:           bool
 	smtc:                   bool
 	draw_min_button:        bool
 	draw_max_button:        bool
@@ -34299,7 +34528,6 @@ def vacuum_playtimes(index: int):
 			todo.append(k)
 
 	for track in todo:
-
 		tr = pctl.get_track(track)
 
 		total_playtime = 0
@@ -34325,236 +34553,6 @@ def vacuum_playtimes(index: int):
 			star_store.db[key] = value
 		else:
 			logging.error("ERROR KEY ALREADY HERE?")
-
-def reload_metadata(input, keep_star: bool = True) -> None:
-	global todo
-
-	# vacuum_playtimes(index)
-	# return
-	todo = []
-
-	if isinstance(input, list):
-		todo = input
-	else:
-		for k in pctl.default_playlist:
-			if pctl.master_library[input].parent_folder_path == pctl.master_library[k].parent_folder_path:
-				todo.append(pctl.master_library[k])
-
-	for i in reversed(range(len(todo))):
-		if todo[i].is_cue:
-			del todo[i]
-
-	for track in todo:
-		tauon.search_string_cache.pop(track.index, None)
-		tauon.search_dia_string_cache.pop(track.index, None)
-
-		#logging.info('Reloading Metadata for ' + track.filename)
-		if keep_star:
-			tauon.to_scan.append(track.index)
-		else:
-			# if keep_star:
-			#     star = star_store.full_get(track.index)
-			#     star_store.remove(track.index)
-
-			pctl.master_library[track.index] = tauon.tag_scan(track)
-
-			# if keep_star:
-			#     if star is not None and (star[0] > 0 or star[1] or star[2] > 0):
-			#         star_store.merge(track.index, star)
-
-			pctl.notify_change()
-
-	gui.pl_update += 1
-	tauon.thread_manager.ready("worker")
-
-def reload_metadata_selection(tauon: Tauon) -> None:
-	pctl.cargo = []
-	for item in gui.shift_selection:
-		pctl.cargo.append(pctl.default_playlist[item])
-
-	for k in pctl.cargo:
-		if tauon.pctl.master_library[k].is_cue == False:
-			tauon.to_scan.append(k)
-	tauon.thread_manager.ready("worker")
-
-def editor(index: int | None) -> None:
-	todo = []
-	obs = []
-
-	if inp.key_shift_down and index is not None:
-		todo = [index]
-		obs = [pctl.master_library[index]]
-	elif index is None:
-		for item in gui.shift_selection:
-			todo.append(pctl.default_playlist[item])
-			obs.append(pctl.master_library[pctl.default_playlist[item]])
-		if len(todo) > 0:
-			index = todo[0]
-	else:
-		for k in pctl.default_playlist:
-			if pctl.master_library[index].parent_folder_path == pctl.master_library[k].parent_folder_path:
-				if pctl.master_library[k].is_cue == False:
-					todo.append(k)
-					obs.append(pctl.master_library[k])
-
-	# Keep copy of play times
-	old_stars = []
-	for track in todo:
-		item = []
-		item.append(pctl.get_track(track))
-		item.append(star_store.key(track))
-		item.append(star_store.full_get(track))
-		old_stars.append(item)
-
-	file_line = ""
-	for track in todo:
-		file_line += ' "'
-		file_line += pctl.master_library[track].fullpath
-		file_line += '"'
-
-	if system == "Windows" or msys:
-		file_line = file_line.replace("/", "\\")
-
-	prefix = ""
-	app = prefs.tag_editor_target
-
-	if (system == "Windows" or msys) and app:
-		if app[0] != '"':
-			app = '"' + app
-		if app[-1] != '"':
-			app = app + '"'
-
-	app_switch = ""
-
-	ok = False
-
-	prefix = launch_prefix
-
-	if system == "Linux":
-		ok = whicher(prefs.tag_editor_target, flatpak_mode)
-	else:
-
-		if not os.path.isfile(prefs.tag_editor_target.strip('"')):
-			logging.info(prefs.tag_editor_target)
-			self.show_message(_("Application not found"), prefs.tag_editor_target, mode="info")
-			return
-
-		ok = True
-
-	if not ok:
-		self.show_message(_("Tag editor app does not appear to be installed."), mode="warning")
-
-		if flatpak_mode:
-			self.show_message(
-				_("App not found on host OR insufficient Flatpak permissions."),
-				_(" For details, see {link}").format(link="https://github.com/Taiko2k/Tauon/wiki/Flatpak-Extra-Steps"),
-				mode="bubble")
-
-		return
-
-	if "picard" in prefs.tag_editor_target:
-		app_switch = " --d "
-
-	line = prefix + app + app_switch + file_line
-
-	self.show_message(
-		prefs.tag_editor_name + " launched.", "Fields will be updated once application is closed.", mode="arrow")
-	gui.update = 1
-
-	complete = subprocess.run(shlex.split(line), stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-
-	if "picard" in prefs.tag_editor_target:
-		r = complete.stderr.decode()
-		for line in r.split("\n"):
-			if "file._rename" in line and " Moving file " in line:
-				a, b = line.split(" Moving file ")[1].split(" => ")
-				a = a.strip("'").strip('"')
-				b = b.strip("'").strip('"')
-
-				for track in todo:
-					if pctl.master_library[track].fullpath == a:
-						pctl.master_library[track].fullpath = b
-						pctl.master_library[track].filename = os.path.basename(b)
-						logging.info("External Edit: File rename detected.")
-						logging.info("    Renaming: " + a)
-						logging.info("          To: " + b)
-						break
-				else:
-					logging.warning("External Edit: A file rename was detected but track was not found.")
-
-	gui.message_box = False
-	reload_metadata(obs, keep_star=False)
-
-	# Re apply playtime data in case file names change
-	for item in old_stars:
-
-		old_key = item[1]
-		old_value = item[2]
-
-		if not old_value:  # ignore if there was no old playcount metadata
-			continue
-
-		new_key = star_store.object_key(item[0])
-		new_value = star_store.full_get(item[0].index)
-
-		if old_key == new_key:
-			continue
-
-		if new_value is None:
-			new_value = [0, "", 0]
-
-		new_value[0] += old_value[0]
-		new_value[1] = "".join(set(new_value[1] + old_value[1]))
-
-		if old_key in star_store.db:
-			del star_store.db[old_key]
-
-		star_store.db[new_key] = new_value
-
-	gui.pl_update = 1
-	gui.update = 1
-	pctl.notify_change()
-
-def launch_editor(index: int):
-	if snap_mode:
-		self.show_message(_("Sorry, this feature isn't (yet) available with Snap."))
-		return
-
-	if launch_editor_disable_test(index):
-		self.show_message(_("Cannot edit tags of a network track."))
-		return
-
-	mini_t = threading.Thread(target=editor, args=[index])
-	mini_t.daemon = True
-	mini_t.start()
-
-def launch_editor_selection_disable_test(index: int):
-	for position in gui.shift_selection:
-		if pctl.get_track(pctl.default_playlist[position]).is_network:
-			return True
-	return False
-
-def launch_editor_selection(index: int):
-	if launch_editor_selection_disable_test(index):
-		self.show_message(_("Cannot edit tags of a network track."))
-		return
-
-	mini_t = threading.Thread(target=editor, args=[None])
-	mini_t.daemon = True
-	mini_t.start()
-
-def edit_deco(index: int):
-	if inp.key_shift_down or inp.key_shiftr_down:
-		return [colours.menu_text, colours.menu_background, prefs.tag_editor_name + " (Single track)"]
-	return [colours.menu_text, colours.menu_background, _("Edit with ") + prefs.tag_editor_name]
-
-def launch_editor_disable_test(index: int):
-	return pctl.get_track(index).is_network
-
-def show_lyrics_menu(index: int):
-	gui.track_box = False
-	enter_showcase_view(track_id=self.pctl.r_menu_index)
-	inp.mouse_click = False
 
 def recode(text, enc):
 	return text.encode("Latin-1", "ignore").decode(enc, "ignore")
@@ -35263,7 +35261,7 @@ def exit_combo(restore: bool = False) -> None:
 		gui.combo_mode = False
 		gui.was_radio = False
 
-def enter_showcase_view(track_id=None) -> None:
+def enter_showcase_view(track_id: int | None = None) -> None:
 	if not gui.combo_mode:
 		enter_combo()
 		gui.was_radio = False
@@ -37326,7 +37324,7 @@ def worker1(tauon: Tauon) -> None:
 						output_dir.unlink()
 					except Exception:
 						logging.exception("Encode folder not removed")
-					reload_metadata(folder_items[0])
+					tauon.reload_metadata(folder_items[0])
 				else:
 					tauon.album_art_gen.save_thumb(pctl.get_track(folder_items[0]), (1080, 1080), str(output_dir / "cover"))
 
@@ -39372,7 +39370,6 @@ def main(holder: Holder) -> None:
 		phone=phone,
 	#	gtk_settings=gtk_settings,
 		discord_allow=discord_allow,
-		flatpak_mode=flatpak_mode,
 		desktop=desktop,
 		window_opacity=window_opacity,
 		ui_scale=scale,
@@ -39413,6 +39410,7 @@ def main(holder: Holder) -> None:
 		launch_prefix=launch_prefix,
 		latest_db_version=latest_db_version,
 		load_orders=load_orders,
+		flatpak_mode=flatpak_mode,
 		snap_mode=snap_mode,
 		master_count=master_count,
 		playlist_active=playlist_active,
@@ -40893,8 +40891,8 @@ def main(holder: Holder) -> None:
 
 	# track_menu.add_to_sub("Reset Track Play Count", 0, reset_play_count, pass_ref=True)
 
-	# track_menu.add('Reload Metadata', reload_metadata, pass_ref=True)
-	track_menu.add_to_sub(0, MenuItem(_("Rescan Tags"), reload_metadata, pass_ref=True))
+	# track_menu.add('Reload Metadata', tauon.reload_metadata, pass_ref=True)
+	track_menu.add_to_sub(0, MenuItem(_("Rescan Tags"), tauon.reload_metadata, pass_ref=True))
 
 	mbp_icon = MenuIcon(asset_loader(bag, loaded_asset_dc, "mbp-g.png"))
 	mbp_icon.base_asset = asset_loader(bag, loaded_asset_dc, "mbp-gs.png")
@@ -40909,8 +40907,8 @@ def main(holder: Holder) -> None:
 	if prefs.tag_editor_name == "Picard":
 		edit_icon = mbp_icon
 
-	track_menu.add_to_sub(0, MenuItem(_("Edit with"), launch_editor, pass_ref=True, pass_ref_deco=True, icon=edit_icon, render_func=edit_deco, disable_test=launch_editor_disable_test))
-	track_menu.add_to_sub(0, MenuItem(_("Lyrics..."), show_lyrics_menu, pass_ref=True))
+	track_menu.add_to_sub(0, MenuItem(_("Edit with"), tauon.launch_editor, pass_ref=True, pass_ref_deco=True, icon=edit_icon, render_func=tauon.edit_deco, disable_test=tauon.launch_editor_disable_test))
+	track_menu.add_to_sub(0, MenuItem(_("Lyrics..."), tauon.show_lyrics_menu, pass_ref=True))
 	track_menu.add_to_sub(0, MenuItem(_("Fix Mojibake"), intel_moji, pass_ref=True))
 	# track_menu.add_to_sub("Copy Playlist", 1, transfer, pass_ref=True, args=[1, 3])
 
@@ -40932,8 +40930,8 @@ def main(holder: Holder) -> None:
 	folder_tree_menu.add(MenuItem(_("Rename Tracks…"), tauon.rename_track_box.activate, pass_ref=True, pass_ref_deco=True, icon=gui.rename_tracks_icon, disable_test=tauon.rename_track_box.disable_test))
 
 	if not snap_mode:
-		folder_menu.add(MenuItem("Edit with", launch_editor_selection, pass_ref=True,
-			pass_ref_deco=True, icon=edit_icon, render_func=edit_deco, disable_test=launch_editor_selection_disable_test))
+		folder_menu.add(MenuItem("Edit with", tauon.launch_editor_selection, pass_ref=True,
+			pass_ref_deco=True, icon=edit_icon, render_func=tauon.edit_deco, disable_test=tauon.launch_editor_selection_disable_test))
 
 	folder_tree_menu.add(MenuItem(_("Add Album to Queue"), add_album_to_queue, pass_ref=True))
 	folder_tree_menu.add(MenuItem(_("Enqueue Album Next"), add_album_to_queue_fc, pass_ref=True))
@@ -40945,7 +40943,7 @@ def main(holder: Holder) -> None:
 
 	# selection_menu.br()
 	gui.transcode_icon.colour = [239, 74, 157, 255]
-	folder_menu.add(MenuItem(_("Rescan Tags"), reload_metadata, pass_ref=True))
+	folder_menu.add(MenuItem(_("Rescan Tags"), tauon.reload_metadata, pass_ref=True))
 	folder_menu.add(MenuItem(_("Edit fields…"), activate_trans_editor))
 	folder_menu.add(MenuItem(_("Vacuum Playtimes"), vacuum_playtimes, pass_ref=True, show_test=inp.test_shift))
 	folder_menu.add(MenuItem(_("Transcode Folder"), convert_folder, transcode_deco, pass_ref=True, icon=gui.transcode_icon,
@@ -40971,9 +40969,9 @@ def main(holder: Holder) -> None:
 
 	selection_menu.add(MenuItem(_("Add to queue"), add_selected_to_queue_multi, selection_queue_deco))
 	selection_menu.br()
-	selection_menu.add(MenuItem(_("Rescan Tags"), reload_metadata_selection))
+	selection_menu.add(MenuItem(_("Rescan Tags"), tauon.reload_metadata_selection))
 	selection_menu.add(MenuItem(_("Edit fields…"), activate_trans_editor))
-	selection_menu.add(MenuItem(_("Edit with "), launch_editor_selection, pass_ref=True, pass_ref_deco=True, icon=edit_icon, render_func=edit_deco, disable_test=launch_editor_selection_disable_test))
+	selection_menu.add(MenuItem(_("Edit with "), tauon.launch_editor_selection, pass_ref=True, pass_ref_deco=True, icon=edit_icon, render_func=tauon.edit_deco, disable_test=tauon.launch_editor_selection_disable_test))
 
 	selection_menu.br()
 	folder_menu.br()

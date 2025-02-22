@@ -18,7 +18,6 @@ class Prefs:
 	window_opacity:          float
 	ui_scale:                float
 	power_save:              bool
-	flatpak_mode:            bool
 	discord_allow:           bool
 	left_window_control:     bool
 	macstyle:                bool
