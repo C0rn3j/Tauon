@@ -24130,7 +24130,6 @@ class QueueBox:
 				0, yy - 1000 * gui.scale, w - 28 * gui.scale + 10000, self.tab_h + 3 * gui.scale + 1000 * gui.scale)
 
 			if self.dragging is not None and tauon.coll(h_rect) and inp.mouse_up:
-
 				ob = None
 				for u in reversed(range(len(pctl.force_queue))):
 
@@ -24138,7 +24137,6 @@ class QueueBox:
 						ob = pctl.force_queue[u]
 						pctl.force_queue[u] = None
 						break
-
 				else:
 					self.dragging = None
 

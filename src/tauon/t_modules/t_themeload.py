@@ -23,6 +23,7 @@ import io
 import json
 import logging
 import os
+import sdl3
 from typing import TYPE_CHECKING
 
 from PIL import Image
@@ -85,6 +86,8 @@ def load_theme(colours: GuiVar, path: Path) -> None:
 		content = f.readlines()
 		for p in content:
 			p = p.strip()
+			if p.startswith("#"):
+				continue
 			if "# " in p:
 				p = p.split("# ")[0]
 			if not p:
@@ -341,7 +344,7 @@ class Deco:
 
 	def unload(self) -> None:
 		for item in self.drawables:
-			SDL_DestroyTexture(item.texture)
+			sdl3.SDL_DestroyTexture(item.texture)
 		self.drawables.clear()
 
 	def load(self, name: str) -> None:
@@ -395,12 +398,11 @@ class Deco:
 		g.seek(0)
 		im.save(g, "PNG")
 		g.seek(0)
-		wop = rw_from_object(g)
-		s_image = IMG_Load_RW(wop, 0)
-		texture = SDL_CreateTextureFromSurface(self.renderer, s_image)
-		SDL_SetTextureAlphaMod(texture, opacity)
-		SDL_FreeSurface(s_image)
-		sdl_rect = SDL_Rect(0, 0, w, h)
+		s_image = self.tauon.ddt.load_image(g)
+		texture = sdl3.SDL_CreateTextureFromSurface(self.renderer, s_image)
+		sdl3.SDL_SetTextureAlphaMod(texture, opacity)
+		sdl3.SDL_DestroySurface(s_image)
+		sdl_rect = sdl3.SDL_FRect(0, 0, w, h)
 
 		drawable = Drawable()
 		drawable.x = x
@@ -416,7 +418,7 @@ class Deco:
 			d = self.drawables[0]
 			d.rect.x = round(x - int(d.w + round(d.x * self.tauon.gui.scale)))
 			d.rect.y = round(y - int(d.h + round(d.y * self.tauon.gui.scale)))
-			SDL_RenderCopy(self.renderer, d.texture, None, d.rect)
+			sdl3.SDL_RenderTexture(self.renderer, d.texture, None, d.rect)
 
 			if pretty_text:
 				ddt.pretty_rect = (d.rect.x, d.rect.y, d.rect.w, d.rect.h)
