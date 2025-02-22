@@ -5451,11 +5451,12 @@ class Tauon:
 		self.album_info_cache                     = {}
 		self.album_info_cache_key                 = (-1, -1)
 		self.album_mode:                     bool = False
+		self.album_mode_art_size                  = bag.album_mode_art_size
 		self.snap_mode:                      bool = bag.snap_mode
 		self.console                              = bag.console
 		self.TrackClass                           = TrackClass
 		self.pl_gen                               = pl_gen
-		self.gall_ren                             = GallClass(tauon=self, size=bag.album_mode_art_size)
+		self.gall_ren                             = GallClass(tauon=self, size=self.album_mode_art_size)
 		self.QuickThumbnail                       = QuickThumbnail
 		self.thumb_tracks                         = ThumbTracks(tauon=self)
 		self.chunker                              = Chunker()
@@ -5522,7 +5523,7 @@ class Tauon:
 	def goto_album(self, playlist_no: int, down: bool = False, force: bool = False) -> list | int | None:
 		logging.debug("Postion set by album locate")
 
-		if tauon.core_timer.get() < 0.5:
+		if self.core_timer.get() < 0.5:
 			return None
 
 		# ----
@@ -5614,13 +5615,13 @@ class Tauon:
 	def toggle_gallery_keycontrol(self, always_exit: bool = False) -> None:
 		if is_level_zero():
 			if not self.prefs.album_mode:
-				self.toggle_album_mode(tauon=self)
+				self.toggle_album_mode()
 				self.gui.gall_tab_enter = True
 				self.gui.album_tab_mode = True
 				show_in_gal(self.pctl.selected_in_playlist, silent=True)
 			elif self.gui.gall_tab_enter or always_exit:
 				# Exit gallery and tab mode
-				self.toggle_album_mode(tauon=self)
+				self.toggle_album_mode()
 			else:
 				self.gui.album_tab_mode ^= True
 				if self.gui.album_tab_mode:
@@ -26122,13 +26123,13 @@ class ViewBox:
 				self.gui.combo_mode is False and \
 				self.gui.rsp is False
 
-		if not (album_mode is False and \
+		if not (self.prefs.album_mode is False and \
 			self.gui.combo_mode is False and \
 			self.gui.rsp is False):
 			if self.x_menu.active:
 				self.x_menu.close_next_frame = True
 
-		view_tracks()
+		view_tracks(tauon=self.tauon)
 
 	def side(self, hit: bool = False) -> bool | None:
 		if hit is False:
@@ -26141,7 +26142,7 @@ class ViewBox:
 			if self.x_menu.active:
 				self.x_menu.close_next_frame = True
 
-		view_standard_meta()
+		view_standard_meta(tauon=self.tauon)
 
 	def gallery1(self, hit: bool = False) -> bool | None:
 		if hit is False:
@@ -26198,7 +26199,7 @@ class ViewBox:
 				exit_combo()
 
 		if self.prefs.album_mode and self.gui.plw < 550 * self.gui.scale:
-			self.tauon.toggle_album_mode(tauon=self.tauon)
+			self.tauon.toggle_album_mode()
 
 		toggle_library_mode()
 
@@ -26362,7 +26363,7 @@ class ViewBox:
 			func(True)
 
 		if gui.level_2_click and self.tauon.coll(vr):
-			x_menu.clicked = False
+			self.x_menu.clicked = False
 
 		gui.level_2_click = False
 		if not self.x_menu.active:
@@ -29255,7 +29256,7 @@ def test_artist_dl(_):
 
 def show_in_playlist(tauon: Tauon):
 	if prefs.album_mode and window_size[0] < 750 * gui.scale:
-		tauon.toggle_album_mode(tauon=tauon)
+		tauon.toggle_album_mode()
 
 	pctl.playlist_view_position = pctl.selected_in_playlist
 	logging.debug("Position changed by show in playlist")
@@ -34638,7 +34639,7 @@ def bass_features_deco():
 	return [line_colour, colours.menu_background, None]
 
 def force_album_view(tauon: Tauon) -> None:
-	tauon.toggle_album_mode(tauon=tauon, force_on=True)
+	tauon.toggle_album_mode(force_on=True)
 
 def enter_combo(tauon: Tauon) -> None:
 	if not tauon.gui.combo_mode:
@@ -34646,7 +34647,7 @@ def enter_combo(tauon: Tauon) -> None:
 		tauon.gui.showcase_mode = False
 		tauon.gui.radio_view = False
 		if tauon.prefs.album_mode:
-			tauon.toggle_album_mode(tauon=tauon)
+			tauon.toggle_album_mode()
 		if tauon.gui.rsp:
 			tauon.gui.rsp = False
 		tauon.gui.combo_mode = True
@@ -35613,49 +35614,49 @@ def show_stop_quick_add(_: int, tauon: Tauon) -> bool:
 def view_tracks(tauon: Tauon) -> None:
 	# if gui.show_playlist is False:
 	#     gui.show_playlist = True
-	if prefs.album_mode:
-		tauon.toggle_album_mode(tauon=tauon)
-	if gui.combo_mode:
+	if tauon.prefs.album_mode:
+		tauon.toggle_album_mode()
+	if tauon.gui.combo_mode:
 		exit_combo()
-	if gui.rsp:
-		toggle_side_panel()
+	if tauon.gui.rsp:
+		tauon.toggle_side_panel()
 
 # def view_standard_full():
 # 	# if gui.show_playlist is False:
 # 	# 	gui.show_playlist = True
 # 	if prefs.album_mode:
-# 		tauon.toggle_album_mode(tauon=tauon)
+# 		tauon.toggle_album_mode()
 # 	if gui.combo_mode:
 # 		toggle_combo_view(off=True)
 # 	if not gui.rsp:
-# 		toggle_side_panel()
+# 		tauon.toggle_side_panel()
 # 	gui.update_layout = True
 # 	gui.rspw = window_size[0]
 
 def view_standard_meta(tauon: Tauon) -> None:
 	# if gui.show_playlist is False:
 	#     gui.show_playlist = True
-	if prefs.album_mode:
-		tauon.toggle_album_mode(tauon=tauon)
+	if tauon.prefs.album_mode:
+		tauon.toggle_album_mode()
 
-	if gui.combo_mode:
+	if tauon.gui.combo_mode:
 		exit_combo()
 
-	if not gui.rsp:
-		toggle_side_panel()
+	if not tauon.gui.rsp:
+		tauon.toggle_side_panel()
 
-	gui.update_layout = True
-	# gui.rspw = 80 + int(window_size[0] * 0.18)
+	tauon.gui.update_layout = True
+	# tauon.gui.rspw = 80 + int(tauon.window_size[0] * 0.18)
 
 def view_standard(tauon: Tauon) -> None:
 	# if gui.show_playlist is False:
 	#     gui.show_playlist = True
-	if prefs.album_mode:
-		tauon.toggle_album_mode(tauon=tauon)
-	if gui.combo_mode:
+	if tauon.prefs.album_mode:
+		tauon.toggle_album_mode()
+	if tauon.gui.combo_mode:
 		exit_combo()
-	if not gui.rsp:
-		toggle_side_panel()
+	if not tauon.gui.rsp:
+		tauon.toggle_side_panel()
 
 def standard_view_deco():
 	if prefs.album_mode or gui.combo_mode or not gui.rsp:
@@ -35668,7 +35669,7 @@ def standard_view_deco():
 # 	if gui.show_playlist is False:
 # 		return
 # 	if not prefs.album_mode:
-# 		tauon.toggle_album_mode(tauon=tauon)
+# 		tauon.toggle_album_mode()
 # 	gui.show_playlist = False
 # 	gui.update_layout = True
 # 	gui.rspw = window_size[0]
@@ -41476,7 +41477,7 @@ def main(holder: Holder) -> None:
 	test_show_add_home_music(tauon=tauon)
 
 	if gui.restart_album_mode:
-		tauon.toggle_album_mode(tauon=tauon, force_on=True)
+		tauon.toggle_album_mode(force_on=True)
 
 	if gui.remember_library_mode:
 		toggle_library_mode()
@@ -42516,15 +42517,15 @@ def main(holder: Holder) -> None:
 						show_message(_("First select a source track by copying it into clipboard"))
 
 				if keymaps.test("toggle-gallery"):
-					tauon.toggle_album_mode(tauon=tauon)
+					tauon.toggle_album_mode()
 
 				if keymaps.test("toggle-right-panel"):
 					if gui.combo_mode:
 						exit_combo()
 					elif not prefs.album_mode:
-						toggle_side_panel()
+						tauon.toggle_side_panel()
 					else:
-						tauon.toggle_album_mode(tauon=tauon)
+						tauon.toggle_album_mode()
 
 				if keymaps.test("toggle-minimode"):
 					set_mini_mode()
@@ -43230,7 +43231,7 @@ def main(holder: Holder) -> None:
 
 							if left < inp.mouse_position[0] < left + 20 * gui.scale and window_size[1] - gui.panelBY > \
 									inp.mouse_position[1] > gui.panelY:
-								tauon.toggle_album_mode(tauon=tauon)
+								tauon.toggle_album_mode()
 								inp.mouse_click = False
 								inp.mouse_down = False
 
