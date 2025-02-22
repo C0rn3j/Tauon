@@ -5332,6 +5332,7 @@ class Tauon:
 		self.t_version                    = holder.t_version
 		self.t_agent                      = holder.t_agent
 		self.t_id                         = holder.t_id
+		self.renderer                     = bag.renderer
 		self.window_title                 = holder.window_title
 		self.window_size                  = bag.window_size
 		self.draw_border:            bool = holder.draw_border
@@ -5350,6 +5351,11 @@ class Tauon:
 		self.cachement:  player4.Cachement | None = None
 		self.dummy_event:          sdl3.SDL_Event = sdl3.SDL_Event()
 		self.temp_dest                            = sdl3.SDL_FRect(0, 0)
+		self.text_box_canvas_rect      = sdl3.SDL_FRect(0, 0, round(2000 * gui.scale), round(40 * gui.scale))
+		self.text_box_canvas_hide_rect = sdl3.SDL_FRect(0, 0, round(2000 * gui.scale), round(40 * gui.scale))
+		self.text_box_canvas           = sdl3.SDL_CreateTexture(
+			self.renderer, sdl3.SDL_PIXELFORMAT_ARGB8888,
+			sdl3.SDL_TEXTUREACCESS_TARGET, round(self.text_box_canvas_rect.w), round(self.text_box_canvas_rect.h))
 		self.translate                            = _
 		self.strings                              = Strings()
 		self.gui:                          GuiVar = gui
@@ -5606,7 +5612,7 @@ class Tauon:
 		rect = (x - round(5 * self.gui.scale), y - round(4 * self.gui.scale), round(80 * self.gui.scale), round(16 * self.gui.scale))
 		self.gui.heart_fields.append(rect)
 
-		if tauon.coll(rect) and (self.inp.mouse_click or (is_level_zero() and not self.inp.quick_drag)):
+		if self.coll(rect) and (self.inp.mouse_click or (is_level_zero() and not self.inp.quick_drag)):
 			self.gui.pl_update = 2
 			pp = self.inp.mouse_position[0] - x
 
@@ -5634,7 +5640,7 @@ class Tauon:
 
 		playtime_stars = 0
 		if self.prefs.rating_playtime_stars and rat == 0 and not album:
-			playtime_stars = star_count3(star_store.get(n_track.index), n_track.length)
+			playtime_stars = star_count3(self.star_store.get(n_track.index), n_track.length)
 			if self.gui.tracklist_bg_is_light:
 				fg2 = alpha_blend([0, 0, 0, 70], self.ddt.text_background_colour)
 			else:
@@ -6055,7 +6061,7 @@ class Tauon:
 		shoot_love.start()
 
 	def bar_love_notify(self) -> None:
-		bar_love(notify=True)
+		self.bar_love(notify=True)
 
 	def select_love(self, notify: bool = False) -> None:
 		selected = self.pctl.selected_in_playlist
@@ -10772,13 +10778,13 @@ class TextBox2:
 		# For now, this is set up so where 'width' is set > 0, the cursor position becomes editable,
 		# otherwise it is fixed to end
 
-		sdl3.SDL_SetRenderTarget(self.renderer, text_box_canvas)
+		sdl3.SDL_SetRenderTarget(self.renderer, self.tauon.text_box_canvas)
 		sdl3.SDL_SetRenderDrawBlendMode(self.renderer, sdl3.SDL_BLENDMODE_NONE)
 		sdl3.SDL_SetRenderDrawColor(self.renderer, 0, 0, 0, 0)
 
-		text_box_canvas_rect.x = 0
-		text_box_canvas_rect.y = 0
-		sdl3.SDL_RenderFillRect(self.renderer, text_box_canvas_rect)
+		self.tauon.text_box_canvas_rect.x = 0
+		self.tauon.text_box_canvas_rect.y = 0
+		sdl3.SDL_RenderFillRect(self.renderer, self.tauon.text_box_canvas_rect)
 
 		sdl3.SDL_SetRenderDrawBlendMode(self.renderer, sdl3.SDL_BLENDMODE_BLEND)
 
@@ -11071,7 +11077,6 @@ class TextBox2:
 
 			if click:
 				self.selection = self.cursor_position
-
 		else:
 			width -= round(15 * self.gui.scale)
 			text = self.text
@@ -11094,27 +11099,27 @@ class TextBox2:
 
 		self.tauon.animate_monitor_timer.set()
 
-		text_box_canvas_hide_rect.x = 0
-		text_box_canvas_hide_rect.y = 0
+		self.tauon.text_box_canvas_hide_rect.x = 0
+		self.tauon.text_box_canvas_hide_rect.y = 0
 
 		# if self.offset:
 		sdl3.SDL_SetRenderDrawBlendMode(self.renderer, sdl3.SDL_BLENDMODE_NONE)
 
-		text_box_canvas_hide_rect.w = round(self.offset)
+		self.tauon.text_box_canvas_hide_rect.w = round(self.offset)
 		sdl3.SDL_SetRenderDrawColor(self.renderer, 0, 0, 0, 0)
-		sdl3.SDL_RenderFillRect(self.renderer, text_box_canvas_hide_rect)
+		sdl3.SDL_RenderFillRect(self.renderer, self.tauon.text_box_canvas_hide_rect)
 
-		text_box_canvas_hide_rect.w = round(t_len)
-		text_box_canvas_hide_rect.x = round(self.offset + width + round(5 * self.gui.scale))
+		self.tauon.text_box_canvas_hide_rect.w = round(t_len)
+		self.tauon.text_box_canvas_hide_rect.x = round(self.offset + width + round(5 * self.gui.scale))
 		sdl3.SDL_SetRenderDrawColor(self.renderer, 0, 0, 0, 0)
-		sdl3.SDL_RenderFillRect(self.renderer, text_box_canvas_hide_rect)
+		sdl3.SDL_RenderFillRect(self.renderer, self.tauon.text_box_canvas_hide_rect)
 
 		sdl3.SDL_SetRenderDrawBlendMode(self.renderer, sdl3.SDL_BLENDMODE_BLEND)
 		sdl3.SDL_SetRenderTarget(self.renderer, self.gui.main_texture)
 
-		text_box_canvas_rect.x = round(x)
-		text_box_canvas_rect.y = round(y)
-		sdl3.SDL_RenderTexture(self.renderer, text_box_canvas, None, text_box_canvas_rect)
+		self.tauon.text_box_canvas_rect.x = round(x)
+		self.tauon.text_box_canvas_rect.y = round(y)
+		sdl3.SDL_RenderTexture(self.renderer, self.tauon.text_box_canvas, None, self.tauon.text_box_canvas_rect)
 
 class TextBox:
 	cursor = True
@@ -22845,9 +22850,11 @@ class PlaylistBox:
 			self.text_offset = 3
 
 	def __init__(self, tauon: Tauon):
-		bag = tauon.bag
-		self.gui = tauon.gui
-		self.ddt = tauon.bag.ddt
+		bag            = tauon.bag
+		self.coll      = tauon.coll
+		self.colours   = tauon.colours
+		self.gui       = tauon.gui
+		self.ddt       = tauon.bag.ddt
 		self.scroll_on = bag.prefs.old_playlist_box_position
 		self.drag = False
 		self.drag_source = 0
@@ -22920,7 +22927,7 @@ class PlaylistBox:
 		if show_scroll:
 			tab_start += 15 * self.gui.scale
 
-		if colours.lm:
+		if self.colours.lm:
 			w -= round(6 * gui.scale)
 		tab_width = w - tab_start  # - 0 * gui.scale
 
@@ -22954,7 +22961,7 @@ class PlaylistBox:
 
 			tab_on += 1
 
-			if tauon.coll((tab_start, yy - 1, tab_width, (self.tab_h + 1))):
+			if self.coll((tab_start, yy - 1, tab_width, (self.tab_h + 1))):
 				if self.inp.right_click:
 					if gui.radio_view:
 						radio_tab_menu.activate(i, self.inp.mouse_position)
@@ -40433,11 +40440,7 @@ def main(holder: Holder) -> None:
 	lyrics_ren_mini = LyricsRenMini(tauon=tauon)
 	lyrics_ren = LyricsRen(tauon=tauon)
 	tauon.synced_to_static_lyrics = TimedLyricsToStatic()
-	text_box_canvas_rect = sdl3.SDL_FRect(0, 0, round(2000 * gui.scale), round(40 * gui.scale))
-	text_box_canvas_hide_rect = sdl3.SDL_FRect(0, 0, round(2000 * gui.scale), round(40 * gui.scale))
-	text_box_canvas = sdl3.SDL_CreateTexture(
-		renderer, sdl3.SDL_PIXELFORMAT_ARGB8888, sdl3.SDL_TEXTUREACCESS_TARGET, round(text_box_canvas_rect.w), round(text_box_canvas_rect.h))
-	sdl3.SDL_SetTextureBlendMode(text_box_canvas, sdl3.SDL_BLENDMODE_BLEND)
+	sdl3.SDL_SetTextureBlendMode(tauon.text_box_canvas, sdl3.SDL_BLENDMODE_BLEND)
 
 	#gst_output_field = TextBox2(tauon=tauon)
 	#gst_output_field.text = prefs.gst_output
