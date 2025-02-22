@@ -5341,6 +5341,8 @@ class Tauon:
 		self.strings                              = Strings()
 		self.gui:                          GuiVar = gui
 		self.prefs:                         Prefs = bag.prefs
+		self.core_use: int                        = 0
+		self.dl_use: int                          = 0
 		# Setting various timers
 		self.message_box_min_timer        = Timer()
 		self.cursor_blink_timer           = Timer()
@@ -5647,14 +5649,11 @@ class Tauon:
 		self.gui.pl_update = 1
 
 	def transcode_single(self, item: list[tuple[int, str]], manual_directory: str | None = None, manual_name: str | None = None):
-		global core_use
-		global dl_use
-
 		if manual_directory != None:
 			codec = "opus"
 			output = manual_directory
 			track = item
-			core_use += 1
+			self.core_use += 1
 			bitrate = 48
 		else:
 			track = item[0]
@@ -5668,9 +5667,9 @@ class Tauon:
 		cleanup = False
 
 		if t.is_network:
-			while dl_use > 1:
+			while self.dl_use > 1:
 				time.sleep(0.2)
-			dl_use += 1
+			self.dl_use += 1
 			try:
 				url, params = pctl.get_url(t)
 				assert url
@@ -5684,11 +5683,11 @@ class Tauon:
 				cleanup = True
 			except Exception:
 				logging.exception("Error downloading file")
-			dl_use -= 1
+			self.dl_use -= 1
 
 		if not os.path.isfile(path):
 			show_message(_("Encoding warning: Missing one or more files"))
-			core_use -= 1
+			self.core_use -= 1
 			return
 
 		out_line = encode_track_name(t)
@@ -5798,7 +5797,7 @@ class Tauon:
 		self.gui.transcoding_bach_done += 1
 		if cleanup:
 			os.remove(path)
-		core_use -= 1
+		self.core_use -= 1
 		self.gui.update += 1
 
 	def cue_scan(self, content: str, tn: TrackClass) -> int | None:
@@ -18392,7 +18391,7 @@ class TopPanel:
 				ddt.rect(box, c1)
 
 				done = round(gui.transcoding_bach_done / gui.transcoding_batch_total * 100)
-				doing = round(core_use / gui.transcoding_batch_total * 100)
+				doing = round(self.tauon.core_use / gui.transcoding_batch_total * 100)
 
 				ddt.rect([x, yy, done, h], c3)
 				ddt.rect([x + done, yy, doing, h], c2)
@@ -37250,7 +37249,6 @@ def worker1(tauon: Tauon) -> None:
 					os.makedirs(cache_dir)
 
 				if prefs.transcode_codec in ("opus", "ogg", "flac", "mp3"):
-					global core_use
 					cores = os.cpu_count()
 
 					total = len(folder_items)
@@ -37260,10 +37258,10 @@ def worker1(tauon: Tauon) -> None:
 
 					q = 0
 					while True:
-						if core_use < cores and q < len(folder_items):
+						if tauon.core_use < cores and q < len(folder_items):
 							agg = [[folder_items[q], folder_name]]
 							if agg not in dones:
-								core_use += 1
+								tauon.core_use += 1
 								dones.append(agg)
 								loaderThread = threading.Thread(target=tauon.transcode_single, args=agg)
 								loaderThread.daemon = True
@@ -37273,10 +37271,10 @@ def worker1(tauon: Tauon) -> None:
 							gui.update += 1
 						time.sleep(0.05)
 						if gui.tc_cancel:
-							while core_use > 0:
+							while tauon.core_use > 0:
 								time.sleep(1)
 							break
-						if q == len(folder_items) and core_use == 0:
+						if q == len(folder_items) and tauon.core_use == 0:
 							gui.update += 1
 							break
 				else:
@@ -39236,9 +39234,6 @@ def main(holder: Holder) -> None:
 	# Playlist Variables
 	playlist_view_position = 0
 	playlist_playing = -1
-
-	core_use = 0
-	dl_use = 0
 
 	random_mode = False
 	repeat_mode = False
