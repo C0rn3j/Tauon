@@ -1459,6 +1459,7 @@ class PlayerCtl:
 		self.install_directory         = self.bag.dirs.install_directory
 		self.loading_in_progress: bool = False
 		self.taskbar_progress:    bool = True
+		self.album_dex                 = self.tauon.album_dex
 
 		self.cargo: list[int]          = []
 		# Database
@@ -2846,7 +2847,7 @@ class PlayerCtl:
 		if not fast:
 			for playlist in self.multi_playlist:
 				while track_id in playlist.playlist:
-					album_dex.clear()
+					self.album_dex.clear()
 					playlist.playlist.remove(track_id)
 		# Stop if track is playing track
 		if self.track_queue and self.track_queue[self.queue_step] == track_id and self.playing_state != 0:
@@ -4697,7 +4698,6 @@ class Menu:
 
 				# Draw menu break
 				if self.items[i] is None:
-
 					if is_light(colours.menu_background):
 						break_colour = rgb_add_hls(colours.menu_background, 0, -0.1, -0.1)
 					else:
@@ -4757,7 +4757,6 @@ class Menu:
 
 					# Call menu items callback if clicked
 					if self.clicked:
-
 						if self.items[i].is_sub_menu is False:
 							to_call = i
 							if self.items[i].set_ref is not None:
@@ -5412,7 +5411,7 @@ class Tauon:
 		self.export_playlist_box                  = ExportPlaylistBox(tauon=self)
 		self.rename_playlist_box                  = RenamePlaylistBox(tauon=self)
 		self.message_box                          = MessageBox(tauon=self)
-		self.transcode_list:      list[list[int]] = []
+		self.transcode_list:      list[list[int]] = []a
 		self.transcode_state:                 str = ""
 		# TODO(Martin): Rework this LC_* stuff, maybe use a simple object instead?
 		self.LC_None                              = 0
@@ -5431,6 +5430,7 @@ class Tauon:
 		self.album_info_cache                     = {}
 		self.album_info_cache_key                 = (-1, -1)
 		self.album_mode:                     bool = False
+		self.album_dex                       list = []
 		self.snap_mode:                      bool = bag.snap_mode
 		self.console                              = bag.console
 		self.TrackClass                           = TrackClass
@@ -5509,7 +5509,7 @@ class Tauon:
 		def key(tag):
 			return tags[tag][1]
 
-		for position in album_dex:
+		for position in self.album_dex:
 			index = self.pctl.default_playlist[position]
 			track = self.pctl.get_track(index)
 
@@ -5530,7 +5530,7 @@ class Tauon:
 						tag_list.append(tag)
 					break
 
-		if noise > len(album_dex) / 2:
+		if noise > len(self.album_dex) / 2:
 			#logging.info("Playlist is too noisy for power bar.")
 			return []
 
@@ -5568,8 +5568,6 @@ class Tauon:
 		return h
 
 	def reload_albums(self, quiet: bool = False, return_playlist: int = -1, custom_list=None) -> list[int] | None:
-		global album_dex
-
 		if self.cm_clean_db:
 			# Doing reload while things are being removed may cause crash
 			return None
@@ -5620,7 +5618,7 @@ class Tauon:
 		if return_playlist > -1 or custom_list:
 			return dex
 
-		album_dex = dex
+		self.album_dex = dex
 		self.album_info_cache.clear()
 		self.gui.update += 2
 		self.gui.pl_update = 1
@@ -8374,8 +8372,8 @@ class Tauon:
 		if position in self.album_info_cache:
 			return self.album_info_cache[position]
 
-		if album_dex and prefs.album_mode and (pl is None or pl == pctl.active_playlist_viewing):
-			dex = album_dex
+		if self.album_dex and prefs.album_mode and (pl is None or pl == pctl.active_playlist_viewing):
+			dex = self.album_dex
 		else:
 			dex = self.reload_albums(custom_list=playlist)
 
@@ -28441,9 +28439,9 @@ def img_slide_update_gall(value, pause: bool = True) -> None:
 		prefs.thin_gallery_borders = False
 
 def fix_encoding(index, mode, enc):
-	global enc_field
-
 	todo = []
+	# TODO(Martin): What's the point of this? It was global before but is only used here
+	enc_field = "All"
 
 	if mode == 1:
 		todo = [index]
@@ -28454,7 +28452,6 @@ def fix_encoding(index, mode, enc):
 				todo.append(pctl.default_playlist[b])
 
 	for q in range(len(todo)):
-
 		# key = pctl.master_library[todo[q]].title + pctl.master_library[todo[q]].filename
 		old_star = star_store.full_get(todo[q])
 		if old_star != None:
@@ -34576,8 +34573,6 @@ def goto_album(playlist_no: int, down: bool = False, force: bool = False) -> lis
 	if tauon.core_timer.get() < 0.5:
 		return None
 
-	global album_dex
-
 	# ----
 	w = gui.rspw
 	if window_size[0] < 750 * gui.scale:
@@ -34594,11 +34589,11 @@ def goto_album(playlist_no: int, down: bool = False, force: bool = False) -> lis
 	row = 0
 	re = 0
 
-	for i in range(len(album_dex)):
-		if i == len(album_dex) - 1:
+	for i in range(len(self.album_dex)):
+		if i == len(self.album_dex) - 1:
 			re = i
 			break
-		if album_dex[i + 1] - 1 > playlist_no - 1:
+		if self.album_dex[i + 1] - 1 > playlist_no - 1:
 			re = i
 			break
 		row += 1
@@ -34623,8 +34618,8 @@ def goto_album(playlist_no: int, down: bool = False, force: bool = False) -> lis
 
 		gui.album_scroll_px = max(gui.album_scroll_px, 0 - album_v_slide_value)
 
-	if len(album_dex) > 0:
-		return album_dex[re]
+	if len(self.album_dex) > 0:
+		return self.album_dex[re]
 	return 0
 
 	gui.update += 1 # TODO(Martin): WTF Unreachable??
@@ -37380,7 +37375,7 @@ def get_folder_list(index: int):
 			playlist.append(item)
 	return list(set(playlist))
 
-def gal_jump_select(up=False, num=1):
+def gal_jump_select(up: bool = False, num: int = 1) -> None:
 	old_selected = pctl.selected_in_playlist
 	old_num = num
 
@@ -37393,7 +37388,6 @@ def gal_jump_select(up=False, num=1):
 		pctl.selected_in_playlist = 0
 
 	if up is False:
-
 		while num > 0:
 			while pctl.master_library[
 				pctl.default_playlist[on]].parent_folder_name == pctl.master_library[
@@ -37413,7 +37407,7 @@ def gal_jump_select(up=False, num=1):
 				return
 
 			alb = tauon.get_album_info(pctl.selected_in_playlist)
-			if alb[1][0] in album_dex[:num]:
+			if alb[1][0] in tauon.album_dex[:num]:
 				pctl.selected_in_playlist = old_selected
 				return
 
@@ -39121,7 +39115,6 @@ def main(holder: Holder) -> None:
 
 	# gui.offset_extra = 0
 
-	album_dex = []
 	row_len = 5
 	last_row = 0
 	album_v_gap = 66
@@ -43288,7 +43281,7 @@ def main(holder: Holder) -> None:
 						album_on = 0
 
 						max_scroll = round(
-							(math.ceil((len(album_dex)) / row_len) - 1) * (bag.album_mode_art_size + album_v_gap)) - round(
+							(math.ceil((len(tauon.album_dex)) / row_len) - 1) * (bag.album_mode_art_size + album_v_gap)) - round(
 							50 * gui.scale)
 
 						# Mouse wheel scrolling
@@ -43307,7 +43300,7 @@ def main(holder: Holder) -> None:
 
 							if gui.album_scroll_px < round(album_v_slide_value * -1):
 								gui.album_scroll_px = round(album_v_slide_value * -1)
-								if album_dex:
+								if tauon.album_dex:
 									gallery_pulse_top.pulse()
 
 							if gui.album_scroll_px > max_scroll:
@@ -43387,13 +43380,13 @@ def main(holder: Holder) -> None:
 									y = render_pos - gui.album_scroll_px
 									row_x = 0
 									for a in range(row_len):
-										if album_on > len(album_dex) - 1:
+										if album_on > len(tauon.album_dex) - 1:
 											break
 
 										x = (l_area + dev * a) - int(bag.album_mode_art_size / 2) + int(dev / 2) + int(
 											compact / 2) - a_offset
 
-										if album_dex[album_on] > len(pctl.default_playlist):
+										if tauon.album_dex[album_on] > len(pctl.default_playlist):
 											break
 
 										rect = (x, y, bag.album_mode_art_size, bag.album_mode_art_size + extend * gui.scale)
@@ -43405,7 +43398,7 @@ def main(holder: Holder) -> None:
 
 										# Quick drag and drop
 										if inp.mouse_up and (gui.playlist_hold and m_in) and not gui.side_drag and gui.shift_selection:
-											info = tauon.get_album_info(album_dex[album_on])
+											info = tauon.get_album_info(tauon.album_dex[album_on])
 											if info[1]:
 												track_position = info[1][0]
 
@@ -43440,22 +43433,22 @@ def main(holder: Holder) -> None:
 										elif not gui.side_drag and is_level_zero():
 											if coll_point(inp.click_location, rect) and gui.panelY < inp.mouse_position[1] < \
 													window_size[1] - gui.panelBY:
-												info = tauon.get_album_info(album_dex[album_on])
+												info = tauon.get_album_info(tauon.album_dex[album_on])
 
 												if m_in and inp.mouse_up and prefs.gallery_single_click:
-													if is_level_zero() and gui.d_click_ref == album_dex[album_on]:
+													if is_level_zero() and gui.d_click_ref == tauon.album_dex[album_on]:
 														if info[0] == 1 and pctl.playing_state == 2:
 															pctl.play()
 														elif info[0] == 1 and pctl.playing_state > 0:
-															pctl.playlist_view_position = album_dex[album_on]
+															pctl.playlist_view_position = tauon.album_dex[album_on]
 															logging.debug("Position changed by gallery click")
 														else:
-															pctl.playlist_view_position = album_dex[album_on]
+															pctl.playlist_view_position = tauon.album_dex[album_on]
 															logging.debug("Position changed by gallery click")
-															pctl.jump(pctl.default_playlist[album_dex[album_on]], album_dex[album_on])
+															pctl.jump(pctl.default_playlist[tauon.album_dex[album_on]], tauon.album_dex[album_on])
 														pctl.show_current()
 												elif inp.mouse_down and not m_in:
-													info = tauon.get_album_info(album_dex[album_on])
+													info = tauon.get_album_info(tauon.album_dex[album_on])
 													inp.quick_drag = True
 													if not pl_is_locked(pctl.active_playlist_viewing) or inp.key_shift_down:
 														gui.playlist_hold = True
@@ -43464,34 +43457,34 @@ def main(holder: Holder) -> None:
 													inp.click_location = [0, 0]
 
 										if m_in:
-											info = tauon.get_album_info(album_dex[album_on])
+											info = tauon.get_album_info(tauon.album_dex[album_on])
 											if inp.mouse_click:
 												if prefs.gallery_single_click:
-													gui.d_click_ref = album_dex[album_on]
+													gui.d_click_ref = tauon.album_dex[album_on]
 												else:
-													if tauon.d_click_timer.get() < 0.5 and gui.d_click_ref == album_dex[album_on]:
+													if tauon.d_click_timer.get() < 0.5 and gui.d_click_ref == tauon.album_dex[album_on]:
 														if info[0] == 1 and pctl.playing_state == 2:
 															pctl.play()
 														elif info[0] == 1 and pctl.playing_state > 0:
-															pctl.playlist_view_position = album_dex[album_on]
+															pctl.playlist_view_position = tauon.album_dex[album_on]
 															logging.debug("Position changed by gallery click")
 														else:
-															pctl.playlist_view_position = album_dex[album_on]
+															pctl.playlist_view_position = tauon.album_dex[album_on]
 															logging.debug("Position changed by gallery click")
-															pctl.jump(pctl.default_playlist[album_dex[album_on]], album_dex[album_on])
+															pctl.jump(pctl.default_playlist[tauon.album_dex[album_on]], tauon.album_dex[album_on])
 													else:
-														gui.d_click_ref = album_dex[album_on]
+														gui.d_click_ref = tauon.album_dex[album_on]
 														tauon.d_click_timer.set()
 
-													pctl.playlist_view_position = album_dex[album_on]
+													pctl.playlist_view_position = tauon.album_dex[album_on]
 													logging.debug("Position changed by gallery click")
-													pctl.selected_in_playlist = album_dex[album_on]
+													pctl.selected_in_playlist = tauon.album_dex[album_on]
 													gui.pl_update += 1
 											elif inp.middle_click and is_level_zero():
 												# Middle click to add album to queue
 												if inp.key_ctrl_down:
 													# Add to queue ungrouped
-													album = tauon.get_album_info(album_dex[album_on])[1]
+													album = tauon.get_album_info(tauon.album_dex[album_on])[1]
 													for item in album:
 														pctl.force_queue.append(
 															queue_item_gen(pctl.default_playlist[item], item, pctl.pl_to_id(
@@ -43501,15 +43494,15 @@ def main(holder: Holder) -> None:
 														pctl.auto_stop = False
 												else:
 													# Add to queue grouped
-													add_album_to_queue(pctl.default_playlist[album_dex[album_on]])
+													add_album_to_queue(pctl.default_playlist[tauon.album_dex[album_on]])
 											elif inp.right_click:
 												if pctl.quick_add_target:
 													pl = pctl.id_to_pl(pctl.quick_add_target)
 													if pl is not None:
 														parent = pctl.get_track(
-															pctl.default_playlist[album_dex[album_on]]).parent_folder_path
+															pctl.default_playlist[tauon.album_dex[album_on]]).parent_folder_path
 														# remove from target pl
-														if pctl.default_playlist[album_dex[album_on]] in pctl.multi_playlist[pl].playlist_ids:
+														if pctl.default_playlist[tauon.album_dex[album_on]] in pctl.multi_playlist[pl].playlist_ids:
 															for i in reversed(range(len(pctl.multi_playlist[pl].playlist_ids))):
 																if pctl.get_track(pctl.multi_playlist[pl].playlist_ids[i]).parent_folder_path == parent:
 																	del pctl.multi_playlist[pl].playlist_ids[i]
@@ -43520,7 +43513,7 @@ def main(holder: Holder) -> None:
 																	pctl.multi_playlist[pl].playlist_ids.append(pctl.default_playlist[i])
 													tauon.reload_albums(True)
 												else:
-													pctl.selected_in_playlist = album_dex[album_on]
+													pctl.selected_in_playlist = tauon.album_dex[album_on]
 													# playlist_position = pctl.playlist_selected
 													gui.shift_selection = [pctl.selected_in_playlist]
 													gallery_menu.activate(pctl.default_playlist[pctl.selected_in_playlist])
@@ -43538,7 +43531,7 @@ def main(holder: Holder) -> None:
 
 										album_on += 1
 
-									if album_on > len(album_dex):
+									if album_on > len(tauon.album_dex):
 										break
 									render_pos += bag.album_mode_art_size + album_v_gap
 
@@ -43569,18 +43562,18 @@ def main(holder: Holder) -> None:
 								# if y >
 
 								for a in range(row_len):
-									if album_on > len(album_dex) - 1:
+									if album_on > len(tauon.album_dex) - 1:
 										break
 
 									x = (l_area + dev * a) - int(bag.album_mode_art_size / 2) + int(dev / 2) + int(
 										compact / 2) - a_offset
 
-									if album_dex[album_on] > len(pctl.default_playlist):
+									if tauon.album_dex[album_on] > len(pctl.default_playlist):
 										break
 
-									track = pctl.master_library[pctl.default_playlist[album_dex[album_on]]]
+									track = pctl.master_library[pctl.default_playlist[tauon.album_dex[album_on]]]
 
-									info = tauon.get_album_info(album_dex[album_on])
+									info = tauon.get_album_info(tauon.album_dex[album_on])
 									album = info[1]
 									# info = (0, 0, 0)
 
@@ -43589,7 +43582,7 @@ def main(holder: Holder) -> None:
 									# m_in = tauon.coll(rect) and gui.panelY < inp.mouse_position[1] < window_size[1] - gui.panelBY
 
 									if gui.first_in_grid is None and y > gui.panelY:  # This marks what track is the first in the grid
-										gui.first_in_grid = album_dex[album_on]
+										gui.first_in_grid = tauon.album_dex[album_on]
 
 									# artisttitle = colours.side_bar_line2
 									# albumtitle = colours.side_bar_line1  # grey(220)
@@ -43622,7 +43615,7 @@ def main(holder: Holder) -> None:
 									# Draw quick add highlight
 									if pctl.quick_add_target:
 										pl = pctl.id_to_pl(pctl.quick_add_target)
-										if pl is not None and pctl.default_playlist[album_dex[album_on]] in \
+										if pl is not None and pctl.default_playlist[tauon.album_dex[album_on]] in \
 												pctl.multi_playlist[pl].playlist_ids:
 											c = [110, 233, 90, 255]
 											if colours.lm:
@@ -43658,7 +43651,7 @@ def main(holder: Holder) -> None:
 										#            colours.gallery_background, True)
 
 									# Draw selection animation
-									if gui.gallery_animate_highlight_on == album_dex[
+									if gui.gallery_animate_highlight_on == tauon.album_dex[
 										album_on] and tauon.gallery_select_animate_timer.get() < 1.5:
 
 										t = tauon.gallery_select_animate_timer.get()
@@ -43762,7 +43755,7 @@ def main(holder: Holder) -> None:
 									if drawn_art is False and gui.gallery_show_text is False:
 										ddt.text(
 											(x + int(bag.album_mode_art_size / 2), y + bag.album_mode_art_size - 22 * gui.scale, 2),
-											pctl.master_library[pctl.default_playlist[album_dex[album_on]]].parent_folder_name,
+											pctl.master_library[pctl.default_playlist[tauon.album_dex[album_on]]].parent_folder_name,
 											colours.gallery_artist_line,
 											13,
 											bag.album_mode_art_size - 15 * gui.scale,
@@ -43789,11 +43782,11 @@ def main(holder: Holder) -> None:
 									# 		ddt.rect_a((x, y), (bag.album_mode_art_size, bag.album_mode_art_size), [120, 10, 255, 100], True)
 
 									if gui.gallery_show_text:
-										c_index = pctl.default_playlist[album_dex[album_on]]
+										c_index = pctl.default_playlist[tauon.album_dex[album_on]]
 										if c_index in gui.album_artist_dict:
 											pass
 										else:
-											i = album_dex[album_on]
+											i = tauon.album_dex[album_on]
 											if pctl.master_library[pctl.default_playlist[i]].album_artist:
 												gui.album_artist_dict[c_index] = pctl.master_library[
 													pctl.default_playlist[i]].album_artist
@@ -43801,25 +43794,25 @@ def main(holder: Holder) -> None:
 												while i < len(pctl.default_playlist) - 1:
 													if pctl.master_library[pctl.default_playlist[i]].parent_folder_name != \
 															pctl.master_library[
-																pctl.default_playlist[album_dex[album_on]]].parent_folder_name:
+																pctl.default_playlist[tauon.album_dex[album_on]]].parent_folder_name:
 														gui.album_artist_dict[c_index] = pctl.master_library[
-															pctl.default_playlist[album_dex[album_on]]].artist
+															pctl.default_playlist[tauon.album_dex[album_on]]].artist
 														break
 													if pctl.master_library[pctl.default_playlist[i]].artist != \
 															pctl.master_library[
-																pctl.default_playlist[album_dex[album_on]]].artist:
+																pctl.default_playlist[tauon.album_dex[album_on]]].artist:
 														gui.album_artist_dict[c_index] = _("Various Artists")
 														break
 													i += 1
 												else:
 													gui.album_artist_dict[c_index] = pctl.master_library[
-														pctl.default_playlist[album_dex[album_on]]].artist
+														pctl.default_playlist[tauon.album_dex[album_on]]].artist
 
 										line = gui.album_artist_dict[c_index]
-										line2 = pctl.master_library[pctl.default_playlist[album_dex[album_on]]].album
+										line2 = pctl.master_library[pctl.default_playlist[tauon.album_dex[album_on]]].album
 										if singles:
 											line2 = pctl.master_library[
-												pctl.default_playlist[album_dex[album_on]]].parent_folder_name
+												pctl.default_playlist[tauon.album_dex[album_on]]].parent_folder_name
 											if artists > 1:
 												line = _("Various Artists")
 
@@ -43876,7 +43869,7 @@ def main(holder: Holder) -> None:
 
 									album_on += 1
 
-								if album_on > len(album_dex):
+								if album_on > len(tauon.album_dex):
 									break
 								render_pos += bag.album_mode_art_size + album_v_gap
 
@@ -46568,10 +46561,6 @@ def main(holder: Holder) -> None:
 
 	# gui.scroll_hide_box = (0, gui.panelY, 28, window_size[1] - gui.panelBY - gui.panelY)
 
-	encoding_menu = False
-	enc_index = 0
-	enc_setting = 0
-	enc_field = "All"
 
 	gen_menu = False
 
