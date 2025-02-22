@@ -640,6 +640,8 @@ class GuiVar:
 		self.tracklist_bg_is_light = False
 		self.clear_image_cache_next = 0
 
+		self.click_time = time.time()
+
 		self.column_d_click_timer = Timer(10)
 		self.column_d_click_on = -1
 		self.column_sort_ani_timer = Timer(10)
@@ -20314,8 +20316,6 @@ class StandardPlaylist:
 
 	def full_render(self):
 		global highlight_left
-		global click_time
-
 		tauon       = self.tauon
 		prefs       = self.prefs
 		pctl        = self.pctl
@@ -20529,7 +20529,7 @@ class StandardPlaylist:
 						# Play if double click:
 						if inp.d_mouse_click and track_position in gui.shift_selection and coll_point(
 							inp.last_click_location, (input_box)):
-							click_time -= 1.5
+							gui.click_time -= 1.5
 							pctl.jump(track_id, track_position)
 							line_hit = False
 							inp.mouse_click = False
@@ -20636,7 +20636,7 @@ class StandardPlaylist:
 
 				pctl.jump(track_id, track_position)
 
-				click_time -= 1.5
+				gui.click_time -= 1.5
 				inp.quick_drag = False
 				inp.mouse_down = False
 				inp.mouse_up = False
@@ -28708,7 +28708,6 @@ def auto_name_pl(target_pl: int) -> None:
 
 	if track and albums and albums[0] and albums.count(albums[0]) == len(albums):
 		nt = artist + " - " + track.album
-
 	elif track and artists and artists[0] and artists.count(artists[0]) == len(artists):
 		nt = artists[0]
 
@@ -40472,7 +40471,6 @@ def main(holder: Holder) -> None:
 	# 2 - render first
 	# 3 - preparing 2nd
 
-	click_time = time.time()
 	scroll_hold = False
 	scroll_point = 0
 	scroll_bpoint = 0
@@ -43061,9 +43059,9 @@ def main(holder: Holder) -> None:
 
 			if inp.mouse_click:
 				n_click_time = time.time()
-				if n_click_time - click_time < 0.42:
+				if n_click_time - gui.click_time < 0.42:
 					inp.d_mouse_click = True
-				click_time = n_click_time
+				gui.click_time = n_click_time
 
 				# Don't register bottom level click when closing message box
 				if gui.message_box and pref_box.enabled and not key_focused and not tauon.coll(tauon.message_box.get_rect()):
