@@ -5599,7 +5599,7 @@ class Tauon:
 		else:
 			for k in self.pctl.default_playlist:
 				if self.pctl.master_library[input].parent_folder_path == self.pctl.master_library[k].parent_folder_path:
-					todo.append(pctl.master_library[k])
+					self.todo.append(self.pctl.master_library[k])
 
 		for i in reversed(range(len(self.todo))):
 			if self.todo[i].is_cue:
@@ -5824,7 +5824,7 @@ class Tauon:
 
 	def launch_editor_selection_disable_test(self, index: int) -> bool:
 		for position in self.gui.shift_selection:
-			if self.pctl.get_track(pctl.default_playlist[position]).is_network:
+			if self.pctl.get_track(self.pctl.default_playlist[position]).is_network:
 				return True
 		return False
 
@@ -6001,7 +6001,7 @@ class Tauon:
 			output  = self.prefs.encoder_output / item[1]
 			bitrate = self.prefs.transcode_bitrate
 
-		t = pctl.master_library[track]
+		t = self.pctl.master_library[track]
 
 		path = t.fullpath
 		cleanup = False
@@ -6011,7 +6011,7 @@ class Tauon:
 				time.sleep(0.2)
 			self.dl_use += 1
 			try:
-				url, params = pctl.get_url(t)
+				url, params = self.pctl.get_url(t)
 				assert url
 				path = os.path.join(tmp_cache_dir(), str(t.index))
 				if os.path.exists(path):
@@ -6049,7 +6049,7 @@ class Tauon:
 		command += path.replace('"', '\\"')
 
 		command += '" '
-		if pctl.master_library[track].is_cue:
+		if self.pctl.master_library[track].is_cue:
 			if t.title != "":
 				command += '-metadata title="' + t.title.replace('"', "").replace("'", "") + '" '
 			if t.artist != "":
@@ -6072,7 +6072,7 @@ class Tauon:
 			startupinfo = subprocess.STARTUPINFO()
 			startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
-		if not msys:
+		if not self.msys:
 			command = shlex.split(command)
 
 		subprocess.call(command, stdout=subprocess.PIPE, shell=False, startupinfo=startupinfo)
@@ -8224,7 +8224,7 @@ class Tauon:
 				self.gui.cursor_want = 3
 			if click:
 				webbrowser.open(link_pa[2], new=2, autoraise=True)
-				gui.track_box = True
+				self.gui.track_box = True
 
 	def trunc_line(self, line: str, font: str, px: int, dots: bool = True) -> str:
 		"""This old function is slow and should be avoided"""
@@ -10649,13 +10649,13 @@ class Drawing:
 		self.tauon.fields.add(rect)
 
 		if text_highlight_colour is None:
-			text_highlight_colour = colours.box_button_text_highlight
+			text_highlight_colour = self.colours.box_button_text_highlight
 		if text_colour is None:
-			text_colour = colours.box_button_text
+			text_colour = self.colours.box_button_text
 		if background_colour is None:
-			background_colour = colours.box_button_background
+			background_colour = self.colours.box_button_background
 		if background_highlight_colour is None:
-			background_highlight_colour = colours.box_button_background_highlight
+			background_highlight_colour = self.colours.box_button_background_highlight
 
 		click = False
 
@@ -10922,11 +10922,11 @@ class TimedLyricsRen:
 		highlight = True
 
 		if side_panel:
-			bg = colours.top_panel_background
+			bg = self.colours.top_panel_background
 			font_size = 15
 			spacing = round(17 * self.gui.scale)
 		else:
-			bg = colours.playlist_panel_background
+			bg = self.colours.playlist_panel_background
 			font_size = 17
 			spacing = round(23 * self.gui.scale)
 
@@ -12539,7 +12539,7 @@ class AlbumArt:
 				g.seek(0)
 
 			# Processing for "Carbon" theme
-			if track == self.pctl.playing_object() and self.gui.theme_name == "Carbon" and track.parent_folder_path != colours.last_album:
+			if track == self.pctl.playing_object() and self.gui.theme_name == "Carbon" and track.parent_folder_path != self.colours.last_album:
 				# Find main image colours
 				try:
 					im.thumbnail((50, 50), Image.Resampling.LANCZOS)
@@ -12571,15 +12571,15 @@ class AlbumArt:
 				if check_equal(colour):  # Default to theme purple if source colour was grayscale
 					hh = 0.72
 
-				colours.bottom_panel_colour = hls_to_rgb(hh, l, s)
-				colours.last_album = track.parent_folder_path
+				self.colours.bottom_panel_colour = hls_to_rgb(hh, l, s)
+				self.colours.last_album = track.parent_folder_path
 
 			# Processing for "Auto-theme" setting
 			if self.prefs.colour_from_image and box[0] != 115 and track.album != self.gui.theme_temp_current \
 					and track.album not in self.gui.temp_themes:  # and pctl.master_library[index].parent_folder_path != colours.last_album: #mark2233
-				colours.last_album = track.parent_folder_path
+				self.colours.last_album = track.parent_folder_path
 
-				colours = copy.deepcopy(colours)
+				colours = copy.deepcopy(self.colours)
 
 				im.thumbnail((50, 50), Image.Resampling.LANCZOS)
 				pixels = im.getcolors(maxcolors=2500)
@@ -13149,10 +13149,10 @@ class ToolTip3:
 
 		border = 1 * self.gui.scale
 
-		self.ddt.rect((x - border, y - border, w + border * 2, h + border * 2), colours.grey(60))
-		self.ddt.rect((x, y, w, h), colours.menu_background)
+		self.ddt.rect((x - border, y - border, w + border * 2, h + border * 2), self.colours.grey(60))
+		self.ddt.rect((x, y, w, h), self.colours.menu_background)
 		p = self.ddt.text(
-			(x + int(w / 2), y + 3 * self.gui.scale, 2), self.text, colours.menu_text, 312, bg=colours.menu_background)
+			(x + int(w / 2), y + 3 * self.gui.scale, 2), self.text, self.colours.menu_text, 312, bg=self.colours.menu_background)
 
 		if not self.coll(self.rect):
 			self.show = False
@@ -13208,9 +13208,9 @@ class RenameTrackBox:
 		x = int(self.window_size[0] / 2) - int(w / 2)
 		y = int(self.window_size[1] / 2) - int(h / 2)
 
-		self.ddt.rect_a((x - 2 * self.gui.scale, y - 2 * self.gui.scale), (w + 4 * self.gui.scale, h + 4 * self.gui.scale), colours.box_border)
-		self.ddt.rect_a((x, y), (w, h), colours.box_background)
-		self.ddt.text_background_colour = colours.box_background
+		self.ddt.rect_a((x - 2 * self.gui.scale, y - 2 * self.gui.scale), (w + 4 * self.gui.scale, h + 4 * self.gui.scale), self.colours.box_border)
+		self.ddt.rect_a((x, y), (w, h), self.colours.box_background)
+		self.ddt.text_background_colour = self.colours.box_background
 
 		if self.inp.key_esc_press or ((self.inp.mouse_click or self.inp.right_click or self.inp.level_2_right_click) and not self.coll((x, y, w, h))):
 			self.tauon.rename_track_box.active = False
@@ -13235,19 +13235,19 @@ class RenameTrackBox:
 		else:
 			r_todo = [self.target_track_id]
 
-		self.ddt.text((x + 10 * self.gui.scale, y + 8 * self.gui.scale), _("Track Renaming"), colours.grey(230), 213)
+		self.ddt.text((x + 10 * self.gui.scale, y + 8 * self.gui.scale), _("Track Renaming"), self.colours.grey(230), 213)
 
 		# if draw.button("Default", x + 230 * gui.scale, y + 8 * gui.scale,
 		if self.rename_files.text != self.prefs.rename_tracks_template and self.draw.button(
 			_("Default"), x + w - 85 * self.gui.scale, y + h - 35 * self.gui.scale, 70 * self.gui.scale):
 			self.rename_files.text = self.prefs.rename_tracks_template
 
-		# ddt.draw_text((x + 14, y + 40,), NRN + cursor, colours.grey(150), 12)
-		self.rename_files.draw(x + 14 * self.gui.scale, y + 39 * self.gui.scale, colours.box_input_text, width=300)
+		# ddt.draw_text((x + 14, y + 40,), NRN + cursor, self.colours.grey(150), 12)
+		self.rename_files.draw(x + 14 * self.gui.scale, y + 39 * self.gui.scale, self.colours.box_input_text, width=300)
 		NRN = self.rename_files.text
 
 		self.ddt.rect_s(
-			(x + 8 * self.gui.scale, y + 36 * self.gui.scale, 300 * self.gui.scale, 22 * self.gui.scale), colours.box_text_border, 1 * self.gui.scale)
+			(x + 8 * self.gui.scale, y + 36 * self.gui.scale, 300 * self.gui.scale, 22 * self.gui.scale), self.colours.box_text_border, 1 * self.gui.scale)
 
 		afterline = ""
 		warn = False
@@ -13261,12 +13261,12 @@ class RenameTrackBox:
 			if item == self.target_track_id:
 				afterline = parse_template2(NRN, self.pctl.master_library[item])
 
-		self.ddt.text((x + 10 * self.gui.scale, y + 68 * self.gui.scale), _("BEFORE"), colours.box_text_label, 212)
+		self.ddt.text((x + 10 * self.gui.scale, y + 68 * self.gui.scale), _("BEFORE"), self.colours.box_text_label, 212)
 		line = self.tauon.trunc_line(self.pctl.master_library[self.target_track_id].filename, 12, 335)
-		self.ddt.text((x + 70 * self.gui.scale, y + 68 * self.gui.scale), line, colours.grey(210), 211, max_w=340)
+		self.ddt.text((x + 70 * self.gui.scale, y + 68 * self.gui.scale), line, self.colours.grey(210), 211, max_w=340)
 
-		self.ddt.text((x + 10 * self.gui.scale, y + 83 * self.gui.scale), _("AFTER"), colours.box_text_label, 212)
-		self.ddt.text((x + 70 * self.gui.scale, y + 83 * self.gui.scale), afterline, colours.grey(210), 211, max_w=340)
+		self.ddt.text((x + 10 * self.gui.scale, y + 83 * self.gui.scale), _("AFTER"), self.colours.box_text_label, 212)
+		self.ddt.text((x + 70 * self.gui.scale, y + 83 * self.gui.scale), afterline, self.colours.grey(210), 211, max_w=340)
 
 		if (len(NRN) > 3 and len(self.pctl.master_library[self.target_track_id].filename) > 3 and afterline[-3:].lower() !=
 			self.pctl.master_library[self.target_track_id].filename[-3:].lower()) or len(NRN) < 4 or "." not in afterline[-5:]:
@@ -13292,7 +13292,7 @@ class RenameTrackBox:
 
 		if self.draw.button(
 			label, x + (8 + 300 + 10) * self.gui.scale, y + 36 * self.gui.scale, 80 * self.gui.scale,
-			text_highlight_colour=colours.grey(255), background_highlight_colour=colour_warn,
+			text_highlight_colour=self.colours.grey(255), background_highlight_colour=colour_warn,
 			tooltip=_("Physically renames all the tracks in the folder")) or self.inp.level_2_enter:
 
 			self.inp.mouse_click = False
@@ -13443,7 +13443,7 @@ class TransEditBox:
 		x += round(20 * self.gui.scale)
 		y += round(18 * self.gui.scale)
 
-		self.ddt.text((x, y), _("Simple tag editor"), colours.box_title_text, 215)
+		self.ddt.text((x, y), _("Simple tag editor"), self.colours.box_title_text, 215)
 
 		if self.draw.button(_("?"), x + 440 * self.gui.scale, y):
 			self.show_message(
@@ -13452,7 +13452,7 @@ class TransEditBox:
 				mode="info")
 
 		y += round(24 * self.gui.scale)
-		self.ddt.text((x, y), _("Number of tracks selected: {N}").format(N=len(select)), colours.box_title_text, 313)
+		self.ddt.text((x, y), _("Number of tracks selected: {N}").format(N=len(select)), self.colours.box_title_text, 313)
 
 		y += round(24 * self.gui.scale)
 
@@ -13677,7 +13677,7 @@ class SubLyricsBox:
 			self.inp.key_tab_press = False
 
 		self.sub_lyrics_a.draw(
-			xx + round(4 * self.gui.scale), y, colours.box_input_text, self.active_field == 1,
+			xx + round(4 * self.gui.scale), y, self.colours.box_input_text, self.active_field == 1,
 			width=rect1[2] - 8 * self.gui.scale)
 
 		y += round(28 * self.gui.scale)
@@ -14571,10 +14571,10 @@ class MessageBox:
 		x, y, w, h = self.get_rect()
 
 		ddt.rect_a((x - 2 * gui.scale, y - 2 * gui.scale), (w + 4 * gui.scale, h + 4 * gui.scale),
-			colours.box_text_border)
-		ddt.rect_a((x, y), (w, h), colours.message_box_bg)
+			self.colours.box_text_border)
+		ddt.rect_a((x, y), (w, h), self.colours.message_box_bg)
 
-		ddt.text_background_colour = colours.message_box_bg
+		ddt.text_background_colour = self.colours.message_box_bg
 
 		if gui.message_mode == "info":
 			self.message_info_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(self.message_info_icon.h / 2) - 1)
@@ -14594,7 +14594,7 @@ class MessageBox:
 			self.message_info_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(self.message_bubble_icon.h / 2) - 1)
 		elif gui.message_mode == "confirm":
 			self.message_info_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(self.message_info_icon.h / 2) - 1)
-			ddt.text((x + 62 * gui.scale, y + 9 * gui.scale), gui.message_text, colours.message_box_text, 15)
+			ddt.text((x + 62 * gui.scale, y + 9 * gui.scale), gui.message_text, self.colours.message_box_text, 15)
 			if self.draw.button("Yes", (w // 2 + x) - 70 * gui.scale, y + 32 * gui.scale, w=60*gui.scale):
 				gui.message_box_confirm_callback(*gui.message_box_confirm_reference)
 			if self.draw.button("No", (w // 2 + x) + 25 * gui.scale, y + 32 * gui.scale, w=60*gui.scale):
@@ -14602,20 +14602,20 @@ class MessageBox:
 			return
 
 		if gui.message_subtext:
-			ddt.text((x + 62 * gui.scale, y + 11 * gui.scale), gui.message_text, colours.message_box_text, 15)
+			ddt.text((x + 62 * gui.scale, y + 11 * gui.scale), gui.message_text, self.colours.message_box_text, 15)
 			if gui.message_mode == "bubble" or gui.message_mode == "link":
 				link_pa = self.tauon.draw_linked_text((x + 63 * gui.scale, y + (9 + 22) * gui.scale), gui.message_subtext,
-					colours.message_box_text, 12)
+					self.colours.message_box_text, 12)
 				self.tauon.link_activate(x + 63 * gui.scale, y + (9 + 22) * gui.scale, link_pa)
 			else:
-				ddt.text((x + 63 * gui.scale, y + (9 + 22) * gui.scale), gui.message_subtext, colours.message_box_text,
+				ddt.text((x + 63 * gui.scale, y + (9 + 22) * gui.scale), gui.message_subtext, self.colours.message_box_text,
 					12)
 
 			if gui.message_subtext2:
-				ddt.text((x + 63 * gui.scale, y + (9 + 42) * gui.scale), gui.message_subtext2, colours.message_box_text,
+				ddt.text((x + 63 * gui.scale, y + (9 + 42) * gui.scale), gui.message_subtext2, self.colours.message_box_text,
 					12)
 		else:
-			ddt.text((x + 62 * gui.scale, y + 20 * gui.scale), gui.message_text, colours.message_box_text, 15)
+			ddt.text((x + 62 * gui.scale, y + 20 * gui.scale), gui.message_text, self.colours.message_box_text, 15)
 
 class NagBox:
 	def __init__(self, tauon: Tauon) -> None:
@@ -15062,7 +15062,7 @@ class Over:
 			bar[2] += 4 * self.gui.scale
 			bar[3] += 20 * self.gui.scale
 
-			if tauon.coll(bar):
+			if self.coll(bar):
 				if self.inp.mouse_down:
 					target = self.inp.mouse_position[1] - y - center
 					target = (target / center) * range
@@ -15131,8 +15131,8 @@ class Over:
 			y += round(23 * self.gui.scale)
 			old = self.prefs.tmp_cache
 			self.prefs.tmp_cache = self.toggle_square(x, y, self.prefs.tmp_cache ^ True, _("Use persistent network cache")) ^ True
-			if old != self.prefs.tmp_cache and tauon.cachement:
-				tauon.cachement.__init__()
+			if old != self.prefs.tmp_cache and self.tauon.cachement:
+				self.tauon.cachement.__init__()
 
 			y += round(22 * self.gui.scale)
 			self.ddt.text((x + round(22 * self.gui.scale), y), _("Cache size"), self.colours.box_text, 312)
@@ -15283,7 +15283,7 @@ class Over:
 		old = self.prefs.zoom_art
 		self.prefs.zoom_art = self.toggle_square(x, y, self.prefs.zoom_art, _("Zoom album art to fit"))
 		if self.prefs.zoom_art != old:
-			tauon.album_art_gen.clear_cache()
+			self.tauon.album_art_gen.clear_cache()
 
 		y += 35 * self.gui.scale
 		self.ddt.text((x, y), _("Gallery"), self.colours.box_text_label, 12)
@@ -15450,7 +15450,7 @@ class Over:
 			self.toggle_square(x + 10 * gui.scale, y, toggle_music_ex, _("Always extract to Music folder"))
 
 			y += 38 * gui.scale
-			if not msys:
+			if not self.msys:
 				self.toggle_square(x, y, toggle_use_tray, _("Show icon in system tray"))
 
 				y += 25 * gui.scale
@@ -17089,14 +17089,14 @@ class Over:
 		x = x0 + round(25 * self.gui.scale)
 		y = y0 + 20 * self.gui.scale
 
-		self.ddt.text_background_colour = colours.box_background
+		self.ddt.text_background_colour = self.colours.box_background
 
-		self.ddt.text((x, y), _("Chart Grid Generator"), colours.box_text, 214)
+		self.ddt.text((x, y), _("Chart Grid Generator"), self.colours.box_text, 214)
 
 		y += 25 * self.gui.scale
-		ww = self.ddt.text((x, y), _("Target playlist:   "), colours.box_sub_text, 312)
+		ww = self.ddt.text((x, y), _("Target playlist:   "), self.colours.box_sub_text, 312)
 		self.ddt.text(
-			(x + ww, y), self.pctl.multi_playlist[self.pctl.active_playlist_viewing].title, colours.box_text_label, 12,
+			(x + ww, y), self.pctl.multi_playlist[self.pctl.active_playlist_viewing].title, self.colours.box_text_label, 12,
 			400 * self.gui.scale)
 		# x -= 210 * self.gui.scale
 
@@ -17186,14 +17186,14 @@ class Over:
 			elif not self.prefs.chart_font:
 				self.show_message(_("No font set in config"), mode="error")
 			else:
-				shoot = threading.Thread(target=tauon.gen_chart)
+				shoot = threading.Thread(target=self.tauon.gen_chart)
 				shoot.daemon = True
 				shoot.start()
 				self.gui.generating_chart = True
 
 		x += round(95 * self.gui.scale)
 		if self.gui.generating_chart:
-			self.ddt.text((x, y + round(1 * self.gui.scale)), _("Generating..."), colours.box_text_label, 12)
+			self.ddt.text((x, y + round(1 * self.gui.scale)), _("Generating..."), self.colours.box_text_label, 12)
 		else:
 			count = self.prefs.chart_rows * self.prefs.chart_columns
 			if self.prefs.chart_cascade:
@@ -17201,7 +17201,7 @@ class Over:
 
 			line = _("{N} Album chart").format(N=str(count))
 
-			ww = self.ddt.text((x, y + round(1 * self.gui.scale)), line, colours.box_text_label, 12)
+			ww = self.ddt.text((x, y + round(1 * self.gui.scale)), line, self.colours.box_text_label, 12)
 
 			if len(dex) < count:
 				self.ddt.text(
@@ -19229,7 +19229,7 @@ class BottomBarType1:
 
 			offset1 = 10 * gui.scale
 
-			if system == "Windows":
+			if self.system == "Windows":
 				offset1 += 2 * gui.scale
 
 			offset2 = offset1 + 7 * gui.scale
@@ -19701,19 +19701,19 @@ class BottomBarType_ao1:
 
 		# Volume Bar 2 ------------------------------------------------
 		if True:
-			x = window_size[0] - right_offset - 120 * self.gui.scale
-			y = window_size[1] - round(21 * self.gui.scale)
+			x = self.window_size[0] - right_offset - 120 * self.gui.scale
+			y = self.window_size[1] - round(21 * self.gui.scale)
 
 			if self.gui.compact_bar:
 				x -= 90 * self.gui.scale
 
 			rect = (x - 8 * self.gui.scale, y - 17 * self.gui.scale, 55 * self.gui.scale, 23 * self.gui.scale)
 			# ddt.rect(rect, [255,255,255,25])
-			if tauon.coll(rect) and self.inp.mouse_down:
+			if self.coll(rect) and self.inp.mouse_down:
 				self.gui.update_on_drag = True
 
 			h_rect = (x - 6 * self.gui.scale, y - 17 * self.gui.scale, 4 * self.gui.scale, 23 * self.gui.scale)
-			if tauon.coll(h_rect) and self.inp.mouse_down:
+			if self.coll(h_rect) and self.inp.mouse_down:
 				self.pctl.player_volume = 0
 
 			step = round(1 * self.gui.scale)
@@ -19758,32 +19758,32 @@ class BottomBarType_ao1:
 
 						self.pctl.set_volume()
 
-				colour = colours.mode_button_off
+				colour = self.colours.mode_button_off
 
 				if bar == 0 and self.pctl.player_volume > 0:
-					colour = colours.mode_button_active
+					colour = self.colours.mode_button_active
 				elif bar == 1 and self.pctl.player_volume >= 10:
-					colour = colours.mode_button_active
+					colour = self.colours.mode_button_active
 				elif bar == 2 and self.pctl.player_volume >= 20:
-					colour = colours.mode_button_active
+					colour = self.colours.mode_button_active
 				elif bar == 3 and self.pctl.player_volume >= 30:
-					colour = colours.mode_button_active
+					colour = self.colours.mode_button_active
 				elif bar == 4 and self.pctl.player_volume >= 45:
-					colour = colours.mode_button_active
+					colour = self.colours.mode_button_active
 				elif bar == 5 and self.pctl.player_volume >= 55:
-					colour = colours.mode_button_active
+					colour = self.colours.mode_button_active
 				elif bar == 6 and self.pctl.player_volume >= 70:
-					colour = colours.mode_button_active
+					colour = self.colours.mode_button_active
 				elif bar == 7 and self.pctl.player_volume >= 95:
-					colour = colours.mode_button_active
+					colour = self.colours.mode_button_active
 
 				self.ddt.rect(rect, colour)
 				x += spacing
 
 		# TIME----------------------
 
-		x = window_size[0] - 57 * self.gui.scale
-		y = window_size[1] - 35 * self.gui.scale
+		x = self.window_size[0] - 57 * self.gui.scale
+		y = self.window_size[1] - 35 * self.gui.scale
 
 		r_start = x - 10 * self.gui.scale
 		if self.gui.display_time_mode in (2, 3):
