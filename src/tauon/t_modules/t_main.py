@@ -464,7 +464,7 @@ class GuiVar:
 		self.tracklist_texture = tracklist_texture
 
 		self.trunk_end = "..."  # "…"
-		self.temp_themes = {}
+		self.temp_themes: dict[str, ColoursClass] = {}
 		self.theme_temp_current = -1
 
 		self.pl_title_y_offset = 0
@@ -12153,8 +12153,7 @@ class AlbumArt:
 
 		if self.prefs.colour_from_image and track.album != self.gui.theme_temp_current and box[0] != 115:
 			if track.album in self.gui.temp_themes:
-				global colours
-				colours = self.gui.temp_themes[track.album]
+				self.colours = self.gui.temp_themes[track.album]
 				self.gui.theme_temp_current = track.album
 
 		source = self.get_sources(track)
