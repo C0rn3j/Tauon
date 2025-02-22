@@ -5325,6 +5325,7 @@ class Tauon:
 		self.draw_border:            bool = holder.draw_border
 		self.desktop:          str | None = bag.desktop
 		self.device                       = socket.gethostname()
+		self.added:             list[int] = []
 		self.album_dex:              list = []
 		self.move_jobs:              list = []
 		self.to_scan:                list = []
@@ -5810,8 +5811,6 @@ class Tauon:
 
 		#logging.info(content)
 
-		global added
-
 		cued = []
 
 		LENGTH = 0
@@ -5935,7 +5934,7 @@ class Tauon:
 
 				cued.append(self.pctl.master_count)
 				# loaded_pathes_cache[filepath.replace('\\', '/')] = self.pctl.master_count
-				# added.append(self.pctl.master_count)
+				# self.added.append(self.pctl.master_count)
 
 				self.pctl.master_count += 1
 				LENGTH = 0
@@ -5944,7 +5943,7 @@ class Tauon:
 				START = 0
 				TN = 0
 
-		added += reversed(cued)
+		self.added += reversed(cued)
 
 		# bag.cue_list.append(filepath)
 
@@ -36444,7 +36443,6 @@ def worker2(tauon: Tauon) -> None:
 
 def worker1(tauon: Tauon) -> None:
 	global home
-	global added
 
 	bag   = tauon.bag
 	gui   = tauon.gui
@@ -36452,7 +36450,7 @@ def worker1(tauon: Tauon) -> None:
 	prefs = tauon.prefs
 	loaded_pathes_cache = {}
 	loaded_cue_cache = {}
-	added = []
+	tauon.added = []
 
 	def get_quoted_from_line(line: str) -> str:
 		"""Extract quoted or unquoted string from a line
@@ -36475,8 +36473,6 @@ def worker1(tauon: Tauon) -> None:
 		return content.split()[0]
 
 	def add_from_cue(path: str):
-		global added
-
 		if not tauon.msys:  # Windows terminal doesn't like unicode
 			logging.info("Reading CUE file: " + path)
 
@@ -36685,9 +36681,9 @@ def worker1(tauon: Tauon) -> None:
 				tauon.tag_scan(end_track)
 
 				# Remove target track if already imported
-				for i in reversed(range(len(added))):
-					if pctl.get_track(added[i]).fullpath == end_track.fullpath:
-						del added[i]
+				for i in reversed(range(len(tauon.added))):
+					if pctl.get_track(tauon.added[i]).fullpath == end_track.fullpath:
+						del tauon.added[i]
 
 				# Update with proper length
 				for track in reversed(cd):
@@ -36739,7 +36735,7 @@ def worker1(tauon: Tauon) -> None:
 					if track.fullpath not in bag.cue_list:
 						bag.cue_list.append(track.fullpath)
 					loaded_pathes_cache[track.fullpath] = track.index
-					added.append(track.index)
+					tauon.added.append(track.index)
 
 		except Exception:
 			logging.exception("Internal error processing CUE file")
@@ -36899,7 +36895,7 @@ def worker1(tauon: Tauon) -> None:
 				# Skip cache for subtrack formats
 				pass
 			else:
-				added.append(de)
+				tauon.added.append(de)
 				return None
 
 		time.sleep(0.002)
@@ -36913,7 +36909,7 @@ def worker1(tauon: Tauon) -> None:
 
 		def commit_track(nt: TrackClass) -> None:
 			pctl.master_library[pctl.master_count] = nt
-			added.append(pctl.master_count)
+			tauon.added.append(pctl.master_count)
 
 			if prefs.auto_sort or force_scan:
 				tauon.tag_scan(nt)
@@ -37356,14 +37352,14 @@ def worker1(tauon: Tauon) -> None:
 						gui.to_get = 0
 						gui.to_got = 0
 						tauon.load_orders.clear()
-						added = []
+						tauon.added = []
 						tauon.loaderCommand = tauon.LC_Done
 						tauon.loaderCommandReady = False
 						break
 
 					tauon.loaderCommand = tauon.LC_Done
 					#logging.info("LOAD ORDER")
-					order.tracks = added
+					order.tracks = tauon.added
 
 					# Double check for cue dupes
 					for i in reversed(range(len(order.tracks))):
@@ -37371,7 +37367,7 @@ def worker1(tauon: Tauon) -> None:
 							if pctl.master_library[order.tracks[i]].is_cue is False:
 								del order.tracks[i]
 
-					added = []
+					tauon.added = []
 					order.stage = 2
 					tauon.loaderCommandReady = False
 					#logging.info("DONE LOADING")
@@ -41276,7 +41272,6 @@ def main(holder: Holder) -> None:
 	x_menu.add(MenuItem(_("Exit"), tauon.exit, hint="Alt+F4", set_ref="User clicked menu exit button", pass_ref=+True))
 	x_menu.add(MenuItem(_("Disengage Quick Add"), stop_quick_add, show_test=show_stop_quick_add))
 
-	added = []
 	nagbox = NagBox(tauon=tauon)
 
 	spot_search_rate_timer = Timer()
