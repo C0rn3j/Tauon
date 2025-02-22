@@ -5581,7 +5581,6 @@ class Tauon:
 				else:
 					self.gui.star_row_icon.render(xx, y, fg2)
 			else:
-
 				if rat - 1 < ss * 2:
 					self.gui.star_row_icon.render(xx, y, bg)
 				elif rat - 1 == ss * 2:
@@ -5589,6 +5588,393 @@ class Tauon:
 					self.gui.star_half_row_icon.render(xx, y, fg)
 				else:
 					self.gui.star_row_icon.render(xx, y, fg)
+
+	def standard_view_deco(self):
+		if self.prefs.album_mode or self.gui.combo_mode or not self.gui.rsp:
+			line_colour = self.colours.menu_text
+		else:
+			line_colour = self.colours.menu_text_disabled
+		return [line_colour, self.colours.menu_background, None]
+
+	# def gallery_only_view(self) -> None:
+	# 	if self.gui.show_playlist is False:
+	# 		return
+	# 	if not self.prefs.album_mode:
+	# 		self.toggle_album_mode()
+	# 	self.gui.show_playlist = False
+	# 	self.gui.update_layout = True
+	# 	self.gui.rspw = window_size[0]
+	# 	self.gui.album_playlist_width = self.gui.playlist_width
+	# 	#self.gui.playlist_width = -19
+
+	def toggle_library_mode(self) -> None:
+		if self.gui.set_mode:
+			self.gui.set_mode = False
+			# self.gui.set_bar = False
+		else:
+			self.gui.set_mode = True
+			# self.gui.set_bar = True
+		self.gui.update_layout = True
+
+	def library_deco(self):
+		tc = self.colours.menu_text
+		if self.gui.combo_mode or (self.gui.show_playlist is False and self.prefs.album_mode):
+			tc = self.colours.menu_text_disabled
+
+		if self.gui.set_mode:
+			return [tc, self.colours.menu_background, _("Disable Columns")]
+		return [tc, self.colours.menu_background, _("Enable Columns")]
+
+	def break_deco(self):
+		tex = self.colours.menu_text
+		if self.gui.combo_mode or (self.gui.show_playlist is False and self.prefs.album_mode):
+			tex = self.colours.menu_text_disabled
+		if not self.prefs.break_enable:
+			tex = self.colours.menu_text_disabled
+
+		if not self.pctl.multi_playlist[self.pctl.active_playlist_viewing].hide_title:
+			return [tex, self.colours.menu_background, _("Disable Title Breaks")]
+		return [tex, self.colours.menu_background, _("Enable Title Breaks")]
+
+	def toggle_playlist_break(self) -> None:
+		self.pctl.multi_playlist[self.pctl.active_playlist_viewing].hide_title ^= 1
+		self.gui.pl_update = 1
+
+	def pl_toggle_playlist_break(self, ref) -> None:
+		self.pctl.multi_playlist[ref].hide_title ^= 1
+		self.gui.pl_update = 1
+
+	def transcode_single(self, item: list[tuple[int, str]], manual_directory: str | None = None, manual_name: str | None = None):
+		global core_use
+		global dl_use
+
+		if manual_directory != None:
+			codec = "opus"
+			output = manual_directory
+			track = item
+			core_use += 1
+			bitrate = 48
+		else:
+			track = item[0]
+			codec   = self.prefs.transcode_codec
+			output  = self.prefs.encoder_output / item[1]
+			bitrate = self.prefs.transcode_bitrate
+
+		t = pctl.master_library[track]
+
+		path = t.fullpath
+		cleanup = False
+
+		if t.is_network:
+			while dl_use > 1:
+				time.sleep(0.2)
+			dl_use += 1
+			try:
+				url, params = pctl.get_url(t)
+				assert url
+				path = os.path.join(tmp_cache_dir(), str(t.index))
+				if os.path.exists(path):
+					os.remove(path)
+				logging.info("Downloading file...")
+				with requests.get(url, params=params, timeout=60) as response, open(path, "wb") as out_file:
+					out_file.write(response.content)
+				logging.info("Download complete")
+				cleanup = True
+			except Exception:
+				logging.exception("Error downloading file")
+			dl_use -= 1
+
+		if not os.path.isfile(path):
+			show_message(_("Encoding warning: Missing one or more files"))
+			core_use -= 1
+			return
+
+		out_line = encode_track_name(t)
+
+		if not (output / _("output")).exists():
+			(output / _("output")).mkdir()
+		target_out = str(output / _("output") / (str(track) + "." + codec))
+
+		command = self.get_ffmpeg() + " "
+
+		if not t.is_cue:
+			command += '-i "'
+		else:
+			command += "-ss " + str(t.start_time)
+			command += " -t " + str(t.length)
+
+			command += ' -i "'
+
+		command += path.replace('"', '\\"')
+
+		command += '" '
+		if pctl.master_library[track].is_cue:
+			if t.title != "":
+				command += '-metadata title="' + t.title.replace('"', "").replace("'", "") + '" '
+			if t.artist != "":
+				command += '-metadata artist="' + t.artist.replace('"', "").replace("'", "") + '" '
+			if t.album != "":
+				command += '-metadata album="' + t.album.replace('"', "").replace("'", "") + '" '
+			if t.track_number != "":
+				command += '-metadata track="' + str(t.track_number).replace('"', "").replace("'", "") + '" '
+			if t.date != "":
+				command += '-metadata year="' + str(t.date).replace('"', "").replace("'", "") + '" '
+
+		if codec != "flac":
+			command += " -b:a " + str(bitrate) + "k -vn "
+
+		command += '"' + target_out.replace('"', '\\"') + '"'
+
+		# logging.info(shlex.split(command))
+		startupinfo = None
+		if self.system == "Windows" or self.msys:
+			startupinfo = subprocess.STARTUPINFO()
+			startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+		if not msys:
+			command = shlex.split(command)
+
+		subprocess.call(command, stdout=subprocess.PIPE, shell=False, startupinfo=startupinfo)
+
+		logging.info("FFmpeg finished")
+		if codec == "opus" and self.prefs.transcode_opus_as:
+			codec = "ogg"
+
+		# logging.info(target_out)
+
+		if manual_name is None:
+			final_out = output / (out_line + "." + codec)
+			final_name = out_line + "." + codec
+			os.rename(target_out, final_out)
+		else:
+			final_out = output / (manual_name + "." + codec)
+			final_name = manual_name + "." + codec
+			os.rename(target_out, final_out)
+
+		if self.prefs.transcode_inplace and not t.is_network and not t.is_cue:
+			logging.info("MOVE AND REPLACE!")
+			if os.path.isfile(final_out) and os.path.getsize(final_out) > 1000:
+				new_name = os.path.join(t.parent_folder_path, final_name)
+				logging.info(new_name)
+				shutil.move(final_out, new_name)
+
+				old_key  = self.star_store.key(track)
+				old_star = self.star_store.full_get(track)
+
+				try:
+					send2trash(self.pctl.master_library[track].fullpath)
+				except Exception:
+					logging.exception("File trash error")
+
+				if os.path.isfile(self.pctl.master_library[track].fullpath):
+					try:
+						os.remove(self.pctl.master_library[track].fullpath)
+					except Exception:
+						logging.exception("File delete error")
+
+				self.pctl.master_library[track].fullpath = new_name
+				self.pctl.master_library[track].file_ext = codec.upper()
+
+				# Update and merge playtimes
+				new_key = self.star_store.key(track)
+				if old_star and (new_key != old_key):
+
+					new_star = self.star_store.full_get(track)
+					if new_star is None:
+						new_star = self.star_store.new_object()
+
+					new_star[0] += old_star[0]
+					if old_star[2] > 0 and new_star[2] == 0:
+						new_star[2] = old_star[2]
+					new_star[1] = "".join(set(new_star[1] + old_star[1]))
+
+					if old_key in self.star_store.db:
+						del self.star_store.db[old_key]
+
+					self.star_store.db[new_key] = new_star
+
+		self.gui.transcoding_bach_done += 1
+		if cleanup:
+			os.remove(path)
+		core_use -= 1
+		self.gui.update += 1
+
+	def cue_scan(self, content: str, tn: TrackClass) -> int | None:
+		# Get length from backend
+
+		lasttime = tn.length
+
+		content = content.replace("\r", "")
+		content = content.split("\n")
+
+		#logging.info(content)
+
+		global added
+
+		cued = []
+
+		LENGTH = 0
+		PERFORMER = ""
+		TITLE = ""
+		START = 0
+		DATE = ""
+		ALBUM = ""
+		GENRE = ""
+		MAIN_PERFORMER = ""
+
+		for LINE in content:
+			if 'TITLE "' in LINE:
+				ALBUM = LINE[7:len(LINE) - 2]
+
+			if 'PERFORMER "' in LINE:
+				while LINE[0] != "P":
+					LINE = LINE[1:]
+
+				MAIN_PERFORMER = LINE[11:len(LINE) - 2]
+
+			if "REM DATE" in LINE:
+				DATE = LINE[9:len(LINE) - 1]
+
+			if "REM GENRE" in LINE:
+				GENRE = LINE[10:len(LINE) - 1]
+
+			if "TRACK " in LINE:
+				break
+
+		for LINE in reversed(content):
+			if len(LINE) > 100:
+				return 1
+			if "INDEX 01 " in LINE:
+				temp = ""
+				pos = len(LINE)
+				pos -= 1
+				while LINE[pos] != ":":
+					pos -= 1
+					if pos < 8:
+						break
+
+				START = int(LINE[pos - 2:pos]) + (int(LINE[pos - 5:pos - 3]) * 60)
+				LENGTH = int(lasttime) - START
+				lasttime = START
+
+			elif 'PERFORMER "' in LINE:
+				switch = 0
+				for i in range(len(LINE)):
+					if switch == 1 and LINE[i] == '"':
+						break
+					if switch == 1:
+						PERFORMER += LINE[i]
+					if LINE[i] == '"':
+						switch = 1
+
+			elif 'TITLE "' in LINE:
+
+				switch = 0
+				for i in range(len(LINE)):
+					if switch == 1 and LINE[i] == '"':
+						break
+					if switch == 1:
+						TITLE += LINE[i]
+					if LINE[i] == '"':
+						switch = 1
+
+			elif "TRACK " in LINE:
+
+				pos = 0
+				while LINE[pos] != "K":
+					pos += 1
+					if pos > 15:
+						return 1
+				TN = LINE[pos + 2:pos + 4]
+
+				TN = int(TN)
+
+				# try:
+				#     bitrate = audio.info.bitrate
+				# except Exception:
+				#     logging.exception("Failed to set audio bitrate")
+				#     bitrate = 0
+
+				if PERFORMER == "":
+					PERFORMER = MAIN_PERFORMER
+
+				nt = copy.deepcopy(tn)
+
+				nt.cue_sheet = ""
+				nt.is_embed_cue = True
+
+				nt.index = self.pctl.master_count
+				# nt.fullpath = filepath.replace('\\', '/')
+				# nt.filename = filename
+				# nt.parent_folder_path = os.path.dirname(filepath.replace('\\', '/'))
+				# nt.parent_folder_name = os.path.splitext(os.path.basename(filepath))[0]
+				# nt.file_ext = os.path.splitext(os.path.basename(filepath))[1][1:].upper()
+				if MAIN_PERFORMER:
+					nt.album_artist = MAIN_PERFORMER
+				if PERFORMER:
+					nt.artist = PERFORMER
+				if GENRE:
+					nt.genre = GENRE
+				nt.title = TITLE
+				nt.length = LENGTH
+				# nt.bitrate = source_track.bitrate
+				if ALBUM:
+					nt.album = ALBUM
+				if DATE:
+					nt.date = DATE.replace('"', "")
+				nt.track_number = TN
+				nt.start_time = START
+				nt.is_cue = True
+				nt.size = 0  # source_track.size
+				# nt.samplerate = source_track.samplerate
+				if TN == 1:
+					nt.size = os.path.getsize(nt.fullpath)
+
+				self.pctl.master_library[self.pctl.master_count] = nt
+
+				cued.append(self.pctl.master_count)
+				# loaded_pathes_cache[filepath.replace('\\', '/')] = self.pctl.master_count
+				# added.append(self.pctl.master_count)
+
+				self.pctl.master_count += 1
+				LENGTH = 0
+				PERFORMER = ""
+				TITLE = ""
+				START = 0
+				TN = 0
+
+		added += reversed(cued)
+
+		# bag.cue_list.append(filepath)
+
+	def get_album_from_first_track(self, track_position, track_id=None, pl_number=None, pl_id: int | None = None):
+		if pl_number is None:
+			if pl_id:
+				pl_number = self.pctl.id_to_pl(pl_id)
+			else:
+				pl_number = self.pctl.active_playlist_viewing
+
+		playlist = self.pctl.multi_playlist[pl_number].playlist_ids
+
+		if track_id is None:
+			track_id = playlist[track_position]
+
+		if playlist[track_position] != track_id:
+			return []
+
+		tracks = []
+		album_parent_path = self.pctl.get_track(track_id).parent_folder_path
+
+		i = track_position
+
+		while i < len(playlist):
+			if self.pctl.get_track(playlist[i]).parent_folder_path != album_parent_path:
+				break
+
+			tracks.append(playlist[i])
+			i += 1
+
+		return tracks
 
 	def love_deco(self):
 		if self.love(False):
@@ -26374,7 +26760,7 @@ class ViewBox:
 		if self.prefs.album_mode and self.gui.plw < 550 * self.gui.scale:
 			self.tauon.toggle_album_mode()
 
-		toggle_library_mode()
+		self.tauon.toggle_library_mode()
 
 	def artist_info(self, hit: bool = False) -> bool:
 		if hit is False:
@@ -31153,10 +31539,6 @@ def year_sort(pl: int, custom_list=None):
 	tauon.reload_albums()
 	tauon.tree_view_box.clear_target_pl(pl)
 
-def pl_toggle_playlist_break(ref):
-	pctl.multi_playlist[ref].hide_title ^= 1
-	gui.pl_update = 1
-
 def gen_unique_pl_title(base: str, extra: str="", start: int = 1) -> str:
 	ex = start
 	title = base
@@ -35660,390 +36042,6 @@ def view_standard(tauon: Tauon) -> None:
 	if not tauon.gui.rsp:
 		tauon.toggle_side_panel()
 
-def standard_view_deco():
-	if prefs.album_mode or gui.combo_mode or not gui.rsp:
-		line_colour = colours.menu_text
-	else:
-		line_colour = colours.menu_text_disabled
-	return [line_colour, colours.menu_background, None]
-
-# def gallery_only_view():
-# 	if gui.show_playlist is False:
-# 		return
-# 	if not prefs.album_mode:
-# 		tauon.toggle_album_mode()
-# 	gui.show_playlist = False
-# 	gui.update_layout = True
-# 	gui.rspw = window_size[0]
-# 	gui.album_playlist_width = gui.playlist_width
-# 	#gui.playlist_width = -19
-
-def toggle_library_mode() -> None:
-	if gui.set_mode:
-		gui.set_mode = False
-		# gui.set_bar = False
-	else:
-		gui.set_mode = True
-		# gui.set_bar = True
-	gui.update_layout = True
-
-def library_deco():
-	tc = colours.menu_text
-	if gui.combo_mode or (gui.show_playlist is False and prefs.album_mode):
-		tc = colours.menu_text_disabled
-
-	if gui.set_mode:
-		return [tc, colours.menu_background, _("Disable Columns")]
-	return [tc, colours.menu_background, _("Enable Columns")]
-
-def break_deco():
-	tex = colours.menu_text
-	if gui.combo_mode or (gui.show_playlist is False and prefs.album_mode):
-		tex = colours.menu_text_disabled
-	if not prefs.break_enable:
-		tex = colours.menu_text_disabled
-
-	if not pctl.multi_playlist[pctl.active_playlist_viewing].hide_title:
-		return [tex, colours.menu_background, _("Disable Title Breaks")]
-	return [tex, colours.menu_background, _("Enable Title Breaks")]
-
-def toggle_playlist_break() -> None:
-	pctl.multi_playlist[pctl.active_playlist_viewing].hide_title ^= 1
-	gui.pl_update = 1
-
-def transcode_single(item: list[tuple[int, str]], manual_directory: str | None = None, manual_name: str | None = None):
-	global core_use
-	global dl_use
-
-	if manual_directory != None:
-		codec = "opus"
-		output = manual_directory
-		track = item
-		core_use += 1
-		bitrate = 48
-	else:
-		track = item[0]
-		codec = prefs.transcode_codec
-		output = prefs.encoder_output / item[1]
-		bitrate = prefs.transcode_bitrate
-
-	t = pctl.master_library[track]
-
-	path = t.fullpath
-	cleanup = False
-
-	if t.is_network:
-		while dl_use > 1:
-			time.sleep(0.2)
-		dl_use += 1
-		try:
-			url, params = pctl.get_url(t)
-			assert url
-			path = os.path.join(tmp_cache_dir(), str(t.index))
-			if os.path.exists(path):
-				os.remove(path)
-			logging.info("Downloading file...")
-			with requests.get(url, params=params, timeout=60) as response, open(path, "wb") as out_file:
-				out_file.write(response.content)
-			logging.info("Download complete")
-			cleanup = True
-		except Exception:
-			logging.exception("Error downloading file")
-		dl_use -= 1
-
-	if not os.path.isfile(path):
-		show_message(_("Encoding warning: Missing one or more files"))
-		core_use -= 1
-		return
-
-	out_line = encode_track_name(t)
-
-	if not (output / _("output")).exists():
-		(output / _("output")).mkdir()
-	target_out = str(output / _("output") / (str(track) + "." + codec))
-
-	command = tauon.get_ffmpeg() + " "
-
-	if not t.is_cue:
-		command += '-i "'
-	else:
-		command += "-ss " + str(t.start_time)
-		command += " -t " + str(t.length)
-
-		command += ' -i "'
-
-	command += path.replace('"', '\\"')
-
-	command += '" '
-	if pctl.master_library[track].is_cue:
-		if t.title != "":
-			command += '-metadata title="' + t.title.replace('"', "").replace("'", "") + '" '
-		if t.artist != "":
-			command += '-metadata artist="' + t.artist.replace('"', "").replace("'", "") + '" '
-		if t.album != "":
-			command += '-metadata album="' + t.album.replace('"', "").replace("'", "") + '" '
-		if t.track_number != "":
-			command += '-metadata track="' + str(t.track_number).replace('"', "").replace("'", "") + '" '
-		if t.date != "":
-			command += '-metadata year="' + str(t.date).replace('"', "").replace("'", "") + '" '
-
-	if codec != "flac":
-		command += " -b:a " + str(bitrate) + "k -vn "
-
-	command += '"' + target_out.replace('"', '\\"') + '"'
-
-	# logging.info(shlex.split(command))
-	startupinfo = None
-	if system == "Windows" or msys:
-		startupinfo = subprocess.STARTUPINFO()
-		startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-
-	if not msys:
-		command = shlex.split(command)
-
-	subprocess.call(command, stdout=subprocess.PIPE, shell=False, startupinfo=startupinfo)
-
-	logging.info("FFmpeg finished")
-	if codec == "opus" and prefs.transcode_opus_as:
-		codec = "ogg"
-
-	# logging.info(target_out)
-
-	if manual_name is None:
-		final_out = output / (out_line + "." + codec)
-		final_name = out_line + "." + codec
-		os.rename(target_out, final_out)
-	else:
-		final_out = output / (manual_name + "." + codec)
-		final_name = manual_name + "." + codec
-		os.rename(target_out, final_out)
-
-	if prefs.transcode_inplace and not t.is_network and not t.is_cue:
-		logging.info("MOVE AND REPLACE!")
-		if os.path.isfile(final_out) and os.path.getsize(final_out) > 1000:
-			new_name = os.path.join(t.parent_folder_path, final_name)
-			logging.info(new_name)
-			shutil.move(final_out, new_name)
-
-			old_key = star_store.key(track)
-			old_star = star_store.full_get(track)
-
-			try:
-				send2trash(pctl.master_library[track].fullpath)
-			except Exception:
-				logging.exception("File trash error")
-
-			if os.path.isfile(pctl.master_library[track].fullpath):
-				try:
-					os.remove(pctl.master_library[track].fullpath)
-				except Exception:
-					logging.exception("File delete error")
-
-			pctl.master_library[track].fullpath = new_name
-			pctl.master_library[track].file_ext = codec.upper()
-
-			# Update and merge playtimes
-			new_key = star_store.key(track)
-			if old_star and (new_key != old_key):
-
-				new_star = star_store.full_get(track)
-				if new_star is None:
-					new_star = star_store.new_object()
-
-				new_star[0] += old_star[0]
-				if old_star[2] > 0 and new_star[2] == 0:
-					new_star[2] = old_star[2]
-				new_star[1] = "".join(set(new_star[1] + old_star[1]))
-
-				if old_key in star_store.db:
-					del star_store.db[old_key]
-
-				star_store.db[new_key] = new_star
-
-	gui.transcoding_bach_done += 1
-	if cleanup:
-		os.remove(path)
-	core_use -= 1
-	gui.update += 1
-
-def cue_scan(content: str, tn: TrackClass) -> int | None:
-	# Get length from backend
-
-	lasttime = tn.length
-
-	content = content.replace("\r", "")
-	content = content.split("\n")
-
-	#logging.info(content)
-
-	global added
-
-	cued = []
-
-	LENGTH = 0
-	PERFORMER = ""
-	TITLE = ""
-	START = 0
-	DATE = ""
-	ALBUM = ""
-	GENRE = ""
-	MAIN_PERFORMER = ""
-
-	for LINE in content:
-		if 'TITLE "' in LINE:
-			ALBUM = LINE[7:len(LINE) - 2]
-
-		if 'PERFORMER "' in LINE:
-			while LINE[0] != "P":
-				LINE = LINE[1:]
-
-			MAIN_PERFORMER = LINE[11:len(LINE) - 2]
-
-		if "REM DATE" in LINE:
-			DATE = LINE[9:len(LINE) - 1]
-
-		if "REM GENRE" in LINE:
-			GENRE = LINE[10:len(LINE) - 1]
-
-		if "TRACK " in LINE:
-			break
-
-	for LINE in reversed(content):
-		if len(LINE) > 100:
-			return 1
-		if "INDEX 01 " in LINE:
-			temp = ""
-			pos = len(LINE)
-			pos -= 1
-			while LINE[pos] != ":":
-				pos -= 1
-				if pos < 8:
-					break
-
-			START = int(LINE[pos - 2:pos]) + (int(LINE[pos - 5:pos - 3]) * 60)
-			LENGTH = int(lasttime) - START
-			lasttime = START
-
-		elif 'PERFORMER "' in LINE:
-			switch = 0
-			for i in range(len(LINE)):
-				if switch == 1 and LINE[i] == '"':
-					break
-				if switch == 1:
-					PERFORMER += LINE[i]
-				if LINE[i] == '"':
-					switch = 1
-
-		elif 'TITLE "' in LINE:
-
-			switch = 0
-			for i in range(len(LINE)):
-				if switch == 1 and LINE[i] == '"':
-					break
-				if switch == 1:
-					TITLE += LINE[i]
-				if LINE[i] == '"':
-					switch = 1
-
-		elif "TRACK " in LINE:
-
-			pos = 0
-			while LINE[pos] != "K":
-				pos += 1
-				if pos > 15:
-					return 1
-			TN = LINE[pos + 2:pos + 4]
-
-			TN = int(TN)
-
-			# try:
-			#     bitrate = audio.info.bitrate
-			# except Exception:
-			#     logging.exception("Failed to set audio bitrate")
-			#     bitrate = 0
-
-			if PERFORMER == "":
-				PERFORMER = MAIN_PERFORMER
-
-			nt = copy.deepcopy(tn)
-
-			nt.cue_sheet = ""
-			nt.is_embed_cue = True
-
-			nt.index = pctl.master_count
-			# nt.fullpath = filepath.replace('\\', '/')
-			# nt.filename = filename
-			# nt.parent_folder_path = os.path.dirname(filepath.replace('\\', '/'))
-			# nt.parent_folder_name = os.path.splitext(os.path.basename(filepath))[0]
-			# nt.file_ext = os.path.splitext(os.path.basename(filepath))[1][1:].upper()
-			if MAIN_PERFORMER:
-				nt.album_artist = MAIN_PERFORMER
-			if PERFORMER:
-				nt.artist = PERFORMER
-			if GENRE:
-				nt.genre = GENRE
-			nt.title = TITLE
-			nt.length = LENGTH
-			# nt.bitrate = source_track.bitrate
-			if ALBUM:
-				nt.album = ALBUM
-			if DATE:
-				nt.date = DATE.replace('"', "")
-			nt.track_number = TN
-			nt.start_time = START
-			nt.is_cue = True
-			nt.size = 0  # source_track.size
-			# nt.samplerate = source_track.samplerate
-			if TN == 1:
-				nt.size = os.path.getsize(nt.fullpath)
-
-			pctl.master_library[pctl.master_count] = nt
-
-			cued.append(pctl.master_count)
-			# loaded_pathes_cache[filepath.replace('\\', '/')] = pctl.master_count
-			# added.append(pctl.master_count)
-
-			pctl.master_count += 1
-			LENGTH = 0
-			PERFORMER = ""
-			TITLE = ""
-			START = 0
-			TN = 0
-
-	added += reversed(cued)
-
-	# bag.cue_list.append(filepath)
-
-def get_album_from_first_track(track_position, track_id=None, pl_number=None, pl_id: int | None = None):
-	if pl_number is None:
-
-		if pl_id:
-			pl_number = pctl.id_to_pl(pl_id)
-		else:
-			pl_number = pctl.active_playlist_viewing
-
-	playlist = pctl.multi_playlist[pl_number].playlist_ids
-
-	if track_id is None:
-		track_id = playlist[track_position]
-
-	if playlist[track_position] != track_id:
-		return []
-
-	tracks = []
-	album_parent_path = pctl.get_track(track_id).parent_folder_path
-
-	i = track_position
-
-	while i < len(playlist):
-		if pctl.get_track(playlist[i]).parent_folder_path != album_parent_path:
-			break
-
-		tracks.append(playlist[i])
-		i += 1
-
-	return tracks
-
 def worker3(tauon: Tauon) -> None:
 	while True:
 		# time.sleep(0.04)
@@ -36930,7 +36928,7 @@ def worker1(tauon: Tauon) -> None:
 		# nt = tauon.tag_scan(nt)
 		if nt.cue_sheet != "":
 			tauon.tag_scan(nt)
-			cue_scan(nt.cue_sheet, nt)
+			tauon.cue_scan(nt.cue_sheet, nt)
 			del nt
 		elif nt.file_ext.lower() in bag.formats.GME_Formats and gme:
 			emu = ctypes.c_void_p()
@@ -37268,7 +37266,7 @@ def worker1(tauon: Tauon) -> None:
 							if agg not in dones:
 								core_use += 1
 								dones.append(agg)
-								loaderThread = threading.Thread(target=transcode_single, args=agg)
+								loaderThread = threading.Thread(target=tauon.transcode_single, args=agg)
 								loaderThread.daemon = True
 								loaderThread.start()
 
@@ -40763,7 +40761,7 @@ def main(holder: Holder) -> None:
 	# tab_menu.add_to_sub(_('Re-Import Last Folder'), 1, re_import, pass_ref=True)
 	# tab_menu.add_to_sub(_('Quick Export XSPF'), 2, export_xspf, pass_ref=True)
 	# tab_menu.add_to_sub(_('Quick Export M3U'), 2, export_m3u, pass_ref=True)
-	tab_menu.add_to_sub(2, MenuItem(_("Toggle Breaks"), pl_toggle_playlist_break, pass_ref=True))
+	tab_menu.add_to_sub(2, MenuItem(_("Toggle Breaks"), tauon.pl_toggle_playlist_break, pass_ref=True))
 	tab_menu.add_to_sub(2, MenuItem(_("Edit Generator..."), edit_generator_box, pass_ref=True))
 	tab_menu.add_to_sub(2, MenuItem(_("Engage Gallery Quick Add"), start_quick_add, pass_ref=True))
 	tab_menu.add_to_sub(2, MenuItem(_("Set as Sync Playlist"), set_sync_playlist, sync_playlist_deco, pass_ref_deco=True, pass_ref=True))
@@ -41478,7 +41476,7 @@ def main(holder: Holder) -> None:
 		tauon.toggle_album_mode(force_on=True)
 
 	if gui.remember_library_mode:
-		toggle_library_mode()
+		tauon.toggle_library_mode()
 
 	if reload_state:
 		if reload_state[0] == 1:
