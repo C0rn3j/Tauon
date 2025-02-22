@@ -1234,8 +1234,17 @@ class ColoursClass:
 		self.artist_bio_background = [27, 27, 27, 255]
 		self.artist_bio_text = [230, 230, 230, 255]
 
-	def post_config(self):
+	def apply_transparency(self) -> None:
+		self.top_panel_background[3] = 80
+		self.side_panel_background[3] = 130
+		self.art_box[3] = 100
+		self.window_frame[3] = 100
+		self.bottom_panel_colour[3] = 200
 
+		# colours.playlist_panel_background[3] = 220
+		# colours.playlist_box_background  = [0, 0, 0, 100]
+
+	def post_config(self):
 		if self.box_thumb_background is None:
 			self.box_thumb_background = alpha_mod(self.box_button_background, 175)
 
@@ -11540,6 +11549,8 @@ class AlbumArt:
 							if len(x_colours) > 4:
 								colours.playlist_box_background = x_colours[4] + (255,)
 
+				colours.playlist_panel_background = list(colours.playlist_panel_background)
+				colours.side_panel_background = list(colours.side_panel_background)
 				colours.queue_background = colours.side_panel_background
 				# Check artist text colour
 				if contrast_ratio(colours.artist_text, colours.playlist_panel_background) < 1.9:
@@ -11571,7 +11582,7 @@ class AlbumArt:
 					colours.title_text = choice
 					colours.title_playing = choice
 
-				if test_lumi(colours.side_panel_background) < 0.50:
+				if test_lumi(colours.side_panel_background) < 0.50 and not self.prefs.transparent_mode:
 					colours.side_bar_line1 = [25, 25, 25, 255]
 					colours.side_bar_line2 = [35, 35, 35, 255]
 				else:
@@ -11611,6 +11622,9 @@ class AlbumArt:
 				self.gui.temp_themes[track.album] = copy.deepcopy(colours)
 				colours = self.gui.temp_themes[track.album]
 				self.gui.theme_temp_current = track.album
+
+				if self.prefs.transparent_mode:
+					colours.apply_transparency()
 
 			if theme_only:
 				source_image.close()
@@ -35568,8 +35582,8 @@ def discord_loop() -> None:
 			loop.close()
 		prefs.discord_active = False
 
-def open_donate_link() -> None:
-	webbrowser.open("https://github.com/sponsors/Taiko2k", new=2, autoraise=True)
+#def open_donate_link() -> None:
+#	webbrowser.open("https://github.com/sponsors/Taiko2k", new=2, autoraise=True)
 
 def stop_quick_add() -> None:
 	pctl.quick_add_target = None
@@ -41261,7 +41275,7 @@ def main(holder: Holder) -> None:
 
 	x_menu.add(MenuItem("LFM", tauon.lastfm.toggle, last_fm_menu_deco, icon=listen_icon, show_test=lastfm_menu_test))
 	x_menu.add(MenuItem(_("Exit Shuffle Lockdown"), toggle_shuffle_layout, toggle_shuffle_layout_deco)) #show_test=exit_shuffle_layout))
-	x_menu.add(MenuItem(_("Donate"), open_donate_link))
+	#x_menu.add(MenuItem(_("Donate"), open_donate_link))
 	x_menu.add(MenuItem(_("Exit"), tauon.exit, hint="Alt+F4", set_ref="User clicked menu exit button", pass_ref=+True))
 	x_menu.add(MenuItem(_("Disengage Quick Add"), stop_quick_add, show_test=show_stop_quick_add))
 
@@ -42978,13 +42992,7 @@ def main(holder: Holder) -> None:
 				deco.unload()
 
 			if prefs.transparent_mode:
-				colours.top_panel_background[3] = 80
-				colours.side_panel_background[3] = 100
-				colours.art_box[3] = 100
-				colours.window_frame[3] = 100
-				colours.bottom_panel_colour[3] = 200
-				#colours.playlist_panel_background[3] = 220
-				#colours.playlist_box_background  = [0, 0, 0, 100]
+				colours.apply_transparency()
 
 			prefs.theme_name = gui.theme_name
 
