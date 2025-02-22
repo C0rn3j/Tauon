@@ -5300,6 +5300,7 @@ class Tauon:
 		self.t_agent                      = holder.t_agent
 		self.t_id                         = holder.t_id
 		self.window_title                 = holder.window_title
+		self.window_size                  = bag.window_size
 		self.draw_border:            bool = holder.draw_border
 		self.desktop:          str | None = bag.desktop
 		self.device                       = socket.gethostname()
@@ -8058,7 +8059,7 @@ class Tauon:
 					if not target.lower().endswith(".xspf"):
 						self.gui.drop_playlist_target = self.new_playlist()
 					self.gui.new_playlist_cooldown = True
-		elif self.gui.lsp and self.gui.panelY < i_y < window_size[1] - self.gui.panelBY and i_x < self.gui.lspw and self.gui.mode == 1:
+		elif self.gui.lsp and self.gui.panelY < i_y < self.window_size[1] - self.gui.panelBY and i_x < self.gui.lspw and self.gui.mode == 1:
 			y = self.gui.panelY
 			y += 5 * self.gui.scale
 			y += self.playlist_box.tab_h + self.playlist_box.gap
@@ -9742,8 +9743,8 @@ class TimedLyricsRen:
 		self.showcase_menu = tauon.showcase_menu
 		self.top_panel     = tauon.top_panel
 		self.pctl          = tauon.pctl
-		self.colours       = tauon.bag.colours
-		self.window_size   = tauon.bag.window_size
+		self.colours       = tauon.colours
+		self.window_size   = tauon.window_size
 		self.inp           = tauon.gui.inp
 		self.index         = -1
 
@@ -10084,23 +10085,23 @@ class TextBox2:
 				self.paste_text = ""
 
 			# Paste via ctrl-v
-			if self.inp.key_ctrl_down and inp.key_v_press:
+			if self.inp.key_ctrl_down and self.inp.key_v_press:
 				clip = sdl3.SDL_GetClipboardText().decode("utf-8")
 				self.eliminate_selection()
 				self.text = self.text[0: len(self.text) - self.cursor_position] + clip + self.text[len(
 					self.text) - self.cursor_position:]
 
-			if self.inp.key_ctrl_down and inp.key_c_press:
+			if self.inp.key_ctrl_down and self.inp.key_c_press:
 				self.copy()
 
-			if self.inp.key_ctrl_down and inp.key_x_press:
+			if self.inp.key_ctrl_down and self.inp.key_x_press:
 				if len(self.get_selection()) > 0:
 					text = self.get_selection()
 					if text != "":
 						sdl3.SDL_SetClipboardText(text.encode("utf-8"))
 					self.eliminate_selection()
 
-			if self.inp.key_ctrl_down and inp.key_a_press:
+			if self.inp.key_ctrl_down and self.inp.key_a_press:
 				self.cursor_position = 0
 				self.selection = len(self.text)
 
@@ -10109,7 +10110,7 @@ class TextBox2:
 				self.gui.cursor_want = 2
 
 			# Delete key to remove text in front of cursor
-			if inp.key_del:
+			if self.inp.key_del:
 				if self.selection != self.cursor_position:
 					self.eliminate_selection()
 				else:
@@ -10119,11 +10120,11 @@ class TextBox2:
 						self.cursor_position -= 1
 					self.selection = self.cursor_position
 
-			if inp.key_home_press:
+			if self.inp.key_home_press:
 				self.cursor_position = len(self.text)
 				if not self.inp.key_shift_down and not self.inp.key_shiftr_down:
 					self.selection = self.cursor_position
-			if inp.key_end_press:
+			if self.inp.key_end_press:
 				self.cursor_position = 0
 				if not self.inp.key_shift_down and not self.inp.key_shiftr_down:
 					self.selection = self.cursor_position
@@ -10705,6 +10706,7 @@ class AlbumArt:
 		self.folder_image_offsets = tauon.bag.folder_image_offsets
 		self.install_directory    = tauon.install_directory
 		self.window_size          = tauon.bag.window_size
+		self.cache_directory      = tauon.cache_directory
 		self.image_types = {"jpg", "JPG", "jpeg", "JPEG", "PNG", "png", "BMP", "bmp", "GIF", "gif", "jxl", "JXL"}
 		self.art_folder_names = {
 			"art", "scans", "scan", "booklet", "images", "image", "cover",
@@ -10882,7 +10884,7 @@ class AlbumArt:
 		temp_dest.y = int((box[1] - temp_dest.h) / 2) + temp_dest.y
 
 		# render the image
-		sdl3.SDL_RenderTexture(renderer, unit.texture, None, temp_dest)
+		sdl3.SDL_RenderTexture(self.renderer, unit.texture, None, temp_dest)
 		self.style_overlay.hole_punches.append(temp_dest)
 
 		self.gui.art_drawn_rect = (temp_dest.x, temp_dest.y, temp_dest.w, temp_dest.h)
@@ -10914,7 +10916,7 @@ class AlbumArt:
 			ext = "." + im.format.lower()
 			if im.format == "JPEG":
 				ext = ".jpg"
-			target = str(cache_directory / "open-image")
+			target = str(self.cache_directory / "open-image")
 			if not os.path.exists(target):
 				os.makedirs(target)
 			target = os.path.join(target, "embed-" + str(im.height) + "px-" + str(track_object.index) + ext)
@@ -12270,10 +12272,14 @@ class RenameTrackBox:
 class TransEditBox:
 
 	def __init__(self, tauon: Tauon) -> None:
-		self.gui  = tauon.gui
-		self.ddt  = tauon.ddt
-		self.inp  = tauon.inp
-		self.pctl = tauon.pctl
+		self.tauon       = tauon
+		self.gui         = tauon.gui
+		self.ddt         = tauon.ddt
+		self.inp         = tauon.inp
+		self.pctl        = tauon.pctl
+		self.colours     = tauon.colours
+		self.window_size = tauon.window_size
+		self.star_store  = tauon.star_store
 		self.active = False
 		self.active_field = 1
 		self.selected = []
@@ -12283,36 +12289,36 @@ class TransEditBox:
 		if not self.active:
 			return
 
-		if gui.level_2_click:
-			inp.mouse_click = True
-		gui.level_2_click = False
+		if self.gui.level_2_click:
+			self.inp.mouse_click = True
+		self.gui.level_2_click = False
 
-		w = 500 * gui.scale
-		h = 255 * gui.scale
-		x = int(window_size[0] / 2) - int(w / 2)
-		y = int(window_size[1] / 2) - int(h / 2)
+		w = 500 * self.gui.scale
+		h = 255 * self.gui.scale
+		x = int(self.window_size[0] / 2) - int(w / 2)
+		y = int(self.window_size[1] / 2) - int(h / 2)
 
-		ddt.rect_a((x - 2 * gui.scale, y - 2 * gui.scale), (w + 4 * gui.scale, h + 4 * gui.scale), colours.box_border)
-		ddt.rect_a((x, y), (w, h), colours.box_background)
-		ddt.text_background_colour = colours.box_background
+		self.ddt.rect_a((x - 2 * self.gui.scale, y - 2 * self.gui.scale), (w + 4 * self.gui.scale, h + 4 * self.gui.scale), self.colours.box_border)
+		self.ddt.rect_a((x, y), (w, h), self.colours.box_background)
+		self.ddt.text_background_colour = self.colours.box_background
 
-		if inp.key_esc_press or ((inp.mouse_click or inp.right_click or inp.level_2_right_click) and not tauon.coll((x, y, w, h))):
+		if self.inp.key_esc_press or ((self.inp.mouse_click or self.inp.right_click or self.inp.level_2_right_click) and not self.tauon.coll((x, y, w, h))):
 			self.active = False
 
-		select = list(set(gui.shift_selection))
-		if not select and pctl.selected_ready():
-			select = [pctl.selected_in_playlist]
+		select = list(set(self.gui.shift_selection))
+		if not select and self.pctl.selected_ready():
+			select = [self.pctl.selected_in_playlist]
 
-		titles = [pctl.get_track(pctl.default_playlist[s]).title for s in select]
-		artists = [pctl.get_track(pctl.default_playlist[s]).artist for s in select]
-		albums = [pctl.get_track(pctl.default_playlist[s]).album for s in select]
-		album_artists = [pctl.get_track(pctl.default_playlist[s]).album_artist for s in select]
+		titles        = [self.pctl.get_track(self.pctl.default_playlist[s]).title for s in select]
+		artists       = [self.pctl.get_track(self.pctl.default_playlist[s]).artist for s in select]
+		albums        = [self.pctl.get_track(self.pctl.default_playlist[s]).album for s in select]
+		album_artists = [self.pctl.get_track(self.pctl.default_playlist[s]).album_artist for s in select]
 
 		#logging.info(select)
-		if select != self.selected or pctl.active_playlist_viewing != self.playlist:
+		if select != self.selected or self.pctl.active_playlist_viewing != self.playlist:
 			#logging.info("reset")
 			self.selected = select
-			self.playlist = pctl.active_playlist_viewing
+			self.playlist = self.pctl.active_playlist_viewing
 			edit_album.clear()
 			edit_artist.clear()
 			edit_title.clear()
@@ -12321,7 +12327,7 @@ class TransEditBox:
 			if len(select) == 0:
 				return
 
-			tr = pctl.get_track(pctl.default_playlist[select[0]])
+			tr = self.pctl.get_track(self.pctl.default_playlist[select[0]])
 			edit_title.set_text(tr.title)
 
 			if check_equal(artists):
@@ -12333,24 +12339,24 @@ class TransEditBox:
 			if check_equal(album_artists):
 				edit_album_artist.set_text(album_artists[0])
 
-		x += round(20 * gui.scale)
-		y += round(18 * gui.scale)
+		x += round(20 * self.gui.scale)
+		y += round(18 * self.gui.scale)
 
-		ddt.text((x, y), _("Simple tag editor"), colours.box_title_text, 215)
+		self.ddt.text((x, y), _("Simple tag editor"), colours.box_title_text, 215)
 
-		if draw.button(_("?"), x + 440 * gui.scale, y):
+		if draw.button(_("?"), x + 440 * self.gui.scale, y):
 			show_message(
 				_("Press Enter in each field to apply its changes to local database."),
 				_("When done, press WRITE TAGS to save to tags in actual files. (Optional but recommended)"),
 				mode="info")
 
-		y += round(24 * gui.scale)
-		ddt.text((x, y), _("Number of tracks selected: {N}").format(N=len(select)), colours.box_title_text, 313)
+		y += round(24 * self.gui.scale)
+		self.ddt.text((x, y), _("Number of tracks selected: {N}").format(N=len(select)), colours.box_title_text, 313)
 
-		y += round(24 * gui.scale)
+		y += round(24 * self.gui.scale)
 
-		if inp.key_tab_press:
-			if inp.key_shift_down or inp.key_shiftr_down:
+		if self.inp.key_tab_press:
+			if self.inp.key_shift_down or self.inp.key_shiftr_down:
 				self.active_field -= 1
 			else:
 				self.active_field += 1
@@ -12366,7 +12372,7 @@ class TransEditBox:
 			changed = 0
 			ddt.text((x, y), label, colours.box_text_label, 11)
 			y += round(16 * gui.scale)
-			rect1 = (x, y, round(370 * gui.scale), round(17 * gui.scale))
+			rect1 = (x, y, round(370 * self.gui.scale), round(17 * self.gui.scale))
 			tauon.fields.add(rect1)
 			if (tauon.coll(rect1) and inp.mouse_click) or (inp.key_tab_press and self.active_field == field_number):
 				self.active_field = field_number
@@ -12398,49 +12404,48 @@ class TransEditBox:
 
 		y += round(40 * self.gui.scale)
 		for s in select:
-			tr = pctl.get_track(self.pctl.default_playlist[s])
+			tr = self.pctl.get_track(self.pctl.default_playlist[s])
 			if tr.is_network:
-				ddt.text((x, y), _("Editing network tracks is not recommended!"), [245, 90, 90, 255], 312)
+				self.ddt.text((x, y), _("Editing network tracks is not recommended!"), [245, 90, 90, 255], 312)
 
-		if inp.key_return_press:
-
-			gui.pl_update += 1
+		if self.inp.key_return_press:
+			self.gui.pl_update += 1
 			if self.active_field == 0 and len(select) == 1:
 				for s in select:
-					tr = pctl.get_track(pctl.default_playlist[s])
-					star = star_store.full_get(tr.index)
-					star_store.remove(tr.index)
+					tr = self.pctl.get_track(self.pctl.default_playlist[s])
+					star = self.star_store.full_get(tr.index)
+					self.star_store.remove(tr.index)
 					tr.title = edit_title.text
-					star_store.merge(tr.index, star)
+					self.star_store.merge(tr.index, star)
 
 			if self.active_field == 1:
 				for s in select:
-					tr = pctl.get_track(pctl.default_playlist[s])
+					tr = self.pctl.get_track(self.pctl.default_playlist[s])
 					tr.album = edit_album.text
 			if self.active_field == 2:
 				for s in select:
-					tr = pctl.get_track(pctl.default_playlist[s])
-					star = star_store.full_get(tr.index)
-					star_store.remove(tr.index)
+					tr = self.pctl.get_track(self.pctl.default_playlist[s])
+					star = self.star_store.full_get(tr.index)
+					self.star_store.remove(tr.index)
 					tr.artist = edit_artist.text
-					star_store.merge(tr.index, star)
+					self.star_store.merge(tr.index, star)
 			if self.active_field == 3:
 				for s in select:
-					tr = pctl.get_track(pctl.default_playlist[s])
+					tr = self.pctl.get_track(self.pctl.default_playlist[s])
 					tr.album_artist = edit_album_artist.text
-			tauon.bg_save()
+			self.tauon.bg_save()
 
 
-		ww = ddt.get_text_w(_("WRITE TAGS"), 212) + round(48 * gui.scale)
-		if gui.write_tag_in_progress:
-			text = f"{gui.tag_write_count}/{len(select)}"
+		ww = self.ddt.get_text_w(_("WRITE TAGS"), 212) + round(48 * self.gui.scale)
+		if self.gui.write_tag_in_progress:
+			text = f"{self.gui.tag_write_count}/{len(select)}"
 		text = _("WRITE TAGS")
-		if draw.button(text, (x + w) - ww, y - round(0) * gui.scale):
+		if draw.button(text, (x + w) - ww, y - round(0) * self.gui.scale):
 			if changed:
 				show_message(_("Press enter on fields to apply your changes first!"))
 				return
 
-			if gui.write_tag_in_progress:
+			if self.gui.write_tag_in_progress:
 				return
 
 			def write_tag_go():
@@ -12478,31 +12483,33 @@ class TransEditBox:
 					muta.save()
 					gui.tag_write_count += 1
 					gui.update += 1
-				tauon.bg_save()
+				self.tauon.bg_save()
 				if not gui.message_box:
 					show_message(_("{N} files rewritten").format(N=gui.tag_write_count), mode="done")
-				gui.write_tag_in_progress = False
-			if not gui.write_tag_in_progress:
-				gui.tag_write_count = 0
-				gui.write_tag_in_progress = True
+				self.gui.write_tag_in_progress = False
+			if not self.gui.write_tag_in_progress:
+				self.gui.tag_write_count = 0
+				self.gui.write_tag_in_progress = True
 				shooter(write_tag_go)
+
 class SubLyricsBox:
 
 	def __init__(self, tauon: Tauon):
-		self.ddt     = tauon.ddt
-		self.gui     = tauon.gui
-		self.inp     = tauon.inp
-		self.coll    = tauon.coll
-		self.fields  = tauon.fields
-		self.prefs   = tauon.prefs
-		self.colours = tauon.colours
+		self.ddt         = tauon.ddt
+		self.gui         = tauon.gui
+		self.inp         = tauon.inp
+		self.coll        = tauon.coll
+		self.fields      = tauon.fields
+		self.prefs       = tauon.prefs
+		self.colours     = tauon.colours
+		self.window_size = tauon.window_size
 		self.active = False
 		self.target_track = None
 		self.active_field = 1
 
 	def activate(self, track: TrackClass):
 		self.active = True
-		gui.box_over = True
+		self.gui.box_over = True
 		self.target_track = track
 
 		sub_lyrics_a.text = self.prefs.lyrics_subs.get(self.target_track.artist, "")
@@ -12523,8 +12530,8 @@ class SubLyricsBox:
 
 		w = 400 * self.gui.scale
 		h = 155 * self.gui.scale
-		x = int(window_size[0] / 2) - int(w / 2)
-		y = int(window_size[1] / 2) - int(h / 2)
+		x = int(self.window_size[0] / 2) - int(w / 2)
+		y = int(self.window_size[1] / 2) - int(h / 2)
 
 		self.ddt.rect_a((x - 2 * self.gui.scale, y - 2 * self.gui.scale), (w + 4 * self.gui.scale, h + 4 * self.gui.scale), self.colours.box_border)
 		self.ddt.rect_a((x, y), (w, h), self.colours.box_background)
@@ -12540,7 +12547,7 @@ class SubLyricsBox:
 				del self.prefs.lyrics_subs[self.target_track.artist]
 
 			if sub_lyrics_b.text and sub_lyrics_b.text != self.target_track.title:
-				prefs.lyrics_subs[self.target_track.title] = sub_lyrics_b.text
+				self.prefs.lyrics_subs[self.target_track.title] = sub_lyrics_b.text
 			elif self.target_track.title in self.prefs.lyrics_subs:
 				del self.prefs.lyrics_subs[self.target_track.title]
 
@@ -12555,16 +12562,16 @@ class SubLyricsBox:
 		xx += round(6 * self.gui.scale)
 		self.ddt.text((xx, y + round(0 * self.gui.scale)), self.target_track.artist, self.colours.box_sub_text, 312)
 
-		y += round(19 * gui.scale)
+		y += round(19 * self.gui.scale)
 		xx = x
 		xx += self.ddt.text((xx + round(0 * self.gui.scale), y + round(0 * self.gui.scale)), _("with"), self.colours.box_text_label, 212)
 		xx += round(6 * self.gui.scale)
 		rect1 = (xx, y, round(250 * self.gui.scale), round(17 * self.gui.scale))
 		self.fields.add(rect1)
 		self.ddt.bordered_rect(rect1, self.colours.box_background, self.colours.box_text_border, round(1 * self.gui.scale))
-		if (self.coll(rect1) and inp.mouse_click) or (inp.key_tab_press and self.active_field == 2):
+		if (self.coll(rect1) and self.inp.mouse_click) or (self.inp.key_tab_press and self.active_field == 2):
 			self.active_field = 1
-			inp.key_tab_press = False
+			self.inp.key_tab_press = False
 
 		sub_lyrics_a.draw(
 			xx + round(4 * self.gui.scale), y, colours.box_input_text, self.active_field == 1,
@@ -12573,14 +12580,14 @@ class SubLyricsBox:
 		y += round(28 * self.gui.scale)
 
 		xx = x
-		xx += ddt.text(
+		xx += self.ddt.text(
 			(x + round(0 * self.gui.scale), y + round(0 * self.gui.scale)), _("Substitute"), self.colours.box_text_label, 212)
 		xx += round(6 * self.gui.scale)
-		ddt.text((xx, y + round(0 * self.gui.scale)), self.target_track.title, self.colours.box_sub_text, 312)
+		self.ddt.text((xx, y + round(0 * self.gui.scale)), self.target_track.title, self.colours.box_sub_text, 312)
 
 		y += round(19 * self.gui.scale)
 		xx = x
-		xx += ddt.text((xx + round(0 * self.gui.scale), y + round(0 * self.gui.scale)), _("with"), self.colours.box_text_label, 212)
+		xx += self.ddt.text((xx + round(0 * self.gui.scale), y + round(0 * self.gui.scale)), _("with"), self.colours.box_text_label, 212)
 		xx += round(6 * self.gui.scale)
 		rect1 = (xx, y, round(250 * self.gui.scale), round(16 * self.gui.scale))
 		self.fields.add(rect1)
@@ -12593,13 +12600,15 @@ class SubLyricsBox:
 
 class ExportPlaylistBox:
 
-	def __init__(self, tauon: Tauon):
-		self.gui      = tauon.gui
-		self.ddt      = tauon.ddt
-		self.pctl     = tauon.pctl
-		self.prefs    = tauon.prefs
-		self.colours  = tauon.colours
-		self.pref_box = tauon.pref_box
+	def __init__(self, tauon: Tauon) -> None:
+		self.tauon       = tauon
+		self.gui         = tauon.gui
+		self.ddt         = tauon.ddt
+		self.pctl        = tauon.pctl
+		self.prefs       = tauon.prefs
+		self.colours     = tauon.colours
+		self.pref_box    = tauon.pref_box
+		self.window_size = tauon.window_size
 		self.active = False
 		self.id = None
 		self.directory_text_box = TextBox2(tauon=tauon)
@@ -12632,19 +12641,19 @@ class ExportPlaylistBox:
 
 		w = 500 * gui.scale
 		h = 220 * gui.scale
-		x = int(window_size[0] / 2) - int(w / 2)
-		y = int(window_size[1] / 2) - int(h / 2)
+		x = int(self.window_size[0] / 2) - int(w / 2)
+		y = int(self.window_size[1] / 2) - int(h / 2)
 
 		ddt.rect_a((x - 2 * gui.scale, y - 2 * gui.scale), (w + 4 * gui.scale, h + 4 * gui.scale), colours.box_border)
 		ddt.rect_a((x, y), (w, h), colours.box_background)
 		ddt.text_background_colour = colours.box_background
 
-		if inp.key_esc_press or ((inp.mouse_click or gui.level_2_click or inp.right_click or inp.level_2_right_click) and not tauon.coll(
+		if self.inp.key_esc_press or ((self.inp.mouse_click or gui.level_2_click or self.inp.right_click or self.inp.level_2_right_click) and not self.tauon.coll(
 				(x, y, w, h))):
 			self.active = False
 			gui.box_over = False
 
-		current = prefs.playlist_exports.get(self.id)
+		current = self.prefs.playlist_exports.get(self.id)
 		if not current:
 			current = copy.copy(self.default)
 
@@ -12657,7 +12666,7 @@ class ExportPlaylistBox:
 		y += round(30 * gui.scale)
 
 		rect1 = (x, y, round(450 * gui.scale), round(16 * gui.scale))
-		tauon.fields.add(rect1)
+		self.tauon.fields.add(rect1)
 		# ddt.rect(rect1, [40, 40, 40, 255], True)
 		ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
 		self.directory_text_box.text = current["path"]
@@ -12681,14 +12690,14 @@ class ExportPlaylistBox:
 
 		y += round(0 * gui.scale)
 		ww = ddt.get_text_w(_("Export"), 211)
-		x = ((int(window_size[0] / 2) - int(w / 2)) + w) - (ww + round(40 * gui.scale))
+		x = ((int(self.window_size[0] / 2) - int(w / 2)) + w) - (ww + round(40 * gui.scale))
 
-		prefs.playlist_exports[self.id] = current
+		self.prefs.playlist_exports[self.id] = current
 
 		if draw.button(_("Export"), x, y, press=gui.level_2_click):
 			self.run_export(current, self.id, warnings=True)
 
-	def run_export(self, current, id, warnings=True) -> None:
+	def run_export(self, current, id, warnings: bool = True) -> None:
 		logging.info("Export playlist")
 		path = current["path"]
 		if not os.path.isdir(path):
@@ -12697,21 +12706,24 @@ class ExportPlaylistBox:
 			return
 		target = ""
 		if current["type"] == "xspf":
-			target = export_xspf(pctl.id_to_pl(id), direc=path, relative=current["relative"], show=False)
+			target = export_xspf(self.pctl.id_to_pl(id), direc=path, relative=current["relative"], show=False)
 		if current["type"] == "m3u":
-			target = export_m3u(pctl.id_to_pl(id), direc=path, relative=current["relative"], show=False)
+			target = export_m3u(self.pctl.id_to_pl(id), direc=path, relative=current["relative"], show=False)
 
 		if warnings and target != 1:
 			show_message(_("Playlist exported"), target, mode="done")
 
 class SearchOverlay:
 
-	def __init__(self, tauon: Tauon):
-		self.tauon = tauon
-		self.pctl  = tauon.pctl
-		self.prefs = tauon.prefs
-		self.gui   = tauon.gui
-		self.inp   = tauon.gui.inp
+	def __init__(self, tauon: Tauon) -> None:
+		self.tauon       = tauon
+		self.ddt         = tauon.ddt
+		self.pctl        = tauon.pctl
+		self.prefs       = tauon.prefs
+		self.gui         = tauon.gui
+		self.inp         = tauon.inp
+		self.window_size = tauon.window_size
+		self.search_over = tauon.search_over
 
 		self.active = False
 		self.search_text = TextBox(tauon=tauon)
@@ -12763,12 +12775,12 @@ class SearchOverlay:
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
 
-		if gui.combo_mode:
+		if self.gui.combo_mode:
 			exit_combo()
-		pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
-		self.pctl.gen_codes[pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "a\"" + name + "\""
+		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
+		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "a\"" + name + "\""
 
-		inp.key_return_press = False
+		self.inp.key_return_press = False
 
 	def click_year(self, name, get_list: bool = False):
 		playlist = []
@@ -12789,82 +12801,78 @@ class SearchOverlay:
 		if self.gui.combo_mode:
 			exit_combo()
 
-		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
-
+		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 		self.inp.key_return_press = False
 
 	def click_composer(self, name: str, get_list: bool = False):
-
 		playlist = []
-		for pl in pctl.multi_playlist:
+		for pl in self.pctl.multi_playlist:
 			for item in pl.playlist_ids:
-				if pctl.master_library[item].composer.lower() == name.lower():
+				if self.pctl.master_library[item].composer.lower() == name.lower():
 					if item not in playlist:
 						playlist.append(item)
 
 		if get_list:
 			return playlist
 
-		pctl.multi_playlist.append(pl_gen(
+		self.pctl.multi_playlist.append(pl_gen(
 			title=_("Composer: ") + name,
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
 
-		if gui.combo_mode:
+		if self.gui.combo_mode:
 			exit_combo()
 
-		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
+		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 
-		inp.key_return_press = False
+		self.inp.key_return_press = False
 
 	def click_meta(self, name: str, get_list: bool = False, search_lists=None):
-
 		if search_lists is None:
 			search_lists = []
-			for pl in pctl.multi_playlist:
+			for pl in self.pctl.multi_playlist:
 				search_lists.append(pl.playlist_ids)
 
 		playlist = []
 		for pl in search_lists:
 			for item in pl:
-				if name in pctl.master_library[item].parent_folder_path:
+				if name in self.pctl.master_library[item].parent_folder_path:
 					if item not in playlist:
 						playlist.append(item)
 
 		if get_list:
 			return playlist
 
-		pctl.multi_playlist.append(pl_gen(
+		self.pctl.multi_playlist.append(pl_gen(
 			title=os.path.basename(name).upper(),
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
 
-		if gui.combo_mode:
+		if self.gui.combo_mode:
 			exit_combo()
 
-		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
+		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 
-		pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "p\"" + name + "\""
+		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "p\"" + name + "\""
 
-		inp.key_return_press = False
+		self.inp.key_return_press = False
 
 	def click_genre(self, name: str, get_list: bool = False, search_lists=None):
-
 		playlist = []
 
 		if search_lists is None:
 			search_lists = []
-			for pl in pctl.multi_playlist:
+			for pl in self.pctl.multi_playlist:
 				search_lists.append(pl.playlist_ids)
 
 		include_multi = False
-		if name.endswith("+") or not prefs.sep_genre_multi:
+		if name.endswith("+") or not self.prefs.sep_genre_multi:
 			name = name.rstrip("+")
 			include_multi = True
 
 		for pl in search_lists:
 			for item in pl:
-				track = pctl.master_library[item]
+				track = self.pctl.master_library[item]
 				if track.genre.lower().replace("-", "") == name.lower().replace("-", ""):
 					if item not in playlist:
 						playlist.append(item)
@@ -12878,30 +12886,30 @@ class SearchOverlay:
 		if get_list:
 			return playlist
 
-		pctl.multi_playlist.append(pl_gen(
+		self.pctl.multi_playlist.append(pl_gen(
 			title=_("Genre: ") + name,
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
 
-		if gui.combo_mode:
+		if self.gui.combo_mode:
 			exit_combo()
 
-		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
+		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 
 		if include_multi:
-			pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "gm\"" + name + "\""
+			self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "gm\"" + name + "\""
 		else:
-			pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "g=\"" + name + "\""
+			self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "g=\"" + name + "\""
 
-		inp.key_return_press = False
+		self.inp.key_return_press = False
 
 	def click_album(self, index) -> None:
-		pctl.jump(index)
-		if gui.combo_mode:
+		self.pctl.jump(index)
+		if self.gui.combo_mode:
 			exit_combo()
 
-		pctl.show_current()
-		inp.key_return_press = False
+		self.pctl.show_current()
+		self.inp.key_return_press = False
 
 	def render(self):
 		prefs = self.prefs
@@ -12920,7 +12928,7 @@ class SearchOverlay:
 
 				# Divert to artist list if mouse over
 				if gui.lsp and prefs.left_panel_mode == "artist list" and 2 < inp.mouse_position[0] < gui.lspw \
-						and gui.panelY < inp.mouse_position[1] < window_size[1] - gui.panelBY:
+						and gui.panelY < inp.mouse_position[1] < self.window_size[1] - gui.panelBY:
 					self.tauon.artist_list_box.locate_artist_letter(inp.input_text)
 					return
 
@@ -12930,8 +12938,8 @@ class SearchOverlay:
 		if self.active:
 			x = 0
 			y = 0
-			w = window_size[0]
-			h = window_size[1]
+			w = self.window_size[0]
+			h = self.window_size[1]
 
 			if keymaps.test("add-to-queue"):
 				inp.input_text = ""
@@ -12966,8 +12974,8 @@ class SearchOverlay:
 				mouse_change = True
 			# mouse_change = True
 
-			ddt.rect((x, y, w, h), [3, 3, 3, 235])
-			ddt.text_background_colour = [12, 12, 12, 255]
+			self.ddt.rect((x, y, w, h), [3, 3, 3, 235])
+			self.ddt.text_background_colour = [12, 12, 12, 255]
 
 
 			input_text_x = 80 * gui.scale
@@ -12979,7 +12987,7 @@ class SearchOverlay:
 			s_b_font = 214
 			b_font = 215
 
-			if window_size[0] < 400 * gui.scale:
+			if self.window_size[0] < 400 * gui.scale:
 				input_text_x = 30 * gui.scale
 				highlight_x = 4 * gui.scale
 				thumbnail_rx = 65 * gui.scale
@@ -13013,7 +13021,7 @@ class SearchOverlay:
 					else:
 						colour = (140, 100, 255, a)
 
-					ddt.rect((x, y, s, s), colour)
+					self.ddt.rect((x, y, s, s), colour)
 					x += g + s
 
 				gui.update += 1
@@ -13021,22 +13029,22 @@ class SearchOverlay:
 			# No results found message
 			elif not self.results and len(self.search_text.text) > 1:
 				if self.input_timer.get() > 0.5 and not self.sip:
-					ddt.text((window_size[0] // 2, 200 * gui.scale, 2), _("No results found"), [250, 250, 250, 255], 216,
+					self.ddt.text((self.window_size[0] // 2, 200 * gui.scale, 2), _("No results found"), [250, 250, 250, 255], 216,
 						bg=[12, 12, 12, 255])
 
 			# Spotify search text
 			if prefs.spot_mode and not self.spotify_mode:
 				text = _("Press Tab key to switch to Spotify search")
-				ddt.text((window_size[0] // 2, window_size[1] - 30 * gui.scale, 2), text, [250, 250, 250, 255], 212,
+				self.ddt.text((self.window_size[0] // 2, self.window_size[1] - 30 * gui.scale, 2), text, [250, 250, 250, 255], 212,
 					bg=[12, 12, 12, 255])
 
 			self.search_text.draw(input_text_x, 60 * gui.scale, [230, 230, 230, 255], True, False, 30,
-				window_size[0] - 100, big=True, click=gui.level_2_click, selection_height=30)
+				self.window_size[0] - 100, big=True, click=gui.level_2_click, selection_height=30)
 
 			if inp.key_tab_press:
-				tauon.search_over.spotify_mode ^= True
+				self.search_over.spotify_mode ^= True
 				self.sip = True
-				tauon.search_over.searched_text = tauon.search_over.search_text.text
+				self.search_over.searched_text = self.search_over.search_text.text
 				if self.worker2_lock.locked():
 					try:
 						self.worker2_lock.release()
@@ -13053,8 +13061,8 @@ class SearchOverlay:
 
 				gui.update += 1
 			elif self.input_timer.get() >= 0.20 and \
-					(len(tauon.search_over.search_text.text) > 1 or (len(tauon.search_over.search_text.text) == 1 and ord(tauon.search_over.search_text.text) > 128)) \
-					and tauon.search_over.search_text.text != tauon.search_over.searched_text:
+					(len(self.search_over.search_text.text) > 1 or (len(self.search_over.search_text.text) == 1 and ord(self.search_over.search_text.text) > 128)) \
+					and self.search_over.search_text.text != self.search_over.searched_text:
 				self.sip = True
 				if self.worker2_lock.locked():
 					try:
@@ -13132,7 +13140,6 @@ class SearchOverlay:
 			clear = False
 
 			for i, item in enumerate(self.results):
-
 				p += 1
 
 				if p > len(self.results) - 1:
@@ -13197,32 +13204,32 @@ class SearchOverlay:
 
 				# Selection bar
 				s_rect = (highlight_x, yy, 600 * gui.scale, height + pad + pad - 1)
-				tauon.fields.add(s_rect)
+				self.tauon.fields.add(s_rect)
 				if fade == 1:
-					ddt.rect((highlight_x, yy + pad, 4 * gui.scale, height), bar_colour)
+					self.ddt.rect((highlight_x, yy + pad, 4 * gui.scale, height), bar_colour)
 				if n in (2,):
-					if inp.key_ctrl_down and item[2] in pctl.default_playlist:
-						ddt.rect((highlight_x + round(5 * gui.scale), yy + pad, 4 * gui.scale, height), track_in_bar_colour)
+					if inp.key_ctrl_down and item[2] in self.pctl.default_playlist:
+						self.ddt.rect((highlight_x + round(5 * gui.scale), yy + pad, 4 * gui.scale, height), track_in_bar_colour)
 
 				# Type text
 				if n in (0, 3, 5, 6, 7, 8, 10, 12):
-					ddt.text((thumbnail_rx, yy + pad + round(3 * gui.scale), 1), names[n], type_colours[n], 214)
+					self.ddt.text((thumbnail_rx, yy + pad + round(3 * gui.scale), 1), names[n], type_colours[n], 214)
 
 				# Thumbnail
 				if n in (1, 2):
 					thl = thumbnail_rx - album_art_size
-					ddt.rect((thl, yy + pad, album_art_size, album_art_size), [50, 50, 50, 150])
-					tauon.gall_ren.render(pctl.get_track(item[2]), (thl, yy + pad), album_art_size)
+					self.ddt.rect((thl, yy + pad, album_art_size, album_art_size), [50, 50, 50, 150])
+					self.tauon.gall_ren.render(self.pctl.get_track(item[2]), (thl, yy + pad), album_art_size)
 					if fade != 1:
-						ddt.rect((thl, yy + pad, album_art_size, album_art_size), [0, 0, 0, 70])
+						self.ddt.rect((thl, yy + pad, album_art_size, album_art_size), [0, 0, 0, 70])
 				if n in (11,):
 					thl = thumbnail_rx - album_art_size
-					ddt.rect((thl, yy + pad, album_art_size, album_art_size), [50, 50, 50, 150])
+					self.ddt.rect((thl, yy + pad, album_art_size, album_art_size), [50, 50, 50, 150])
 					# tauon.gall_ren.render(pctl.get_track(item[2]), (50 * gui.scale, yy + 5), 50 * gui.scale)
 					if not item[5].draw(thumbnail_rx - album_art_size, yy + pad):
-						if tauon.gall_ren.lock.locked():
+						if self.tauon.gall_ren.lock.locked():
 							try:
-								tauon.gall_ren.lock.release()
+								self.tauon.gall_ren.lock.release()
 							except RuntimeError as e:
 								if str(e) == "release unlocked lock":
 									logging.error("RuntimeError: Attempted to release already unlocked gall_ren_lock")
@@ -13233,66 +13240,65 @@ class SearchOverlay:
 
 				# Result text
 				if n in (0, 5, 6, 7, 8, 10):  # Bold
-					xx = ddt.text((text_lx, yy + pad + round(3 * gui.scale)), item[1], [255, 255, 255, int(255 * fade)], b_font)
+					xx = self.ddt.text((text_lx, yy + pad + round(3 * gui.scale)), item[1], [255, 255, 255, int(255 * fade)], b_font)
 				if n in (3,):  # Genre
-					xx = ddt.text((text_lx, yy + pad + round(3 * gui.scale)), item[1].rstrip("+"), [255, 255, 255, int(255 * fade)], b_font)
+					xx = self.ddt.text((text_lx, yy + pad + round(3 * gui.scale)), item[1].rstrip("+"), [255, 255, 255, int(255 * fade)], b_font)
 					if item[1].endswith("+"):
-						ddt.text(
+						self.ddt.text(
 							(xx + text_lx + 13 * gui.scale, yy + pad + round(3 * gui.scale)), _("(Include multi-tag results)"),
 							[255, 255, 255, int(255 * fade) // 2], 313)
 				if n == 11:  # Spotify Album
-					xx = ddt.text((text_lx, yy + round(5 * gui.scale)), item[1][0], [255, 255, 255, int(255 * fade)], s_b_font)
+					xx = self.ddt.text((text_lx, yy + round(5 * gui.scale)), item[1][0], [255, 255, 255, int(255 * fade)], s_b_font)
 					artist = item[1][1]
-					ddt.text((text_lx + 5 * gui.scale, yy + 30 * gui.scale), _("BY"), [250, 240, 110, int(255 * fade)], 212)
+					self.ddt.text((text_lx + 5 * gui.scale, yy + 30 * gui.scale), _("BY"), [250, 240, 110, int(255 * fade)], 212)
 					xx += 8 * gui.scale
-					xx += ddt.text((text_lx + 30 * gui.scale, yy + 30 * gui.scale), artist, [250, 250, 250, int(255 * fade)], s_font)
+					xx += self.ddt.text((text_lx + 30 * gui.scale, yy + 30 * gui.scale), artist, [250, 250, 250, int(255 * fade)], s_font)
 				if n in (12,):  # Spotify Track
 					yyy = yy
 					yyy += round(6 * gui.scale)
-					xx = ddt.text((text_lx, yyy), item[1][0], [255, 255, 255, int(255 * fade)], s_font)
+					xx = self.ddt.text((text_lx, yyy), item[1][0], [255, 255, 255, int(255 * fade)], s_font)
 					xx += 9 * gui.scale
-					ddt.text((xx + text_lx, yyy), _("BY"), [250, 160, 110, int(255 * fade)], 212)
+					self.ddt.text((xx + text_lx, yyy), _("BY"), [250, 160, 110, int(255 * fade)], 212)
 					xx += 25 * gui.scale
-					xx += ddt.text((xx + text_lx, yyy), item[1][1], [255, 255, 255, int(255 * fade)], s_b_font)
+					xx += self.ddt.text((xx + text_lx, yyy), item[1][1], [255, 255, 255, int(255 * fade)], s_b_font)
 				if n in (2, ):  # Track
 					yyy = yy
 					yyy += round(6 * gui.scale)
-					track = pctl.master_library[item[2]]
+					track = self.pctl.master_library[item[2]]
 					if track.artist == track.title == "":
 						text = os.path.splitext(track.filename)[0]
-						xx = ddt.text((text_lx, yyy + pad), text, [255, 255, 255, int(255 * fade)], s_font)
+						xx = self.ddt.text((text_lx, yyy + pad), text, [255, 255, 255, int(255 * fade)], s_font)
 					else:
-						xx = ddt.text((text_lx, yyy), item[1], [255, 255, 255, int(255 * fade)], s_font)
+						xx = self.ddt.text((text_lx, yyy), item[1], [255, 255, 255, int(255 * fade)], s_font)
 						xx += 9 * gui.scale
-						ddt.text((xx + text_lx, yyy), _("BY"), [250, 160, 110, int(255 * fade)], 212)
+						self.ddt.text((xx + text_lx, yyy), _("BY"), [250, 160, 110, int(255 * fade)], 212)
 						xx += 25 * gui.scale
 						artist = track.artist
-						xx += ddt.text((xx + text_lx, yyy), artist, [255, 255, 255, int(255 * fade)], s_b_font)
+						xx += self.ddt.text((xx + text_lx, yyy), artist, [255, 255, 255, int(255 * fade)], s_b_font)
 						if track.album:
 							xx += 9 * gui.scale
-							xx += ddt.text((xx + text_lx, yyy), _("FROM"), [120, 120, 120, int(255 * fade)], 212)
+							xx += self.ddt.text((xx + text_lx, yyy), _("FROM"), [120, 120, 120, int(255 * fade)], 212)
 							xx += 8 * gui.scale
-							xx += ddt.text((xx + text_lx, yyy), track.album, [80, 80, 80, int(255 * fade)], 212)
+							xx += self.ddt.text((xx + text_lx, yyy), track.album, [80, 80, 80, int(255 * fade)], 212)
 
 				if n in (1,):  # Two line album
-					track = pctl.master_library[item[2]]
+					track = self.pctl.master_library[item[2]]
 					artist = track.album_artist
 					if not artist:
 						artist = track.artist
 
-					xx = ddt.text((text_lx, yy + pad + round(5 * gui.scale)), item[1], [255, 255, 255, int(255 * fade)], s_b_font)
+					xx = self.ddt.text((text_lx, yy + pad + round(5 * gui.scale)), item[1], [255, 255, 255, int(255 * fade)], s_b_font)
 
-					ddt.text((text_lx + 5 * gui.scale, yy + 30 * gui.scale), _("BY"), [250, 240, 110, int(255 * fade)], 212)
+					self.ddt.text((text_lx + 5 * gui.scale, yy + 30 * gui.scale), _("BY"), [250, 240, 110, int(255 * fade)], 212)
 					xx += 8 * gui.scale
-					xx += ddt.text((text_lx + 30 * gui.scale, yy + 30 * gui.scale), artist, [250, 250, 250, int(255 * fade)], s_font)
-
+					xx += self.ddt.text((text_lx + 30 * gui.scale, yy + 30 * gui.scale), artist, [250, 250, 250, int(255 * fade)], s_font)
 
 				yy += height + pad + pad
 
 				show = False
 				go = False
 				extend = False
-				if tauon.coll(s_rect) and mouse_change:
+				if self.tauon.coll(s_rect) and mouse_change:
 					if self.force_select != p:
 						self.force_select = p
 						gui.update = 2
@@ -13303,7 +13309,6 @@ class SearchOverlay:
 						else:
 							go = True
 							clear = True
-
 
 					if inp.level_2_right_click:
 						show = True
@@ -13324,54 +13329,53 @@ class SearchOverlay:
 				if extend:
 					match n:
 						case 0:
-							pctl.default_playlist.extend(self.click_artist(item[1], get_list=True))
+							self.pctl.default_playlist.extend(self.click_artist(item[1], get_list=True))
 						case 1:
-							for k, pl in enumerate(pctl.multi_playlist):
+							for k, pl in enumerate(self.pctl.multi_playlist):
 								if item[2] in pl.playlist_ids:
-									pctl.default_playlist.extend(
+									self.pctl.default_playlist.extend(
 										get_album_from_first_track(pl.playlist_ids.index(item[2]), item[2], k))
 									break
 						case 2:
-							pctl.default_playlist.append(item[2])
+							self.pctl.default_playlist.append(item[2])
 						case 3:
-							pctl.default_playlist.extend(self.click_genre(item[1], get_list=True))
+							self.pctl.default_playlist.extend(self.click_genre(item[1], get_list=True))
 						case 5:
-							pctl.default_playlist.extend(self.click_meta(item[1], get_list=True))
+							self.pctl.default_playlist.extend(self.click_meta(item[1], get_list=True))
 						case 6:
-							pctl.default_playlist.extend(self.click_composer(item[1], get_list=True))
+							self.pctl.default_playlist.extend(self.click_composer(item[1], get_list=True))
 						case 7:
-							pctl.default_playlist.extend(self.click_year(item[1], get_list=True))
+							self.pctl.default_playlist.extend(self.click_year(item[1], get_list=True))
 						case 8:
-							pctl.default_playlist.extend(pctl.multi_playlist[pl].playlist_ids)
+							self.pctl.default_playlist.extend(self.pctl.multi_playlist[pl].playlist_ids)
 						case 12:
-							tauon.spot_ctl.append_track(item[2])
-							tauon.reload_albums()
+							self.tauon.spot_ctl.append_track(item[2])
+							self.tauon.reload_albums()
 
 					gui.pl_update += 1
 				elif show:
 					match n:
 						case 0 | 1 | 2 | 3 | 5 | 6 | 7 | 10:
-							pctl.show_current(index=item[2], playing=False)
+							self.pctl.show_current(index=item[2], playing=False)
 							if prefs.album_mode:
 								show_in_gal(0)
 						case 8:
-							pl = pctl.id_to_pl(item[3])
+							pl = self.pctl.id_to_pl(item[3])
 							if pl:
-								pctl.switch_playlist(pl)
-
+								self.pctl.switch_playlist(pl)
 				elif go:
 					match n:
 						case 0:
 							self.click_artist(item[1])
 						case 10:
 							show_message(_("Searching for albums by artist: ") + item[1], _("This may take a moment"))
-							shoot = threading.Thread(target=tauon.spot_ctl.artist_playlist, args=([item[2]]))
+							shoot = threading.Thread(target=self.tauon.spot_ctl.artist_playlist, args=([item[2]]))
 							shoot.daemon = True
 							shoot.start()
 						case 1 | 2:
 							self.click_album(item[2])
-							pctl.show_current(index=item[2])
-							pctl.playlist_view_position = pctl.selected_in_playlist
+							self.pctl.show_current(index=item[2])
+							self.pctl.playlist_view_position = self.pctl.selected_in_playlist
 						case 3:
 							self.click_genre(item[1])
 						case 5:
@@ -13381,22 +13385,22 @@ class SearchOverlay:
 						case 7:
 							self.click_year(item[1])
 						case 8:
-							pl = pctl.id_to_pl(item[3])
+							pl = self.pctl.id_to_pl(item[3])
 							if pl:
-								pctl.switch_playlist(pl)
+								self.pctl.switch_playlist(pl)
 						case 11:
-							tauon.spot_ctl.album_playlist(item[2])
-							tauon.reload_albums()
+							self.tauon.spot_ctl.album_playlist(item[2])
+							self.tauon.reload_albums()
 						case 12:
-							tauon.spot_ctl.append_track(item[2])
-							tauon.reload_albums()
+							self.tauon.spot_ctl.append_track(item[2])
+							self.tauon.reload_albums()
 
 				if n in (2,) and keymaps.test("add-to-queue") and fade == 1:
 					queue_object = queue_item_gen(
 						item[2],
-						pctl.multi_playlist[pctl.id_to_pl(item[3])].playlist_ids.index(item[2]),
+						self.pctl.multi_playlist[self.pctl.id_to_pl(item[3])].playlist_ids.index(item[2]),
 						item[3])
-					pctl.force_queue.append(queue_object)
+					self.pctl.force_queue.append(queue_object)
 					queue_timer_set(queue_object=queue_object)
 
 				# ----
@@ -13404,7 +13408,7 @@ class SearchOverlay:
 				# ---
 				if i > 40:
 					break
-				if yy > window_size[1] - (100 * gui.scale):
+				if yy > self.window_size[1] - (100 * gui.scale):
 					break
 
 				continue
@@ -13433,9 +13437,9 @@ class MessageBox:
 		self.message_download_icon = asset_loader(bag, bag.loaded_asset_dc, "ddl.png")
 
 	def get_rect(self) -> tuple[int, int, float, int]:
-		w1 = self.ddt.get_text_w(gui.message_text, 15) + 74 * gui.scale
-		w2 = self.ddt.get_text_w(gui.message_subtext, 12) + 74 * gui.scale
-		w3 = self.ddt.get_text_w(gui.message_subtext2, 12) + 74 * gui.scale
+		w1 = self.ddt.get_text_w(self.gui.message_text, 15) + 74 * self.gui.scale
+		w2 = self.ddt.get_text_w(self.gui.message_subtext, 12) + 74 * self.gui.scale
+		w3 = self.ddt.get_text_w(self.gui.message_subtext2, 12) + 74 * self.gui.scale
 		w = max(w1, w2, w3)
 
 		w = max(w, 210 * self.gui.scale)
@@ -13454,9 +13458,9 @@ class MessageBox:
 		gui = self.gui
 		ddt = self.ddt
 		if inp.mouse_click or inp.key_return_press or inp.right_click or inp.key_esc_press or inp.backspace_press \
-				or keymaps.test("quick-find") or (inp.k_input and tauon.message_box_min_timer.get() > 1.2):
+				or keymaps.test("quick-find") or (inp.k_input and self.tauon.message_box_min_timer.get() > 1.2):
 
-			if not key_focused and tauon.message_box_min_timer.get() > 0.4:
+			if not key_focused and self.tauon.message_box_min_timer.get() > 0.4:
 				gui.message_box = False
 				gui.update += 1
 				inp.key_return_press = False
