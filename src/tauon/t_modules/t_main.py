@@ -1468,6 +1468,7 @@ class PlayerCtl:
 		self.show_message              = self.tauon.show_message
 		self.gui                       = self.tauon.gui
 		self.bag                       = self.tauon.bag
+		self.colours                   = self.tauon.colours
 		self.smtc                      = self.tauon.bag.smtc
 		self.star_store                = StarStore(tauon=self.tauon, pctl=self)
 		self.draw                      = Drawing(tauon=self.tauon, pctl=self)
@@ -2551,7 +2552,7 @@ class PlayerCtl:
 
 		if (self.prefs.album_mode or not self.gui.rsp) and (self.gui.theme_name == "Carbon" or self.prefs.colour_from_image):
 			target = self.playing_object()
-			if target and self.prefs.colour_from_image and target.parent_folder_path == colours.last_album:
+			if target and self.prefs.colour_from_image and target.parent_folder_path == self.colours.last_album:
 				return
 
 			self.tauon.album_art_gen.display(target, (0, 0), (50, 50), theme_only=True)
@@ -4599,7 +4600,7 @@ class Menu:
 
 	@staticmethod
 	def deco(_=_, tauon: Tauon | None = None) -> list[list[int] | None]:
-		colours = tauon.bag.colours
+		colours = tauon.colours
 		return [colours.menu_text, colours.menu_background, None]
 
 	def click(self) -> None:
@@ -7878,7 +7879,7 @@ class Tauon:
 		except Exception:
 			logging.exception("Unknown error encountered while writing database")
 
-	def draw_linked_text(self, location: tuple[int, int], text: str, colour: ColoursClass, font: int, force: bool = False, replace: str = "") -> tuple[int, int, str]:
+	def draw_linked_text(self, location: tuple[int, int], text: str, colour: list[int], font: int, force: bool = False, replace: str = "") -> tuple[int, int, str]:
 		base = ""
 		link_text = ""
 		rest = ""
@@ -7934,7 +7935,7 @@ class Tauon:
 
 		return left, right - left, target_link
 
-	def draw_linked_text2(self, x: int, y: int, text: str, colour: ColoursClass, font: int, click: bool = False, replace: str = "") -> None:
+	def draw_linked_text2(self, x: int, y: int, text: str, colour: list[int], font: int, click: bool = False, replace: str = "") -> None:
 		link_pa = self.draw_linked_text(
 			(x, y), text, colour, font, replace=replace)
 		link_rect = [x + link_pa[0], y, link_pa[1], 18 * self.gui.scale]
@@ -12274,7 +12275,6 @@ class AlbumArt:
 
 			# Processing for "Carbon" theme
 			if track == self.pctl.playing_object() and self.gui.theme_name == "Carbon" and track.parent_folder_path != colours.last_album:
-
 				# Find main image colours
 				try:
 					im.thumbnail((50, 50), Image.Resampling.LANCZOS)
