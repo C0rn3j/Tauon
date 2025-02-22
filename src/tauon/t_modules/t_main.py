@@ -41281,8 +41281,6 @@ def main(holder: Holder) -> None:
 
 	spot_search_rate_timer = Timer()
 
-	perfs = []
-
 	power_tag_colours = ColourGenCache(0.5, 0.8)
 
 	gui.pt_on = Timer()
