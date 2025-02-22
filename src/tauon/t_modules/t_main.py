@@ -275,9 +275,6 @@ class GuiVar:
 		self.drag_source_position = tuple(self.inp.click_location)
 		self.drag_source_position_persist = tuple(self.inp.click_location)
 
-	def show_message(self, line1: str, line2: str = "", line3: str = "", mode: str = "info") -> None:
-		show_message(line1, line2, line3, mode=mode)
-
 	def delay_frame(self, t: float) -> None:
 		self.frame_callback_list.append(TestTimer(t))
 
@@ -369,6 +366,8 @@ class GuiVar:
 		self.side_drag         = False
 		self.ext_drop_mode     = False
 		self.quick_search_mode = False
+
+		self.track_box   = False
 
 		self.message_box = False
 		self.message_text = ""
@@ -1455,6 +1454,7 @@ class PlayerCtl:
 	# C-PC
 	def __init__(self, tauon: Tauon) -> None:
 		self.tauon                     = tauon
+		self.show_message              = self.tauon.show_message
 		self.gui                       = self.tauon.gui
 		self.bag                       = self.tauon.bag
 		self.smtc                      = self.tauon.bag.smtc
@@ -1680,7 +1680,7 @@ class PlayerCtl:
 				self.tauon.load_orders.append(copy.deepcopy(load_order))
 
 		if paths:
-			show_message(_("Rescanning folders..."), mode="info")
+			self.show_message(_("Rescanning folders..."), mode="info")
 
 	def rescan_all_folders(self) -> None:
 		for i, p in enumerate(self.multi_playlist):
@@ -5531,6 +5531,26 @@ class Tauon:
 
 		self.tls_context = bag.tls_context
 
+	def show_message(self, line1: str, line2: str ="", line3: str = "", mode: str = "info") -> None:
+		self.gui.message_box = True
+		self.gui.message_text = line1
+		self.gui.message_mode = mode
+		self.gui.message_subtext = line2
+		self.gui.message_subtext2 = line3
+		self.message_box_min_timer.set()
+		match mode:
+			case "done" | "confirm":
+				logging.debug("Message: " + line1 + line2 + line3)
+			case "info":
+				logging.info("Message: " + line1 + line2 + line3)
+			case "warning":
+				logging.warning("Message: " + line1 + line2 + line3)
+			case "error":
+				logging.error("Message: " + line1 + line2 + line3)
+			case _:
+				logging.error(f"Unknown mode '{mode}' for message: " + line1 + line2 + line3)
+		self.gui.update = 1
+
 	def draw_rating_widget(self, x: int, y: int, n_track: TrackClass, album: bool = False) -> None:
 		if album:
 			rat = self.album_star_store.get_rating(n_track)
@@ -7886,7 +7906,7 @@ class Tauon:
 				self.gui.cursor_want = 3
 			if click:
 				webbrowser.open(link_pa[2], new=2, autoraise=True)
-				track_box = True
+				gui.track_box = True
 
 	def trunc_line(self, line: str, font: str, px: int, dots: bool = True) -> str:
 		"""This old function is slow and should be avoided"""
@@ -9783,9 +9803,10 @@ class SubsonicService:
 class KoelService:
 
 	def __init__(self, tauon: Tauon) -> None:
-		self.pctl  = tauon.pctl
-		self.prefs = tauon.prefs
-		self.gui   = tauon.gui
+		self.pctl         = tauon.pctl
+		self.prefs        = tauon.prefs
+		self.gui          = tauon.gui
+		self.show_message = tauon.show_message
 		self.connected: bool = False
 		self.resource = None
 		self.scanning:  bool = False
@@ -9796,7 +9817,7 @@ class KoelService:
 	def connect(self) -> None:
 		logging.info("Connect to koel...")
 		if not self.prefs.koel_username or not self.prefs.koel_password or not self.prefs.koel_server_url:
-			show_message(_("Missing username, password and/or server URL"), mode="warning")
+			self.show_message(_("Missing username, password and/or server URL"), mode="warning")
 			self.scanning = False
 			return
 
@@ -9825,7 +9846,7 @@ class KoelService:
 			r = requests.post(target, json=body, headers=headers, timeout=10)
 		except Exception:
 			logging.exception("Could not establish connection")
-			self.gui.show_message(_("Could not establish connection"), mode="error")
+			self.show_message(_("Could not establish connection"), mode="error")
 			return
 
 		if r.status_code == 200:
@@ -9844,7 +9865,7 @@ class KoelService:
 			if "message" in j:
 				error = j["message"]
 
-			self.gui.show_message(_("Could not establish connection/authorisation"), error, mode="error")
+			self.show_message(_("Could not establish connection/authorisation"), error, mode="error")
 
 	def resolve_stream(self, id: str) -> tuple[str, dict[str, str]]:
 		if not self.connected:
@@ -21499,7 +21520,7 @@ class ArtBox:
 			and tauon.pref_box.enabled is False \
 			and gui.rename_playlist_box is False \
 			and gui.message_box is False \
-			and track_box is False \
+			and gui.track_box is False \
 			and gui.layer_focus == 0:
 
 			padding = 6 * gui.scale
@@ -27694,26 +27715,6 @@ def set_path(nt: TrackClass, path: str) -> None:
 	nt.parent_folder_name = get_end_folder(os.path.dirname(path))
 	nt.file_ext = os.path.splitext(os.path.basename(path))[1][1:].upper()
 
-def show_message(line1: str, line2: str ="", line3: str = "", mode: str = "info") -> None:
-	gui.message_box = True
-	gui.message_text = line1
-	gui.message_mode = mode
-	gui.message_subtext = line2
-	gui.message_subtext2 = line3
-	tauon.message_box_min_timer.set()
-	match mode:
-		case "done" | "confirm":
-			logging.debug("Message: " + line1 + line2 + line3)
-		case "info":
-			logging.info("Message: " + line1 + line2 + line3)
-		case "warning":
-			logging.warning("Message: " + line1 + line2 + line3)
-		case "error":
-			logging.error("Message: " + line1 + line2 + line3)
-		case _:
-			logging.error(f"Unknown mode '{mode}' for message: " + line1 + line2 + line3)
-	gui.update = 1
-
 def pumper(bag: Bag):
 	if bag.macos:
 		return
@@ -33527,9 +33528,8 @@ def temp_copy_folder(tauon: Tauon, ref: int) -> None:
 	transfer(tauon, ref, args=[1, 2])
 
 def activate_track_box(index: int):
-	global track_box
 	self.pctl.r_menu_index = index
-	track_box = True
+	self.gui.track_box = True
 	track_box_path_tool_timer.set()
 
 def menu_paste(position):
@@ -34113,10 +34113,9 @@ def rename_folders_disable_test(index: int) -> bool:
 	return pctl.get_track(index).is_network
 
 def rename_folders(index: int):
-	global track_box
 	global rename_index
 
-	track_box = False
+	gui.track_box = False
 	rename_index = index
 
 	if rename_folders_disable_test(index):
@@ -34504,8 +34503,7 @@ def launch_editor_disable_test(index: int):
 	return pctl.get_track(index).is_network
 
 def show_lyrics_menu(index: int):
-	global track_box
-	track_box = False
+	gui.track_box = False
 	enter_showcase_view(track_id=self.pctl.r_menu_index)
 	inp.mouse_click = False
 
@@ -37910,7 +37908,7 @@ def display_you_heart(x: int, yy: int, just: int = 0) -> None:
 	rect = [x - 1 * gui.scale, yy - 4 * gui.scale, 15 * gui.scale, 17 * gui.scale]
 	gui.heart_fields.append(rect)
 	tauon.fields.add(rect, update_playlist_call)
-	if tauon.coll(rect) and not track_box:
+	if tauon.coll(rect) and not gui.track_box:
 		gui.pl_update += 1
 		w = ddt.get_text_w(_("You"), 13)
 		xx = (x - w) - 5 * gui.scale
@@ -37935,7 +37933,7 @@ def display_spot_heart(x: int, yy: int, just: int = 0) -> None:
 	rect = [x - 1 * gui.scale, yy - 4 * gui.scale, 15 * gui.scale, 17 * gui.scale]
 	gui.heart_fields.append(rect)
 	tauon.fields.add(rect, update_playlist_call)
-	if tauon.coll(rect) and not track_box:
+	if tauon.coll(rect) and not gui.track_box:
 		gui.pl_update += 1
 		w = ddt.get_text_w(_("Liked on Spotify"), 13)
 		xx = (x - w) - 5 * gui.scale
@@ -37962,7 +37960,7 @@ def display_friend_heart(x: int, yy: int, name: str, just: int = 0) -> None:
 	rect = [x - 1, yy - 4, 15 * gui.scale, 17 * gui.scale]
 	gui.heart_fields.append(rect)
 	tauon.fields.add(rect, update_playlist_call)
-	if tauon.coll(rect) and not track_box:
+	if tauon.coll(rect) and not gui.track_box:
 		gui.pl_update += 1
 		w = ddt.get_text_w(name, 13)
 		xx = (x - w) - 5 * gui.scale
@@ -38582,7 +38580,7 @@ def is_level_zero(include_menus: bool = True) -> bool:
 				return False
 
 	return not gui.rename_folder_box \
-		and not track_box \
+		and not gui.track_box \
 		and not rename_track_box.active \
 		and not radiobox.active \
 		and not tauon.pref_box.enabled \
@@ -39142,7 +39140,6 @@ def main(holder: Holder) -> None:
 	pl_view_offset = 0
 	pl_rect = (2, 12, 10, 10)
 
-	theme = 7
 	scroll_opacity = 0
 
 	source = None
@@ -39219,7 +39216,6 @@ def main(holder: Holder) -> None:
 	# List of encodings to check for with the fix mojibake function
 	encodings = ["cp932", "utf-8", "big5hkscs", "gbk"]  # These seem to be the most common for Japanese
 
-	track_box = False
 
 	track_queue: list[int] = []
 
@@ -39526,7 +39522,7 @@ def main(holder: Holder) -> None:
 			# playlist_playing = save[10]
 			# cue_list = save[11]
 			# radio_field_text = save[12]
-			theme = save[13]
+			prefs.theme = save[13]
 			folder_image_offsets = save[14]
 			# lfm_username = save[15]
 			# lfm_hash = save[16]
@@ -39911,7 +39907,7 @@ def main(holder: Holder) -> None:
 	if db_version > 0 and db_version < latest_db_version:
 		logging.warning(f"Current DB version {db_version} was lower than latest {latest_db_version}, running migrations!")
 		try:
-			master_library, multi_playlist, star_store, p_force_queue, theme, prefs, gui, gen_codes, radio_playlists = database_migrate(
+			master_library, multi_playlist, star_store, p_force_queue, prefs.theme, prefs, gui, gen_codes, radio_playlists = database_migrate(
 				db_version=db_version,
 				master_library=master_library,
 				install_mode=install_mode,
@@ -39926,7 +39922,7 @@ def main(holder: Holder) -> None:
 				gen_codes=gen_codes,
 				prefs=prefs,
 				radio_playlists=radio_playlists,
-				theme=theme,
+				theme=prefs.theme,
 				p_force_queue=p_force_queue,
 			)
 		except ValueError:
@@ -39957,7 +39953,7 @@ def main(holder: Holder) -> None:
 
 	# Temporary
 	if 0 < db_version <= 34:
-		prefs.theme_name = get_theme_name(theme)
+		prefs.theme_name = get_theme_name(prefs.theme)
 	if 0 < db_version <= 66:
 		prefs.device_buffer = 80
 	if 0 < db_version <= 53:
@@ -42598,7 +42594,7 @@ def main(holder: Holder) -> None:
 			else:
 				gui.level_2_click = False
 
-			if track_box and inp.mouse_click:
+			if gui.track_box and inp.mouse_click:
 				w = 540
 				h = 240
 				x = int(window_size[0] / 2) - int(w / 2)
@@ -42661,12 +42657,12 @@ def main(holder: Holder) -> None:
 				if keymaps.test("info-playing"):
 					if pctl.selected_in_playlist < len(pctl.default_playlist):
 						pctl.r_menu_index = pctl.get_track(pctl.default_playlist[pctl.selected_in_playlist]).index
-						track_box = True
+						gui.track_box = True
 
 				if keymaps.test("info-show"):
 					if pctl.selected_in_playlist < len(pctl.default_playlist):
 						pctl.r_menu_index = pctl.get_track(pctl.default_playlist[pctl.selected_in_playlist]).index
-						track_box = True
+						gui.track_box = True
 
 				# These need to be disabled when text fields are active
 				if not tauon.search_over.active and not gui.box_over and not radiobox.active and not gui.rename_folder_box and not tauon.rename_track_box.active and not gui.rename_playlist_box and not tauon.trans_edit_box.active:
@@ -42811,7 +42807,7 @@ def main(holder: Holder) -> None:
 				gui.reload_theme = True
 				gui.theme_temp_current = -1
 				gui.temp_themes.clear()
-				theme += 1
+				prefs.theme += 1
 
 			if keymaps.test("cycle-theme-reverse"):
 				gui.theme_temp_current = -1
@@ -42973,7 +42969,7 @@ def main(holder: Holder) -> None:
 					logging.exception("Error loading theme file")
 					show_message(_("Error loading theme file"), "", mode="warning")
 
-			if theme == 0:
+			if prefs.theme == 0:
 				gui.theme_name = "Mindaro"
 				logging.info("Applying default theme: Mindaro")
 				colours.lm = False
@@ -42986,7 +42982,7 @@ def main(holder: Holder) -> None:
 
 			prefs.theme_name = gui.theme_name
 
-			#logging.info("Theme number: " + str(theme))
+			#logging.info("Theme number: " + str(prefs.theme))
 			gui.reload_theme = False
 			ddt.text_background_colour = colours.playlist_panel_background
 
@@ -43087,7 +43083,7 @@ def main(holder: Holder) -> None:
 					and gui.rename_playlist_box is False \
 					and gui.message_box is False \
 					and pref_box.enabled is False \
-					and track_box is False \
+					and gui.track_box is False \
 					and not gui.rename_folder_box \
 					and not Menu.active \
 					and (gui.rsp or prefs.album_mode) \
@@ -44867,7 +44863,7 @@ def main(holder: Holder) -> None:
 							and gui.rename_playlist_box is False \
 							and gui.message_box is False \
 							and pref_box.enabled is False \
-							and track_box is False \
+							and gui.track_box is False \
 							and not gui.rename_folder_box \
 							and not Menu.active \
 							and not artist_info_scroll.held:
@@ -44894,10 +44890,10 @@ def main(holder: Holder) -> None:
 					if inp.mouse_click or inp.right_click or inp.mouse_wheel:
 						gui.preview_artist = ""
 
-				if track_box:
+				if gui.track_box:
 					if inp.key_return_press or inp.right_click or inp.key_esc_press or inp.backspace_press or keymaps.test(
 							"quick-find"):
-						track_box = False
+						gui.track_box = False
 
 						inp.key_return_press = False
 
@@ -44950,8 +44946,7 @@ def main(holder: Holder) -> None:
 					ddt.text_background_colour = colours.box_background
 
 					if inp.mouse_click and not tauon.coll([x, y, w, h]):
-						track_box = False
-
+						gui.track_box = False
 					else:
 						art_size = int(115 * gui.scale)
 
@@ -45290,7 +45285,7 @@ def main(holder: Holder) -> None:
 
 							if draw.button(_("Lyrics"), x1 + 200 * gui.scale, y1 - 10 * gui.scale):
 								prefs.show_lyrics_showcase = True
-								track_box = False
+								gui.track_box = False
 								enter_showcase_view(track_id=pctl.r_menu_index)
 								inp.mouse_click = False
 
@@ -45322,7 +45317,7 @@ def main(holder: Holder) -> None:
 										gui.cursor_want = 3
 									if inp.mouse_click:
 										webbrowser.open(link_pa[2], new=2, autoraise=True)
-										track_box = True
+										gui.track_box = True
 
 							elif comment_mode == 1:
 								ddt.text(
