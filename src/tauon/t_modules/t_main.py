@@ -660,6 +660,14 @@ class GuiVar:
 		self.star_row_icon           = asset_loader(self.bag, self.bag.loaded_asset_dc, "star.png", True)
 		self.star_half_row_icon      = asset_loader(self.bag, self.bag.loaded_asset_dc, "star-half.png", True)
 
+		self.heartx_icon        = MenuIcon(asset_loader(self.bag, self.bag.loaded_asset_dc, "heart-menu.png", True))
+		self.spot_heartx_icon   = MenuIcon(asset_loader(self.bag, self.bag.loaded_asset_dc, "heart-menu.png", True))
+		self.transcode_icon     = MenuIcon(asset_loader(self.bag, self.bag.loaded_asset_dc, "transcode.png", True))
+		self.mod_folder_icon    = MenuIcon(asset_loader(self.bag, self.bag.loaded_asset_dc, "mod_folder.png", True))
+		self.settings_icon      = MenuIcon(asset_loader(self.bag, self.bag.loaded_asset_dc, "settings2.png", True))
+		self.rename_tracks_icon = MenuIcon(asset_loader(self.bag, self.bag.loaded_asset_dc, "pen.png", True))
+		self.add_icon           = MenuIcon(asset_loader(self.bag, self.bag.loaded_asset_dc, "new.png", True))
+
 		self.restore_showcase_view = False
 		self.restore_radio_view = False
 
@@ -5633,8 +5641,8 @@ class Tauon:
 			except Exception:
 				logging.exception("Unknown error trying to release player_lock")
 
-		pctl.playerCommand = "unload"
-		pctl.playerCommandReady = True
+		self.pctl.playerCommand = "unload"
+		self.pctl.playerCommandReady = True
 
 		wait = 0
 		while self.pctl.playerCommand != "done":
@@ -5646,8 +5654,8 @@ class Tauon:
 		self.thread_manager.ready_playback()
 
 		if pre_state == 1:
-			pctl.revert()
-		gui.backend_reloading = False
+			self.pctl.revert()
+		self.gui.backend_reloading = False
 
 	def gen_chart(self) -> None:
 		try:
@@ -5657,7 +5665,7 @@ class Tauon:
 
 			source_tracks = self.pctl.multi_playlist[self.pctl.active_playlist_viewing].playlist_ids
 
-			if prefs.topchart_sorts_played:
+			if self.prefs.topchart_sorts_played:
 				source_tracks = gen_folder_top(0, custom_list=source_tracks)
 				dex = self.reload_albums(quiet=True, custom_list=source_tracks)
 			else:
@@ -5678,7 +5686,7 @@ class Tauon:
 
 		except Exception:
 			logging.exception("There was an error generating the chart")
-			gui.generating_chart = False
+			self.gui.generating_chart = False
 			show_message(_("There was an error generating the chart"), _("Sorry!"), mode="error")
 			return
 
@@ -6998,10 +7006,10 @@ class Tauon:
 		]
 
 		try:
-			with (user_directory / "state.p.backup").open("wb") as file:
+			with (self.user_directory / "state.p.backup").open("wb") as file:
 				pickle.dump(save, file, protocol=pickle.HIGHEST_PROTOCOL)
 			# if not pctl.running:
-			with (user_directory / "state.p").open("wb") as file:
+			with (self.user_directory / "state.p").open("wb") as file:
 				pickle.dump(save, file, protocol=pickle.HIGHEST_PROTOCOL)
 
 			old_position = old_window_position
@@ -7018,12 +7026,12 @@ class Tauon:
 			]
 
 			if not fs_mode:
-				with (user_directory / "window.p").open("wb") as file:
+				with (self.user_directory / "window.p").open("wb") as file:
 					pickle.dump(save, file, protocol=pickle.HIGHEST_PROTOCOL)
 
 			self.spot_ctl.save_token()
 
-			with (user_directory / "lyrics_substitutions.json").open("w") as file:
+			with (self.user_directory / "lyrics_substitutions.json").open("w") as file:
 				json.dump(prefs.lyrics_subs, file)
 
 			save_prefs(bag=bag, cf=cf)
@@ -7889,13 +7897,13 @@ class Tauon:
 			return True
 		self.prefs.transcode_inplace ^= True
 		if self.prefs.transcode_inplace:
-			transcode_icon.colour = [250, 20, 20, 255]
+			self.gui.transcode_icon.colour = [250, 20, 20, 255]
 			show_message(
 				_("DANGER! This will delete the original files. Keeping a backup is recommended in case of malfunction."),
 				_("For safety, this setting will default to off. Embedded thumbnails are not kept so you may want to extract them first."),
 				mode="warning")
 		else:
-			transcode_icon.colour = [239, 74, 157, 255]
+			self.gui.transcode_icon.colour = [239, 74, 157, 255]
 		return None
 
 	def toggle_transcode_inplace(self, mode: int = 0) -> bool | None:
@@ -7910,13 +7918,13 @@ class Tauon:
 
 		self.prefs.transcode_inplace ^= True
 		if self.prefs.transcode_inplace:
-			transcode_icon.colour = [250, 20, 20, 255]
+			self.gui.transcode_icon.colour = [250, 20, 20, 255]
 			show_message(
 				_("DANGER! This will delete the original files. Keeping a backup is recommended in case of malfunction."),
 				_("For safety, this setting will reset on restart. Embedded thumbnails are not kept so you may want to extract them first."),
 				mode="warning")
 		else:
-			transcode_icon.colour = [239, 74, 157, 255]
+			self.gui.transcode_icon.colour = [239, 74, 157, 255]
 		return None
 
 	def switch_flac(self, mode: int = 0) -> bool | None:
@@ -12272,7 +12280,6 @@ class TransEditBox:
 		self.playlist = -1
 
 	def render(self) -> None:
-
 		if not self.active:
 			return
 
@@ -40690,15 +40697,8 @@ def main(holder: Holder) -> None:
 	radio_tab_menu.add(MenuItem(_("Delete"),
 		pctl.delete_playlist_force, pass_ref=True, hint="Ctrl+W", icon=delete_icon, disable_test=test_pl_tab_locked, pass_ref_deco=True))
 
-	heartx_icon = MenuIcon(asset_loader(bag, loaded_asset_dc, "heart-menu.png", True))
-	spot_heartx_icon = MenuIcon(asset_loader(bag, loaded_asset_dc, "heart-menu.png", True))
-	transcode_icon = MenuIcon(asset_loader(bag, loaded_asset_dc, "transcode.png", True))
-	mod_folder_icon = MenuIcon(asset_loader(bag, loaded_asset_dc, "mod_folder.png", True))
-	settings_icon = MenuIcon(asset_loader(bag, loaded_asset_dc, "settings2.png", True))
-	rename_tracks_icon = MenuIcon(asset_loader(bag, loaded_asset_dc, "pen.png", True))
-	add_icon = MenuIcon(asset_loader(bag, loaded_asset_dc, "new.png", True))
-	spot_asset = asset_loader(bag, loaded_asset_dc, "spot.png", True)
-	spot_icon = MenuIcon(spot_asset)
+	spot_asset         = asset_loader(bag, loaded_asset_dc, "spot.png", True)
+	spot_icon          = MenuIcon(spot_asset)
 	spot_icon.colour = [30, 215, 96, 255]
 	spot_icon.xoff = 5
 	spot_icon.yoff = 2
@@ -40735,7 +40735,7 @@ def main(holder: Holder) -> None:
 
 	extra_tab_menu = Menu(tauon, 155, show_icons=True)
 
-	extra_tab_menu.add(MenuItem(_("New Playlist"), tauon.new_playlist, icon=add_icon))
+	extra_tab_menu.add(MenuItem(_("New Playlist"), tauon.new_playlist, icon=gui.add_icon))
 
 	tab_menu.add(MenuItem(_("Upload"),
 		upload_spotify_playlist, pass_ref=True, pass_ref_deco=True, icon=jell_icon, show_test=spotify_show_test))
@@ -40865,18 +40865,18 @@ def main(holder: Holder) -> None:
 	track_menu.add(MenuItem(_("Open Folder"), open_folder, pass_ref=True, pass_ref_deco=True, icon=folder_icon, disable_test=open_folder_disable_test))
 	track_menu.add(MenuItem(_("Track Info…"), activate_track_box, pass_ref=True, icon=info_icon))
 
-	heartx_icon.colour = [55, 55, 55, 255]
-	heartx_icon.xoff = 1
-	heartx_icon.yoff = 0
-	heartx_icon.colour_callback = heart_xmenu_colour
+	gui.heartx_icon.colour = [55, 55, 55, 255]
+	gui.heartx_icon.xoff = 1
+	gui.heartx_icon.yoff = 0
+	gui.heartx_icon.colour_callback = heart_xmenu_colour
 
-	spot_heartx_icon.colour = [30, 215, 96, 255]
-	spot_heartx_icon.xoff = 3
-	spot_heartx_icon.yoff = 0
-	spot_heartx_icon.colour_callback = spot_heart_xmenu_colour
+	gui.spot_heartx_icon.colour = [30, 215, 96, 255]
+	gui.spot_heartx_icon.xoff = 3
+	gui.spot_heartx_icon.yoff = 0
+	gui.spot_heartx_icon.colour_callback = spot_heart_xmenu_colour
 
 	# Mark track as 'liked'
-	track_menu.add(MenuItem("Love", love_index, love_decox, icon=heartx_icon))
+	track_menu.add(MenuItem("Love", love_index, love_decox, icon=gui.heartx_icon))
 
 	heart_spot_icon = MenuIcon(asset_loader(bag, loaded_asset_dc, "heart-menu.png", True))
 	heart_spot_icon.colour = [30, 215, 96, 255]
@@ -40907,17 +40907,17 @@ def main(holder: Holder) -> None:
 
 	track_menu.br()
 
-	# rename_tracks_icon.colour = [244, 241, 66, 255]
-	# rename_tracks_icon.colour = [204, 255, 66, 255]
-	rename_tracks_icon.colour = [204, 100, 205, 255]
-	rename_tracks_icon.xoff = 1
+	# gui.rename_tracks_icon.colour = [244, 241, 66, 255]
+	# gui.rename_tracks_icon.colour = [204, 255, 66, 255]
+	gui.rename_tracks_icon.colour = [204, 100, 205, 255]
+	gui.rename_tracks_icon.xoff = 1
 	track_menu.add_to_sub(0, MenuItem(_("Rename Tracks…"), rename_track_box.activate, rename_tracks_deco, pass_ref=True,
-		pass_ref_deco=True, icon=rename_tracks_icon, disable_test=rename_track_box.disable_test))
+		pass_ref_deco=True, icon=gui.rename_tracks_icon, disable_test=rename_track_box.disable_test))
 
 	track_menu.add_to_sub(0, MenuItem(_("Edit fields…"), activate_trans_editor))
 
-	mod_folder_icon.colour = [229, 98, 98, 255]
-	track_menu.add_to_sub(0, MenuItem(_("Modify Folder…"), rename_folders, pass_ref=True, pass_ref_deco=True, icon=mod_folder_icon, disable_test=rename_folders_disable_test))
+	gui.mod_folder_icon.colour = [229, 98, 98, 255]
+	track_menu.add_to_sub(0, MenuItem(_("Modify Folder…"), rename_folders, pass_ref=True, pass_ref_deco=True, icon=gui.mod_folder_icon, disable_test=rename_folders_disable_test))
 
 
 	# track_menu.add_to_sub("Reset Track Play Count", 0, reset_play_count, pass_ref=True)
@@ -40948,17 +40948,17 @@ def main(holder: Holder) -> None:
 
 	folder_menu.add(MenuItem(_("Open Folder"), open_folder, pass_ref=True, pass_ref_deco=True, icon=folder_icon, disable_test=open_folder_disable_test))
 
-	folder_menu.add(MenuItem(_("Modify Folder…"), rename_folders, pass_ref=True, pass_ref_deco=True, icon=mod_folder_icon, disable_test=rename_folders_disable_test))
-	folder_tree_menu.add(MenuItem(_("Modify Folder…"), rename_folders, pass_ref=True, pass_ref_deco=True, icon=mod_folder_icon, disable_test=rename_folders_disable_test))
+	folder_menu.add(MenuItem(_("Modify Folder…"), rename_folders, pass_ref=True, pass_ref_deco=True, icon=gui.mod_folder_icon, disable_test=rename_folders_disable_test))
+	folder_tree_menu.add(MenuItem(_("Modify Folder…"), rename_folders, pass_ref=True, pass_ref_deco=True, icon=gui.mod_folder_icon, disable_test=rename_folders_disable_test))
 	# folder_menu.add(_("Add Album to Queue"), add_album_to_queue, pass_ref=True)
 	folder_menu.add(MenuItem(_("Add Album to Queue"), add_album_to_queue, pass_ref=True))
 	folder_menu.add(MenuItem(_("Enqueue Album Next"), add_album_to_queue_fc, pass_ref=True))
 
-	gallery_menu.add(MenuItem(_("Modify Folder…"), rename_folders, pass_ref=True, pass_ref_deco=True, icon=mod_folder_icon, disable_test=rename_folders_disable_test))
+	gallery_menu.add(MenuItem(_("Modify Folder…"), rename_folders, pass_ref=True, pass_ref_deco=True, icon=gui.mod_folder_icon, disable_test=rename_folders_disable_test))
 
 	folder_menu.add(MenuItem(_("Rename Tracks…"), rename_track_box.activate, rename_tracks_deco,
-		pass_ref=True, pass_ref_deco=True, icon=rename_tracks_icon, disable_test=rename_track_box.disable_test))
-	folder_tree_menu.add(MenuItem(_("Rename Tracks…"), rename_track_box.activate, pass_ref=True, pass_ref_deco=True, icon=rename_tracks_icon, disable_test=rename_track_box.disable_test))
+		pass_ref=True, pass_ref_deco=True, icon=gui.rename_tracks_icon, disable_test=rename_track_box.disable_test))
+	folder_tree_menu.add(MenuItem(_("Rename Tracks…"), rename_track_box.activate, pass_ref=True, pass_ref_deco=True, icon=gui.rename_tracks_icon, disable_test=rename_track_box.disable_test))
 
 	if not snap_mode:
 		folder_menu.add(MenuItem("Edit with", launch_editor_selection, pass_ref=True,
@@ -40973,13 +40973,13 @@ def main(holder: Holder) -> None:
 
 
 	# selection_menu.br()
-	transcode_icon.colour = [239, 74, 157, 255]
+	gui.transcode_icon.colour = [239, 74, 157, 255]
 	folder_menu.add(MenuItem(_("Rescan Tags"), reload_metadata, pass_ref=True))
 	folder_menu.add(MenuItem(_("Edit fields…"), activate_trans_editor))
 	folder_menu.add(MenuItem(_("Vacuum Playtimes"), vacuum_playtimes, pass_ref=True, show_test=inp.test_shift))
-	folder_menu.add(MenuItem(_("Transcode Folder"), convert_folder, transcode_deco, pass_ref=True, icon=transcode_icon,
+	folder_menu.add(MenuItem(_("Transcode Folder"), convert_folder, transcode_deco, pass_ref=True, icon=gui.transcode_icon,
 		show_test=tauon.toggle_transcode))
-	gallery_menu.add(MenuItem(_("Transcode Folder"), convert_folder, transcode_deco, pass_ref=True, icon=transcode_icon,
+	gallery_menu.add(MenuItem(_("Transcode Folder"), convert_folder, transcode_deco, pass_ref=True, icon=gui.transcode_icon,
 		show_test=tauon.toggle_transcode))
 	folder_menu.br()
 
@@ -41053,7 +41053,7 @@ def main(holder: Holder) -> None:
 	# track_menu.add_to_sub(1, MenuItem(_("Get Recommended"), get_spot_recs_track, pass_ref=True, icon=spot_icon))
 
 	track_menu.br()
-	track_menu.add(MenuItem(_("Transcode Folder"), convert_folder, transcode_deco, pass_ref=True, icon=transcode_icon,
+	track_menu.add(MenuItem(_("Transcode Folder"), convert_folder, transcode_deco, pass_ref=True, icon=gui.transcode_icon,
 		show_test=tauon.toggle_transcode))
 
 
@@ -41124,12 +41124,12 @@ def main(holder: Holder) -> None:
 	set_menu.add_to_sub(0, MenuItem("+ " + _("Has Lyrics"), sa_lyrics))
 	set_menu.add_to_sub(0, MenuItem("+ " + _("Is CUE Sheet"), sa_cue))
 
-	add_icon.xoff = 3
-	add_icon.yoff = 0
-	add_icon.colour = [237, 80, 221, 255]
-	add_icon.colour_callback = new_playlist_colour_callback
+	gui.add_icon.xoff = 3
+	gui.add_icon.yoff = 0
+	gui.add_icon.colour = [237, 80, 221, 255]
+	gui.add_icon.colour_callback = new_playlist_colour_callback
 
-	x_menu.add(MenuItem(_("New Playlist"), tauon.new_playlist, new_playlist_deco, icon=add_icon))
+	x_menu.add(MenuItem(_("New Playlist"), tauon.new_playlist, new_playlist_deco, icon=gui.add_icon))
 
 	x_menu.add(MenuItem(_("Clean Database!"), clean_db_fast, clean_db_deco, show_test=clean_db_show_test))
 
@@ -41144,11 +41144,11 @@ def main(holder: Holder) -> None:
 
 	x_menu.br()
 
-	settings_icon.xoff = 0
-	settings_icon.yoff = 2
-	settings_icon.colour = [232, 200, 96, 255]  # [230, 152, 118, 255]#[173, 255, 47, 255] #[198, 237, 56, 255]
-	# settings_icon.colour = [180, 140, 255, 255]
-	x_menu.add(MenuItem(_("Settings"), activate_info_box, icon=settings_icon))
+	gui.settings_icon.xoff = 0
+	gui.settings_icon.yoff = 2
+	gui.settings_icon.colour = [232, 200, 96, 255]  # [230, 152, 118, 255]#[173, 255, 47, 255] #[198, 237, 56, 255]
+	# gui.settings_icon.colour = [180, 140, 255, 255]
+	x_menu.add(MenuItem(_("Settings"), activate_info_box, icon=gui.settings_icon))
 	x_menu.add_sub(_("Database…"), 190)
 
 	if dev_mode:
@@ -41238,7 +41238,7 @@ def main(holder: Holder) -> None:
 	extra_menu.add(MenuItem(_("Go To Playing"), goto_playing_extra, hint="'"))
 	extra_menu.br()
 	extra_menu.add(MenuItem("Spotify Like Track", toggle_spotify_like_active, toggle_spotify_like_active_deco,
-		show_test=spotify_show_test, icon=spot_heartx_icon))
+		show_test=spotify_show_test, icon=gui.spot_heartx_icon))
 
 	extra_menu.add_sub(_("Import Spotify…"), 140, show_test=spotify_show_test)
 	extra_menu.add_to_sub(0, MenuItem(_("Liked Albums"), spot_import_albums, show_test=spotify_show_test, icon=spot_icon))
@@ -42993,9 +42993,9 @@ def main(holder: Holder) -> None:
 						folder_icon.colour = [244, 220, 66, 255]
 
 					if colours.lm:
-						settings_icon.colour = [85, 187, 250, 255]
+						gui.settings_icon.colour = [85, 187, 250, 255]
 					else:
-						settings_icon.colour = [232, 200, 96, 255]
+						gui.settings_icon.colour = [232, 200, 96, 255]
 
 					if colours.lm:
 						radiorandom_icon.colour = [120, 200, 120, 255]
