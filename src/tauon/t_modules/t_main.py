@@ -5334,12 +5334,15 @@ class Tauon:
 		self.t_version                    = holder.t_version
 		self.t_agent                      = holder.t_agent
 		self.t_id                         = holder.t_id
+		self.fs_mode                      = holder.fs_mode
 		self.renderer                     = bag.renderer
 		self.window_title                 = holder.window_title
 		self.window_size                  = bag.window_size
 		self.draw_border:            bool = holder.draw_border
 		self.desktop:          str | None = bag.desktop
 		self.device                       = socket.gethostname()
+		self.search_string_cache          = {}
+		self.search_dia_string_cache      = {}
 		self.added:             list[int] = []
 		self.album_dex:              list = []
 		self.move_jobs:              list = []
@@ -7785,8 +7788,8 @@ class Tauon:
 			prefs.left_panel_mode,
 			gui.last_left_panel_mode,
 			None, #prefs.gst_device,
-			search_string_cache,
-			search_dia_string_cache,
+			self.search_string_cache,
+			self.search_dia_string_cache,
 			pctl.gen_codes,
 			gui.show_ratings,
 			gui.show_album_ratings,
@@ -7853,7 +7856,7 @@ class Tauon:
 				old_position,
 			]
 
-			if not fs_mode:
+			if not self.fs_mode:
 				with (self.user_directory / "window.p").open("wb") as file:
 					pickle.dump(save, file, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -13074,8 +13077,8 @@ class RenameTrackBox:
 					self.pctl.master_library[item].fullpath = os.path.join(oldsplit[0], afterline)
 					self.pctl.master_library[item].filename = afterline
 
-					search_string_cache.pop(item, None)
-					search_dia_string_cache.pop(item, None)
+					self.tauon.search_string_cache.pop(item, None)
+					self.tauon.search_dia_string_cache.pop(item, None)
 
 					if star is not None:
 						self.star_store.insert(item, star)
@@ -34108,12 +34111,10 @@ def rename_parent(index: int, template: str) -> None:
 	pre_state = 0
 
 	for key, object in pctl.master_library.items():
-
 		if object.fullpath == "":
 			continue
 
 		if old == object.parent_folder_path:
-
 			new_fullpath = os.path.join(new_parent_path, object.filename)
 
 			if os.path.normpath(new_parent_path) == os.path.normpath(old):
@@ -34131,8 +34132,8 @@ def rename_parent(index: int, template: str) -> None:
 			object.parent_folder_path = new_parent_path
 			object.fullpath = new_fullpath
 
-			search_string_cache.pop(object.index, None)
-			search_dia_string_cache.pop(object.index, None)
+			tauon.search_string_cache.pop(object.index, None)
+			tauon.search_dia_string_cache.pop(object.index, None)
 
 		# Fix any other tracks paths that contain the old path
 		if os.path.normpath(object.fullpath)[:len(old)] == os.path.normpath(old) \
@@ -34140,8 +34141,8 @@ def rename_parent(index: int, template: str) -> None:
 			object.fullpath = os.path.join(new_parent_path, object.fullpath[len(old):].lstrip("\\/"))
 			object.parent_folder_path = os.path.join(new_parent_path, object.parent_folder_path[len(old):].lstrip("\\/"))
 
-			search_string_cache.pop(object.index, None)
-			search_dia_string_cache.pop(object.index, None)
+			tauon.search_string_cache.pop(object.index, None)
+			tauon.search_dia_string_cache.pop(object.index, None)
 
 	if new_parent_path is not None:
 		try:
@@ -34234,8 +34235,8 @@ def move_folder_up(index: int, do: bool = False) -> bool | None:
 			object.parent_folder_path = os.path.join(
 				new_parent_path, object.parent_folder_path[len(old):].lstrip("\\/"))
 
-			search_string_cache.pop(object.index, None)
-			search_dia_string_cache.pop(object.index, None)
+			tauon.search_string_cache.pop(object.index, None)
+			tauon.search_dia_string_cache.pop(object.index, None)
 
 			logging.info(object.fullpath)
 			logging.info(object.parent_folder_path)
@@ -34345,8 +34346,8 @@ def reload_metadata(input, keep_star: bool = True) -> None:
 			del todo[i]
 
 	for track in todo:
-		search_string_cache.pop(track.index, None)
-		search_dia_string_cache.pop(track.index, None)
+		tauon.search_string_cache.pop(track.index, None)
+		tauon.search_dia_string_cache.pop(track.index, None)
 
 		#logging.info('Reloading Metadata for ' + track.filename)
 		if keep_star:
@@ -34647,9 +34648,8 @@ def intel_moji(index: int):
 			if key != None:
 				star_store.insert(item, key)
 
-			search_string_cache.pop(track.index, None)
-			search_dia_string_cache.pop(track.index, None)
-
+			tauon.search_string_cache.pop(track.index, None)
+			tauon.search_dia_string_cache.pop(track.index, None)
 	else:
 		self.show_message(_("Autodetect failed"))
 
@@ -36206,7 +36206,7 @@ def worker2(tauon: Tauon) -> None:
 
 						if cn_mode:
 							s_text = o_text
-							cache_string = search_string_cache.get(track)
+							cache_string = tauon.search_string_cache.get(track)
 							if cache_string:
 								if search_magic_any(s_text, cache_string):
 									pass
@@ -36216,14 +36216,14 @@ def worker2(tauon: Tauon) -> None:
 									s_text = s_cn
 
 						if dia_mode:
-							cache_string = search_dia_string_cache.get(track)
+							cache_string = tauon.search_dia_string_cache.get(track)
 							if cache_string is not None:
 								if not search_magic_any(s_text, cache_string):
 									continue
 								# if s_text not in cache_string:
 								#     continue
 						else:
-							cache_string = search_string_cache.get(track)
+							cache_string = tauon.search_string_cache.get(track)
 							if cache_string is not None:
 								if not search_magic_any(s_text, cache_string):
 									continue
@@ -36243,11 +36243,11 @@ def worker2(tauon: Tauon) -> None:
 
 						if cache_string is None:
 							if not dia_mode:
-								search_string_cache[
+								tauon.search_string_cache[
 									track] = title + artist + album_artist + composer + date + album + genre + sartist + filename + stem
 
 							if cn_mode:
-								cache_string = search_string_cache.get(track)
+								cache_string = tauon.search_string_cache.get(track)
 								if cache_string:
 									if search_magic_any(s_text, cache_string):
 										pass
@@ -36267,7 +36267,7 @@ def worker2(tauon: Tauon) -> None:
 							sartist = unidecode(sartist)
 
 							if cache_string is None:
-								search_dia_string_cache[
+								tauon.search_dia_string_cache[
 									track] = title + artist + album_artist + composer + date + album + genre + sartist + filename + stem
 
 						stem = os.path.dirname(t.parent_folder_path)
@@ -37242,8 +37242,8 @@ def worker1(tauon: Tauon) -> None:
 			gui.pl_update = 1
 			pctl.notify_change()
 
-			search_dia_string_cache.clear()
-			search_string_cache.clear()
+			tauon.search_dia_string_cache.clear()
+			tauon.search_string_cache.clear()
 			tauon.search_over.results.clear()
 
 			pctl.notify_change()
@@ -39140,9 +39140,6 @@ def main(holder: Holder) -> None:
 		wayland = False
 		os.environ["GDK_BACKEND"] = "x11"
 
-	search_string_cache = {}
-	search_dia_string_cache = {}
-
 	vis_update = False
 
 
@@ -39499,6 +39496,9 @@ def main(holder: Holder) -> None:
 	for station in primary_stations:
 		radio_playlists[0].stations.append(station)
 
+	after_scan: list[TrackClass] = []
+	search_string_cache          = {}
+	search_dia_string_cache      = {}
 	state_path1 = user_directory / "state.p"
 	state_path2 = user_directory / "state.p.backup"
 	for t in range(2):
@@ -39787,7 +39787,7 @@ def main(holder: Holder) -> None:
 			if save[130] is not None:
 				prefs.mini_mode_mode = save[130]
 			if save[131] is not None:
-				tauon.after_scan = save[131]
+				after_scan = save[131]
 			if save[132] is not None:
 				gui.gallery_positions = save[132]
 			if save[133] is not None:
@@ -40105,11 +40105,13 @@ def main(holder: Holder) -> None:
 	if system == "Windows" or msys:
 		from lynxtray import SysTrayIcon
 
-
 	tauon = Tauon(
 		holder=holder,
 		bag=bag,
 		gui=gui)
+	tauon.after_scan              = after_scan
+	tauon.search_string_cache     = search_string_cache
+	tauon.search_dia_string_cache = search_dia_string_cache
 	signal.signal(signal.SIGINT, tauon.signal_handler)
 	tray = STray(tauon=tauon)
 	tauon.perf_timer = perf_timer
