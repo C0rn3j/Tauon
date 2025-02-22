@@ -4269,7 +4269,7 @@ class LastScrob:
 				elif tr[2] == "lb" and self.lb.enable:
 					success = self.lb.listen_full(tr[0], tr[1])
 				elif tr[2] == "maloja":
-					success = maloja_scrobble(tr[0], tr[1])
+					success = self.tauon.maloja_scrobble(tr[0], tr[1])
 				elif tr[2] == "air":
 					success = self.tauon.subsonic.listen(tr[0], submit=True)
 				elif tr[2] == "koel":
@@ -5073,7 +5073,7 @@ class GallClass:
 					#
 					# elif source[0] == 2:
 					#	 try:
-					#		 url = get_network_thumbnail_url(key[0])
+					#		 url = tauon.get_network_thumbnail_url(key[0])
 					#		 response = urllib.request.urlopen(url)
 					#		 source_image = response
 					#	 except Exception:
@@ -5477,6 +5477,239 @@ class Tauon:
 
 		self.tls_context = bag.tls_context
 
+	def notify_song_fire(self, notification, delay: float, id) -> None:
+		time.sleep(delay)
+		notification.show()
+		if id is None:
+			return
+
+		time.sleep(8)
+		if id == self.gui.notify_main_id:
+			notification.close()
+
+#	def get_backend_time(self, path):
+#		self.pctl.time_to_get = path
+#
+#		self.pctl.playerCommand = "time"
+#		self.pctl.playerCommandReady = True
+#
+#		while self.pctl.playerCommand != "done":
+#			time.sleep(0.005)
+#
+#		return self.pctl.time_to_get
+
+	def get_love(self, track_object: TrackClass) -> bool:
+		star = self.star_store.full_get(track_object.index)
+		if star is None:
+			return False
+
+		if "L" in star[1]:
+			return True
+		return False
+
+	def get_love_index(self, index: int) -> bool:
+		star = self.star_store.full_get(index)
+		if star is None:
+			return False
+
+		if "L" in star[1]:
+			return True
+		return False
+
+	def get_love_timestamp_index(self, index: int):
+		star = self.star_store.full_get(index)
+		if star is None:
+			return 0
+		return star[3]
+
+	def maloja_get_scrobble_counts(self):
+		if self.lastfm.scanning_scrobbles is True or not self.prefs.maloja_url:
+			return
+
+		url = self.prefs.maloja_url
+		if not url.endswith("/"):
+			url += "/"
+		url += "apis/mlj_1/scrobbles"
+		self.lastfm.scanning_scrobbles = True
+		try:
+			r = requests.get(url, timeout=10)
+
+			if r.status_code != 200:
+				show_message(_("There was an error with the Maloja server"), r.text, mode="warning")
+				self.lastfm.scanning_scrobbles = False
+				return
+		except Exception:
+			logging.exception("There was an error reaching the Maloja server")
+			show_message(_("There was an error reaching the Maloja server"), mode="warning")
+			self.lastfm.scanning_scrobbles = False
+			return
+
+		try:
+			data = json.loads(r.text)
+			l = data["list"]
+
+			counts = {}
+
+			for item in l:
+				artists = item.get("artists")
+				title = item.get("title")
+				if title and artists:
+					key = (title, tuple(artists))
+					c = counts.get(key, 0)
+					counts[key] = c + 1
+
+			touched = []
+
+			for key, value in counts.items():
+				title, artists = key
+				artists = [x.lower() for x in artists]
+				title = title.lower()
+				for track in self.pctl.master_library.values():
+					if track.artist.lower() in artists and track.title.lower() == title:
+						if track.index in touched:
+							track.lfm_scrobbles += value
+						else:
+							track.lfm_scrobbles = value
+							touched.append(track.index)
+			show_message(_("Scanning scrobbles complete"), mode="done")
+
+		except Exception:
+			logging.exception("There was an error parsing the data")
+			show_message(_("There was an error parsing the data"), mode="warning")
+
+		self.gui.pl_update += 1
+		self.lastfm.scanning_scrobbles = False
+		self.bg_save()
+
+	def maloja_scrobble(self, track: TrackClass, timestamp: int = int(time.time())) -> bool | None:
+		url = self.prefs.maloja_url
+
+		if not track.artist or not track.title:
+			return None
+
+		if not url.endswith("/newscrobble"):
+			if not url.endswith("/"):
+				url += "/"
+			url += "apis/mlj_1/newscrobble"
+
+		d = {}
+		d["artists"] = [track.artist] # let Maloja parse/fix artists
+		d["title"] = track.title
+
+		if track.album:
+			d["album"] = track.album
+		if track.album_artist:
+			d["albumartists"] = [track.album_artist] # let Maloja parse/fix artists
+
+		d["length"] = int(track.length)
+		d["time"] = timestamp
+		d["key"] = self.prefs.maloja_key
+
+		try:
+			r = requests.post(url, json=d, timeout=10)
+			if r.status_code != 200:
+				show_message(_("There was an error submitting data to Maloja server"), r.text, mode="warning")
+				return False
+		except Exception:
+			logging.exception("There was an error submitting data to Maloja server")
+			show_message(_("There was an error submitting data to Maloja server"), mode="warning")
+			return False
+		return True
+
+	def get_network_thumbnail_url(self, track_object: TrackClass):
+		if track_object.file_ext == "TIDAL":
+			return track_object.art_url_key
+		if track_object.file_ext == "SPTY":
+			return track_object.art_url_key
+		if track_object.file_ext == "PLEX":
+			url = self.plex.resolve_thumbnail(track_object.art_url_key)
+			assert url is not None
+			return url
+		#if track_object.file_ext == "JELY":
+		#	url = jellyfin.resolve_thumbnail(track_object.art_url_key)
+		#	assert url is not None
+		#	assert url != ""
+		#	return url
+		if track_object.file_ext == "KOEL":
+			url = track_object.art_url_key
+			assert url
+			return url
+		if track_object.file_ext == "TAU":
+			url = self.tau.resolve_picture(track_object.art_url_key)
+			assert url
+			return url
+		return None
+
+	def jellyfin_get_playlists_thread(self) -> None:
+		if self.jellyfin.scanning:
+			self.inp.mouse_click = False
+			show_message(_("Job already in progress!"))
+			return
+		self.jellyfin.scanning = True
+		shoot_dl = threading.Thread(target=self.jellyfin.get_playlists)
+		shoot_dl.daemon = True
+		shoot_dl.start()
+
+	def jellyfin_get_library_thread(self) -> None:
+		self.pref_box.close()
+		save_prefs(bag=self.bag, cf=self.cf)
+		if self.jellyfin.scanning:
+			self.inp.mouse_click = False
+			show_message(_("Job already in progress!"))
+			return
+
+		self.jellyfin.scanning = True
+		shoot_dl = threading.Thread(target=self.jellyfin.ingest_library)
+		shoot_dl.daemon = True
+		shoot_dl.start()
+
+	def plex_get_album_thread(self) -> None:
+		self.pref_box.close()
+		save_prefs(bag=self.bag, cf=self.cf)
+		if self.plex.scanning:
+			self.inp.mouse_click = False
+			show_message(_("Already scanning!"))
+			return
+		self.plex.scanning = True
+
+		shoot_dl = threading.Thread(target=self.plex.get_albums)
+		shoot_dl.daemon = True
+		shoot_dl.start()
+
+	def sub_get_album_thread(self) -> None:
+		# if prefs.backend != 1:
+		#	 show_message("This feature is currently only available with the BASS backend")
+		#	 return
+
+		self.pref_box.close()
+		save_prefs(bag=self.bag, cf=self.cf)
+		if self.subsonic.scanning:
+			self.inp.mouse_click = False
+			show_message(_("Already scanning!"))
+			return
+		self.subsonic.scanning = True
+
+		shoot_dl = threading.Thread(target=self.subsonic.get_music3)
+		shoot_dl.daemon = True
+		shoot_dl.start()
+
+	def koel_get_album_thread(self) -> None:
+		# if prefs.backend != 1:
+		#	 show_message("This feature is currently only available with the BASS backend")
+		#	 return
+
+		self.pref_box.close()
+		save_prefs(bag=self.bag, cf=self.cf)
+		if self.koel.scanning:
+			self.inp.mouse_click = False
+			show_message(_("Already scanning!"))
+			return
+		self.koel.scanning = True
+
+		shoot_dl = threading.Thread(target=self.koel.get_albums)
+		shoot_dl.daemon = True
+		shoot_dl.start()
+
 	def track_number_process(self, line: str) -> str:
 		line = str(line).split("/", 1)[0].lstrip("0")
 		if self.prefs.dd_index and len(line) == 1:
@@ -5876,7 +6109,7 @@ class Tauon:
 
 			self.bag.song_notification.update(top_line, bottom_line, i_path)
 
-			shoot_dl = threading.Thread(target=notify_song_fire, args=([self.bag.song_notification, delay, id]))
+			shoot_dl = threading.Thread(target=self.notify_song_fire, args=([self.bag.song_notification, delay, id]))
 			shoot_dl.daemon = True
 			shoot_dl.start()
 
@@ -6355,10 +6588,8 @@ class Tauon:
 		tauonqueueitem_jar = []
 		trackclass_jar = []
 		for v in pctl.multi_playlist:
-			logging.critical(v)
 			tauonplaylist_jar.append(v.__dict__)
 		for v in pctl.radio_playlists:
-			logging.critical(v)
 			radioplaylist_jar.append(v.__dict__)
 		for v in pctl.force_queue:
 			tauonqueueitem_jar.append(v.__dict__)
@@ -10589,7 +10820,7 @@ class AlbumArt:
 					if self.pctl.radio_image_bin:
 						return self.pctl.radio_image_bin
 
-				cached_path = os.path.join(n_cache_dir, hashlib.md5(track.art_url_key.encode()).hexdigest()[:12])
+				cached_path = os.path.join(self.tauon.n_cache_directory, hashlib.md5(track.art_url_key.encode()).hexdigest()[:12])
 				if os.path.isfile(cached_path):
 					source_image = open(cached_path, "rb")
 				else:
@@ -10598,7 +10829,7 @@ class AlbumArt:
 					elif track.file_ext == "JELY":
 						source_image = self.tauon.jellyfin.get_cover(track)
 					else:
-						response = urllib.request.urlopen(get_network_thumbnail_url(track), context=self.tls_context)
+						response = urllib.request.urlopen(self.tauon.get_network_thumbnail_url(track), context=self.tls_context)
 						source_image = io.BytesIO(response.read())
 					if source_image:
 						with Path(cached_path).open("wb") as file:
@@ -14350,7 +14581,7 @@ class Over:
 			ws = ddt.get_text_w(_("Get scrobble counts"), 211) + 10 * gui.scale
 			wcc = ddt.get_text_w(_("Clear"), 211) + 15 * gui.scale
 			if self.button(x, y, _("Get scrobble counts")):
-				shooter(maloja_get_scrobble_counts)
+				shooter(tauon.maloja_get_scrobble_counts)
 			self.button(x + ws + round(12 * gui.scale), y, _("Clear"), self.clear_scrobble_counts, width=wcc)
 
 		if self.account_view == 8:
@@ -14484,7 +14715,7 @@ class Over:
 			prefs.subsonic_server = text_air_ser.text
 
 			y += round(40 * gui.scale)
-			self.button(x, y, _("Import music to playlist"), sub_get_album_thread)
+			self.button(x, y, _("Import music to playlist"), tauon.sub_get_album_thread)
 
 			y += round(35 * gui.scale)
 			prefs.subsonic_password_plain = self.toggle_square(
@@ -14546,7 +14777,7 @@ class Over:
 
 			y += round(30 * gui.scale)
 
-			self.button(x, y, _("Import music to playlist"), jellyfin_get_library_thread)
+			self.button(x, y, _("Import music to playlist"), tauon.jellyfin_get_library_thread)
 
 			y += round(30 * gui.scale)
 			if self.button(x, y, _("Import playlists")):
@@ -14558,7 +14789,7 @@ class Over:
 				if not found:
 					gui.show_message(_("Run music import first"))
 				else:
-					jellyfin_get_playlists_thread()
+					tauon.jellyfin_get_playlists_thread()
 
 			y += round(35 * gui.scale)
 			if self.button(x, y, _("Test connectivity")):
@@ -14619,7 +14850,7 @@ class Over:
 
 			y += round(40 * gui.scale)
 
-			self.button(x, y, _("Import music to playlist"), koel_get_album_thread)
+			self.button(x, y, _("Import music to playlist"), tauon.koel_get_album_thread)
 
 		if self.account_view == 5:
 
@@ -14675,7 +14906,7 @@ class Over:
 			prefs.plex_servername = text_plex_ser.text
 
 			y += round(40 * gui.scale)
-			self.button(x, y, _("Import music to playlist"), plex_get_album_thread)
+			self.button(x, y, _("Import music to playlist"), tauon.plex_get_album_thread)
 
 		if self.account_view == 4:
 
@@ -20075,8 +20306,7 @@ class StandardPlaylist:
 							if gui.scale == 1.25:
 								yy += 1
 
-							if get_love(n_track):
-
+							if tauon.get_love(n_track):
 								j = 0  # justify right
 								if run < start + 100 * gui.scale:
 									j = 1  # justify left
@@ -27551,145 +27781,6 @@ def open_encode_out() -> None:
 def g_open_encode_out(a, b, c) -> None:
 	open_encode_out()
 
-def notify_song_fire(notification, delay: float, id) -> None:
-	time.sleep(delay)
-	notification.show()
-	if id is None:
-		return
-
-	time.sleep(8)
-	if id == gui.notify_main_id:
-		notification.close()
-
-def get_backend_time(path):
-	pctl.time_to_get = path
-
-	pctl.playerCommand = "time"
-	pctl.playerCommandReady = True
-
-	while pctl.playerCommand != "done":
-		time.sleep(0.005)
-
-	return pctl.time_to_get
-
-def get_love(track_object: TrackClass) -> bool:
-	star = star_store.full_get(track_object.index)
-	if star is None:
-		return False
-
-	if "L" in star[1]:
-		return True
-	return False
-
-def get_love_index(index: int) -> bool:
-	star = star_store.full_get(index)
-	if star is None:
-		return False
-
-	if "L" in star[1]:
-		return True
-	return False
-
-def get_love_timestamp_index(index: int):
-	star = star_store.full_get(index)
-	if star is None:
-		return 0
-	return star[3]
-
-def maloja_get_scrobble_counts():
-	if lastfm.scanning_scrobbles is True or not prefs.maloja_url:
-		return
-
-	url = prefs.maloja_url
-	if not url.endswith("/"):
-		url += "/"
-	url += "apis/mlj_1/scrobbles"
-	lastfm.scanning_scrobbles = True
-	try:
-		r = requests.get(url, timeout=10)
-
-		if r.status_code != 200:
-			show_message(_("There was an error with the Maloja server"), r.text, mode="warning")
-			lastfm.scanning_scrobbles = False
-			return
-	except Exception:
-		logging.exception("There was an error reaching the Maloja server")
-		show_message(_("There was an error reaching the Maloja server"), mode="warning")
-		lastfm.scanning_scrobbles = False
-		return
-
-	try:
-		data = json.loads(r.text)
-		l = data["list"]
-
-		counts = {}
-
-		for item in l:
-			artists = item.get("artists")
-			title = item.get("title")
-			if title and artists:
-				key = (title, tuple(artists))
-				c = counts.get(key, 0)
-				counts[key] = c + 1
-
-		touched = []
-
-		for key, value in counts.items():
-			title, artists = key
-			artists = [x.lower() for x in artists]
-			title = title.lower()
-			for track in pctl.master_library.values():
-				if track.artist.lower() in artists and track.title.lower() == title:
-					if track.index in touched:
-						track.lfm_scrobbles += value
-					else:
-						track.lfm_scrobbles = value
-						touched.append(track.index)
-		show_message(_("Scanning scrobbles complete"), mode="done")
-
-	except Exception:
-		logging.exception("There was an error parsing the data")
-		show_message(_("There was an error parsing the data"), mode="warning")
-
-	gui.pl_update += 1
-	lastfm.scanning_scrobbles = False
-	tauon.bg_save()
-
-def maloja_scrobble(track: TrackClass, timestamp: int = int(time.time())) -> bool | None:
-	url = prefs.maloja_url
-
-	if not track.artist or not track.title:
-		return None
-
-	if not url.endswith("/newscrobble"):
-		if not url.endswith("/"):
-			url += "/"
-		url += "apis/mlj_1/newscrobble"
-
-	d = {}
-	d["artists"] = [track.artist] # let Maloja parse/fix artists
-	d["title"] = track.title
-
-	if track.album:
-		d["album"] = track.album
-	if track.album_artist:
-		d["albumartists"] = [track.album_artist] # let Maloja parse/fix artists
-
-	d["length"] = int(track.length)
-	d["time"] = timestamp
-	d["key"] = prefs.maloja_key
-
-	try:
-		r = requests.post(url, json=d, timeout=10)
-		if r.status_code != 200:
-			show_message(_("There was an error submitting data to Maloja server"), r.text, mode="warning")
-			return False
-	except Exception:
-		logging.exception("There was an error submitting data to Maloja server")
-		show_message(_("There was an error submitting data to Maloja server"), mode="warning")
-		return False
-	return True
-
 def encode_track_name(track_object: TrackClass) -> str:
 	if track_object.is_cue or not track_object.filename:
 		out_line = str(track_object.track_number) + ". "
@@ -27714,100 +27805,6 @@ def encode_folder_name(track_object: TrackClass) -> str:
 			folder_name += " CD" + str(track_object.disc_number)
 
 	return folder_name
-
-def get_network_thumbnail_url(track_object: TrackClass):
-	if track_object.file_ext == "TIDAL":
-		return track_object.art_url_key
-	if track_object.file_ext == "SPTY":
-		return track_object.art_url_key
-	if track_object.file_ext == "PLEX":
-		url = plex.resolve_thumbnail(track_object.art_url_key)
-		assert url is not None
-		return url
-	#if track_object.file_ext == "JELY":
-	#	url = jellyfin.resolve_thumbnail(track_object.art_url_key)
-	#	assert url is not None
-	#	assert url != ""
-	#	return url
-	if track_object.file_ext == "KOEL":
-		url = track_object.art_url_key
-		assert url
-		return url
-	if track_object.file_ext == "TAU":
-		url = tau.resolve_picture(track_object.art_url_key)
-		assert url
-		return url
-	return None
-
-def jellyfin_get_playlists_thread() -> None:
-	if jellyfin.scanning:
-		inp.mouse_click = False
-		show_message(_("Job already in progress!"))
-		return
-	jellyfin.scanning = True
-	shoot_dl = threading.Thread(target=jellyfin.get_playlists)
-	shoot_dl.daemon = True
-	shoot_dl.start()
-
-def jellyfin_get_library_thread() -> None:
-	pref_box.close()
-	save_prefs(bag=bag, cf=cf)
-	if jellyfin.scanning:
-		inp.mouse_click = False
-		show_message(_("Job already in progress!"))
-		return
-
-	jellyfin.scanning = True
-	shoot_dl = threading.Thread(target=jellyfin.ingest_library)
-	shoot_dl.daemon = True
-	shoot_dl.start()
-
-def plex_get_album_thread() -> None:
-	pref_box.close()
-	save_prefs(bag=bag, cf=cf)
-	if plex.scanning:
-		inp.mouse_click = False
-		show_message(_("Already scanning!"))
-		return
-	plex.scanning = True
-
-	shoot_dl = threading.Thread(target=plex.get_albums)
-	shoot_dl.daemon = True
-	shoot_dl.start()
-
-def sub_get_album_thread() -> None:
-	# if prefs.backend != 1:
-	#	 show_message("This feature is currently only available with the BASS backend")
-	#	 return
-
-	pref_box.close()
-	save_prefs(bag=bag, cf=cf)
-	if subsonic.scanning:
-		inp.mouse_click = False
-		show_message(_("Already scanning!"))
-		return
-	subsonic.scanning = True
-
-	shoot_dl = threading.Thread(target=subsonic.get_music3)
-	shoot_dl.daemon = True
-	shoot_dl.start()
-
-def koel_get_album_thread() -> None:
-	# if prefs.backend != 1:
-	#	 show_message("This feature is currently only available with the BASS backend")
-	#	 return
-
-	pref_box.close()
-	save_prefs(bag=bag, cf=cf)
-	if koel.scanning:
-		inp.mouse_click = False
-		show_message(_("Already scanning!"))
-		return
-	koel.scanning = True
-
-	shoot_dl = threading.Thread(target=koel.get_albums)
-	shoot_dl.daemon = True
-	shoot_dl.start()
 
 def draw_window_tools(tauon: Tauon) -> None:
 	bag         = tauon.bag
@@ -32050,10 +32047,10 @@ def gen_love(pl: int, custom_list=None):
 		source = pctl.multi_playlist[pl].playlist_ids
 
 	for item in source:
-		if get_love_index(item):
+		if tauon.get_love_index(item):
 			playlist.append(item)
 
-	playlist.sort(key=lambda x: get_love_timestamp_index(x), reverse=True)
+	playlist.sort(key=lambda x: tauon.get_love_timestamp_index(x), reverse=True)
 
 	if custom_list is not None:
 		return playlist
@@ -34117,7 +34114,7 @@ def sa_love() -> None:
 	gui.update_layout = True
 
 def key_love(index: int) -> bool:
-	return get_love_index(index)
+	return tauon.get_love_index(index)
 
 def key_artist(index: int) -> str:
 	return pctl.master_library[index].artist.lower()
