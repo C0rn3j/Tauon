@@ -25540,8 +25540,8 @@ class Showcase:
 
 class ColourPulse2:
 	"""Animates colour between two colours"""
-	def __init__(self):
-
+	def __init__(self, tauon: Tauon) -> None:
+		self.gui = tauon.gui
 		self.timer = Timer()
 		self.in_timer = Timer()
 		self.out_timer = Timer()
@@ -25549,7 +25549,6 @@ class ColourPulse2:
 		self.active = False
 
 	def get(self, hit, on, off, low_hls, high_hls):
-
 		if on:
 			return high_hls
 			# rgb = colorsys.hls_to_rgb(high_hls[0], high_hls[1], high_hls[2])
@@ -25586,7 +25585,7 @@ class ColourPulse2:
 				pro = 1
 			else:
 				pro = time / ani_time
-				gui.update = 2
+				self.gui.update = 2
 		else:
 			time = self.out_timer.get()
 			if time <= 0:
@@ -25595,7 +25594,7 @@ class ColourPulse2:
 				pro = 0
 			else:
 				pro = 1 - (time / ani_time)
-				gui.update = 2
+				self.gui.update = 2
 
 		return colour_slide(low_hls, high_hls, pro, 1)
 
@@ -25628,15 +25627,15 @@ class ViewBox:
 		# self.artist_img = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "artist.png", True)
 
 		# _ .15 0
-		self.tracks_colour     = ColourPulse2()  # (0.5) # .5 .6 .75
-		self.side_colour       = ColourPulse2()  # (0.55) # .55 .6 .75
-		self.gallery1_colour   = ColourPulse2()  # (0.6) # .6 .6 .75
-		self.radio_colour      = ColourPulse2()  # (0.6) # .6 .6 .75
+		self.tracks_colour     = ColourPulse2(tauon=tauon)  # (0.5) # .5 .6 .75
+		self.side_colour       = ColourPulse2(tauon=tauon)  # (0.55) # .55 .6 .75
+		self.gallery1_colour   = ColourPulse2(tauon=tauon)  # (0.6) # .6 .6 .75
+		self.radio_colour      = ColourPulse2(tauon=tauon)  # (0.6) # .6 .6 .75
 		# self.combo_colour    = ColourPulse(0.75)
-		self.lyrics_colour     = ColourPulse2()  # (0.7)
+		self.lyrics_colour     = ColourPulse2(tauon=tauon)  # (0.7)
 		# self.gallery2_colour = ColourPulse(0.65)
-		self.col_colour        = ColourPulse2()  # (0.14)
-		self.artist_colour     = ColourPulse2()  # (0.2)
+		self.col_colour        = ColourPulse2(tauon=tauon)  # (0.14)
+		self.artist_colour     = ColourPulse2(tauon=tauon)  # (0.2)
 
 		self.on_colour = [255, 190, 50, 255]
 		self.over_colour = [255, 190, 50, 255]
@@ -25756,7 +25755,7 @@ class ViewBox:
 		if self.x_menu.active:
 			self.x_menu.close_next_frame = True
 
-		force_album_view()
+		force_album_view(self.tauon)
 
 	def radio(self, hit: bool = False) -> bool | None:
 		if hit is False:
@@ -34281,7 +34280,7 @@ def enter_combo(tauon: Tauon) -> None:
 def exit_combo(restore: bool = False) -> None:
 	if gui.combo_mode:
 		if gui.combo_was_album and restore:
-			force_album_view()
+			force_album_view(tauon=tauon)
 		gui.showcase_mode = False
 		gui.radio_view = False
 		if prefs.prefer_side:
@@ -34407,6 +34406,7 @@ def goto_album(playlist_no: int, down: bool = False, force: bool = False) -> lis
 def toggle_album_mode(tauon: Tauon, force_on: bool = False) -> None:
 	gui = tauon.gui
 	pctl = tauon.pctl
+	prefs = tauon.prefs
 	gui.gall_tab_enter = False
 
 	if prefs.album_mode is True:
@@ -41378,7 +41378,7 @@ def main(holder: Holder) -> None:
 	radio_context_menu.add(MenuItem(_("Remove"), remove_station, pass_ref=True))
 
 	showcase = Showcase(tauon=tauon)
-	cctest = ColourPulse2()
+	cctest = ColourPulse2(tauon=tauon)
 	dl_mon = DLMon(tauon=tauon)
 	tauon.dl_mon = dl_mon
 	dl_menu.add(MenuItem("Dismiss", dismiss_dl))
