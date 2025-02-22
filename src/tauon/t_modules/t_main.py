@@ -919,7 +919,7 @@ class Fonts:
 		self.panel_title = 213
 
 		self.side_panel_line1 = 214
-		self.side_panel_line2 = 13
+		self.side_panel_line2 = 313
 
 		self.bottom_panel_time = 212
 
@@ -9848,7 +9848,8 @@ class TimedLyricsRen:
 			bg = colours.playlist_panel_background
 			font_size = 17
 			spacing = round(23 * self.gui.scale)
-		bg[3] = 255
+
+		bg = (bg[0], bg[1], bg[2], 255)
 		test_time = get_real_time()
 
 		if self.pctl.track_queue[self.pctl.queue_step] == index:
@@ -20670,6 +20671,7 @@ class ArtBox:
 		inp     = self.inp
 
 		# Draw a background for whole area
+		ddt.clear_rect((x, y, w, h))
 		ddt.rect((x, y, w, h), colours.side_panel_background)
 		# ddt.rect_r((x, y, w ,h), [255, 0, 0, 200], True)
 
@@ -22233,7 +22235,7 @@ class PlaylistBox:
 			bg = [0, 0, 0, 0]
 			if self.prefs.transparent_mode:
 				bg = rgb_add_hls(colours.playlist_box_background, 0, 0.09, 0)
-				bg[3] = 255
+				bg = (bg[0], bg[1], bg[2], 255)
 
 			# Highlight if playlist selected (viewing)
 			if i == pctl.active_playlist_viewing or (tauon.tab_menu.active and tauon.tab_menu.reference == i):
@@ -22245,7 +22247,7 @@ class PlaylistBox:
 					bg = [0, 0, 0, 25]
 				if self.prefs.transparent_mode:
 					bg = rgb_add_hls(colours.playlist_box_background, 0, 0.03, 0)
-					bg[3] = 255
+					bg = (bg[0], bg[1], bg[2], 255)
 
 			# Highlight target playlist when tragging tracks over
 			if tauon.coll(
@@ -24422,7 +24424,7 @@ class MetaBox:
 
 	def lyrics(self, x: int, y: int, w: int, h: int, track: TrackClass) -> None:
 		bg = self.colours.side_panel_background
-		bg[3] = 255
+		bg = (bg[0], bg[1], bg[2], 255)
 		self.ddt.rect((x, y, w, h), bg)
 		self.ddt.text_background_colour = bg
 
@@ -24484,8 +24486,9 @@ class MetaBox:
 		colours = self.colours
 
 		bg = self.colours.side_panel_background
-		bg[3] = 255
+		bg = (bg[0], bg[1], bg[2], 255)
 		self.ddt.text_background_colour = bg
+		self.ddt.clear_rect((x, y, w, h))
 		self.ddt.rect((x, y, w, h), bg)
 
 		if not track:
@@ -42964,7 +42967,6 @@ def main(holder: Holder) -> None:
 
 				except Exception:
 					logging.exception("Error loading theme file")
-					raise
 					show_message(_("Error loading theme file"), "", mode="warning")
 
 			if theme == 0:
@@ -42977,7 +42979,7 @@ def main(holder: Holder) -> None:
 
 			if prefs.transparent_mode:
 				colours.top_panel_background[3] = 80
-				colours.side_panel_background[3] = 80
+				colours.side_panel_background[3] = 100
 				colours.art_box[3] = 100
 				colours.window_frame[3] = 100
 				colours.bottom_panel_colour[3] = 200
@@ -44481,12 +44483,10 @@ def main(holder: Holder) -> None:
 									window_size[1] - gui.panelY - gui.panelBY, target_track)
 
 						elif prefs.side_panel_layout == 0:
-
 							boxw = gui.rspw
 							boxh = gui.rspw
 
 							if prefs.show_side_art:
-
 								meta_box.draw(
 									window_size[0] - gui.rspw, gui.panelY + boxh, gui.rspw,
 									window_size[1] - gui.panelY - gui.panelBY - boxh, track=target_track)
@@ -44501,12 +44501,12 @@ def main(holder: Holder) -> None:
 									window_size[1] - gui.panelY - gui.panelBY, track=target_track)
 
 						elif prefs.side_panel_layout == 1:
-
 							h = window_size[1] - (gui.panelY + gui.panelBY)
 							x = window_size[0] - gui.rspw
 							y = gui.panelY
 							w = gui.rspw
 
+							ddt.clear_rect((x, y, w, h))
 							ddt.rect((x, y, w, h), colours.side_panel_background)
 							tauon.test_auto_lyrics(target_track)
 							# Draw lyrics if avaliable
@@ -44515,7 +44515,6 @@ def main(holder: Holder) -> None:
 								if inp.right_click and tauon.coll((x, y, w, h)) and target_track:
 									center_info_menu.activate(target_track)
 							else:
-
 								box_wide_w = round(w * 0.98)
 								boxx = round(min(h * 0.7, w * 0.9))
 								boxy = round(min(h * 0.7, w * 0.9))
@@ -44595,7 +44594,6 @@ def main(holder: Holder) -> None:
 
 					# Seperation Line Drawing
 					if gui.rsp:
-
 						# Draw Highlight when mouse over
 						if draw_sep_hl:
 							ddt.line(
@@ -44608,9 +44606,7 @@ def main(holder: Holder) -> None:
 					tauon.artist_info_box.draw(gui.playlist_left, gui.panelY, gui.plw, gui.artist_panel_height)
 
 				if gui.lsp and not gui.combo_mode:
-
 					# left side panel
-
 					h_estimate = ((tauon.playlist_box.tab_h + tauon.playlist_box.gap) * gui.scale * len(
 						pctl.multi_playlist)) + 13 * gui.scale
 
