@@ -1454,7 +1454,9 @@ class PlayerCtl:
 		self.gui                       = self.tauon.gui
 		self.bag                       = self.tauon.bag
 		self.smtc                      = self.tauon.bag.smtc
-		self.radiobox                  = self.tauon.radiobox
+		self.star_store                = StarStore(tauon=self.tauon, pctl=self)
+		self.draw                      = Drawing(tauon=self.tauon, pctl=self)
+		self.radiobox                  = RadioBox(tauon=self.tauon, pctl=self)
 		self.tree_view_box             = TreeView(tauon=self.tauon, pctl=self)
 		self.artist_list_box           = self.tauon.artist_list_box
 		self.msys                      = self.tauon.msys
@@ -1462,7 +1464,6 @@ class PlayerCtl:
 		self.running:             bool = True
 		self.prefs                     = self.bag.prefs
 		self.sm                        = self.bag.sm
-		self.star_store                = StarStore(tauon=self.tauon, pctl=self)
 		self.lastfm                    = LastFMapi(tauon=self.tauon, pctl=self)
 		self.lfm_scrobbler             = LastScrob(tauon=self.tauon, pctl=self)
 		self.install_directory         = self.bag.dirs.install_directory
@@ -5385,10 +5386,13 @@ class Tauon:
 		self.queue_menu            = Menu(self, 150)
 		self.fields                               = Fields(tauon=self)
 		self.artist_list_box                      = ArtistList(tauon=self)
-		self.radiobox                             = RadioBox(tauon=self)
-		self.dummy_track                          = self.radiobox.dummy_track
 		self.lb                                   = ListenBrainz(tauon=self)
+		self.thread_manager: ThreadManager | None = None # Avoid NameError
+		self.thread_manager:        ThreadManager = ThreadManager(tauon=self)
 		self.pctl                                 = PlayerCtl(tauon=self)
+		self.draw                                 = self.pctl.draw
+		self.radiobox                             = self.pctl.radiobox
+		self.dummy_track                          = self.radiobox.dummy_track
 		self.queue_box                            = self.pctl.queue_box
 		self.tree_view_box                        = self.pctl.tree_view_box
 		self.star_store                           = self.pctl.star_store
@@ -5406,8 +5410,6 @@ class Tauon:
 		self.artist_info_box                      = ArtistInfoBox(tauon=self)
 		self.pref_box                             = Over(tauon=self)
 		self.fader                                = Fader(tauon=self)
-		self.thread_manager: ThreadManager | None = None # Avoid NameError
-		self.thread_manager:        ThreadManager = ThreadManager(tauon=self)
 		self.style_overlay                        = StyleOverlay(tauon=self)
 		self.album_art_gen                        = self.style_overlay.album_art_gen
 		self.tool_tip                             = ToolTip(tauon=self)
@@ -9730,12 +9732,12 @@ class GStats:
 			self.album_list = copy.deepcopy(sorted_list)
 
 class Drawing:
-	def __init__(self, tauon: Tauon) -> None:
+	def __init__(self, tauon: Tauon, pctl: PlayerCtl) -> None:
 		self.tauon      = tauon
 		self.gui        = tauon.gui
 		self.inp        = tauon.gui.inp
 		self.ddt        = tauon.bag.ddt
-		self.star_store = tauon.star_store
+		self.star_store = pctl.star_store
 
 	def button(
 		self, text, x, y, w=None, h=None, font=212, text_highlight_colour=None, text_colour=None,
@@ -10174,7 +10176,6 @@ class TextBox2:
 				self.tauon.field_menu.activate(self)
 
 		if width > 0 and active:
-
 			if click and self.tauon.field_menu.active:
 				# field_menu.click()
 				click = False
@@ -12270,6 +12271,7 @@ class RenameTrackBox:
 		self.inp          = tauon.inp
 		self.ddt          = tauon.ddt
 		self.gui          = tauon.gui
+		self.draw         = tauon.draw
 		self.pctl         = tauon.pctl
 		self.coll         = tauon.coll
 		self.star_store   = tauon.star_store
@@ -12343,7 +12345,7 @@ class RenameTrackBox:
 		self.ddt.text((x + 10 * self.gui.scale, y + 8 * self.gui.scale), _("Track Renaming"), colours.grey(230), 213)
 
 		# if draw.button("Default", x + 230 * gui.scale, y + 8 * gui.scale,
-		if self.rename_files.text != self.prefs.rename_tracks_template and draw.button(
+		if self.rename_files.text != self.prefs.rename_tracks_template and self.draw.button(
 			_("Default"), x + w - 85 * self.gui.scale, y + h - 35 * self.gui.scale, 70 * self.gui.scale):
 			self.rename_files.text = self.prefs.rename_tracks_template
 
@@ -12395,7 +12397,7 @@ class RenameTrackBox:
 
 		label = _("Write") + " (" + str(len(r_todo)) + ")"
 
-		if draw.button(
+		if self.draw.button(
 			label, x + (8 + 300 + 10) * self.gui.scale, y + 36 * self.gui.scale, 80 * self.gui.scale,
 			text_highlight_colour=colours.grey(255), background_highlight_colour=colour_warn,
 			tooltip=_("Physically renames all the tracks in the folder")) or self.inp.level_2_enter:
@@ -12477,6 +12479,7 @@ class TransEditBox:
 		self.gui               = tauon.gui
 		self.ddt               = tauon.ddt
 		self.inp               = tauon.inp
+		self.draw              = tauon.draw
 		self.pctl              = tauon.pctl
 		self.colours           = tauon.colours
 		self.window_size       = tauon.window_size
@@ -12549,7 +12552,7 @@ class TransEditBox:
 
 		self.ddt.text((x, y), _("Simple tag editor"), colours.box_title_text, 215)
 
-		if draw.button(_("?"), x + 440 * self.gui.scale, y):
+		if self.draw.button(_("?"), x + 440 * self.gui.scale, y):
 			show_message(
 				_("Press Enter in each field to apply its changes to local database."),
 				_("When done, press WRITE TAGS to save to tags in actual files. (Optional but recommended)"),
@@ -12645,7 +12648,7 @@ class TransEditBox:
 		if self.gui.write_tag_in_progress:
 			text = f"{self.gui.tag_write_count}/{len(select)}"
 		text = _("WRITE TAGS")
-		if draw.button(text, (x + w) - ww, y - round(0) * self.gui.scale):
+		if self.draw.button(text, (x + w) - ww, y - round(0) * self.gui.scale):
 			if changed:
 				show_message(_("Press enter on fields to apply your changes first!"))
 				return
@@ -12811,6 +12814,7 @@ class ExportPlaylistBox:
 		self.tauon       = tauon
 		self.gui         = tauon.gui
 		self.ddt         = tauon.ddt
+		self.draw        = tauon.draw
 		self.pctl        = tauon.pctl
 		self.prefs       = tauon.prefs
 		self.colours     = tauon.colours
@@ -12901,7 +12905,7 @@ class ExportPlaylistBox:
 
 		self.prefs.playlist_exports[self.id] = current
 
-		if draw.button(_("Export"), x, y, press=gui.level_2_click):
+		if self.draw.button(_("Export"), x, y, press=gui.level_2_click):
 			self.run_export(current, self.id, warnings=True)
 
 	def run_export(self, current, id, warnings: bool = True) -> None:
@@ -13629,10 +13633,11 @@ class MessageBox:
 	def __init__(self, tauon: Tauon) -> None:
 		bag = tauon.bag
 		self.tauon       = tauon
-		self.ddt         = tauon.bag.ddt
+		self.ddt         = tauon.ddt
 		self.gui         = tauon.gui
-		self.inp         = tauon.gui.inp
-		self.window_size = tauon.bag.window_size
+		self.inp         = tauon.inp
+		self.draw        = tauon.draw
+		self.window_size = tauon.window_size
 		self.message_info_icon     = asset_loader(bag, bag.loaded_asset_dc, "notice.png")
 		self.message_warning_icon  = asset_loader(bag, bag.loaded_asset_dc, "warning.png")
 		self.message_tick_icon     = asset_loader(bag, bag.loaded_asset_dc, "done.png")
@@ -13697,9 +13702,9 @@ class MessageBox:
 		elif gui.message_mode == "confirm":
 			self.message_info_icon.render(x + 14 * gui.scale, y + int(h / 2) - int(self.message_info_icon.h / 2) - 1)
 			ddt.text((x + 62 * gui.scale, y + 9 * gui.scale), gui.message_text, colours.message_box_text, 15)
-			if draw.button("Yes", (w // 2 + x) - 70 * gui.scale, y + 32 * gui.scale, w=60*gui.scale):
+			if self.draw.button("Yes", (w // 2 + x) - 70 * gui.scale, y + 32 * gui.scale, w=60*gui.scale):
 				gui.message_box_confirm_callback(*gui.message_box_confirm_reference)
-			if draw.button("No", (w // 2 + x) + 25 * gui.scale, y + 32 * gui.scale, w=60*gui.scale):
+			if self.draw.button("No", (w // 2 + x) + 25 * gui.scale, y + 32 * gui.scale, w=60*gui.scale):
 				gui.message_box = False
 			return
 
@@ -13787,7 +13792,7 @@ class NagBox:
 
 		y += round(30 * self.gui.scale)
 
-		if draw.button("Close", x, y, press=self.gui.level_2_click):
+		if self.draw.button("Close", x, y, press=self.gui.level_2_click):
 			self.prefs.show_nag = False
 			# show_message("Oh... :( 💔")
 		# if draw.button("Show supporter page", x + round(304 * gui.scale), y, background_colour=[60, 140, 60, 255], background_highlight_colour=[60, 150, 60, 255], press=gui.level_2_click):
@@ -21106,7 +21111,13 @@ class ScrollBox:
 
 class RadioBox:
 
-	def __init__(self, tauon: Tauon):
+	def __init__(self, tauon: Tauon, pctl: PlayerCtl) -> None:
+		self.pctl           = pctl
+		self.tauon          = tauon
+		self.gui            = tauon.gui
+		self.coll           = tauon.coll
+		self.draw           = pctl.draw
+		self.thread_manager = tauon.thread_manager
 		self.active = False
 		self.station_editing = None
 		self.edit_mode = True
@@ -21425,7 +21436,6 @@ class RadioBox:
 		self.radio_field.text = station.stream_url
 
 	def browser_get_hosts(self):
-
 		import socket
 		"""
 		Get all base urls of all currently available radiobrowser servers
@@ -21478,7 +21488,7 @@ class RadioBox:
 
 		self.ddt.rect_s(rect, colours.box_text_border, 1 * self.gui.scale)
 
-		if draw.button(
+		if self.draw.button(
 			_("Search"), x + width + round(21 * self.gui.scale), yy - round(3 * self.gui.scale),
 			press=self.gui.level_2_click, w=round(80 * self.gui.scale)) or self.inp.level_2_enter:
 
@@ -21487,12 +21497,12 @@ class RadioBox:
 			text = urllib.parse.quote(text)
 			if len(text) > 1:
 				self.search_menu.activate(text, position=(x + width + round(21 * self.gui.scale), yy + round(20 * self.gui.scale)))
-		if draw.button(_("Get Top Voted"), x + round(8 * self.gui.scale), yy + round(30 * self.gui.scale), press=self.gui.level_2_click):
+		if self.draw.button(_("Get Top Voted"), x + round(8 * self.gui.scale), yy + round(30 * self.gui.scale), press=self.gui.level_2_click):
 			self.search_radio_browser("/json/stations?order=votes&limit=250&reverse=true")
 
 		ww = self.ddt.get_text_w(_("Get Top Voted"), 212)
 		if self.inp.key_shift_down:
-			if draw.button(_("Developer Picks"), x + ww + round(35 * self.gui.scale), yy + round(30 * self.gui.scale), press=self.gui.level_2_click):
+			if self.draw.button(_("Developer Picks"), x + ww + round(35 * self.gui.scale), yy + round(30 * self.gui.scale), press=self.gui.level_2_click):
 				self.temp_list.clear()
 
 				self.temp_list.append(
@@ -21557,7 +21567,6 @@ class RadioBox:
 		shoot.start()
 
 	def search_radio_browser2(self, param):
-
 		if not self.hosts:
 			self.hosts = self.browser_get_hosts()
 		if not self.host:
@@ -21726,8 +21735,7 @@ class RadioBox:
 			x + 14 * self.gui.scale, yy, colours.box_input_text, active=self.radio_field_active == 2,
 			width=width, click=self.gui.level_2_click)
 
-		if draw.button(_("Save"), x + width + round(21 * self.gui.scale), yy - round(20 * self.gui.scale), press=self.gui.level_2_click):
-
+		if self.draw.button(_("Save"), x + width + round(21 * self.gui.scale), yy - round(20 * self.gui.scale), press=self.gui.level_2_click):
 			if not self.radio_field.text:
 				show_message(_("Enter a stream URL"))
 			elif "http://" in self.radio_field.text or "https://" in self.radio_field.text:
@@ -21744,7 +21752,6 @@ class RadioBox:
 				if self.add_mode:
 					self.pctl.radio_playlists[self.pctl.radio_playlist_viewing].stations.append(radio)
 				self.active = False
-
 			else:
 				show_message(_("Could not validate URL. Must start with https:// or http://"))
 
@@ -21931,12 +21938,12 @@ class RadioBox:
 					_("Tip: You can press F9 to view the output folder."), mode="info")
 
 		if self.tab == 0:
-			if draw.button(
+			if self.draw.button(
 				_("Browse"), (x + w) - round(130 * self.gui.scale), yy - round(3 * self.gui.scale),
 				press=self.gui.level_2_click, w=round(100 * self.gui.scale)):
 				self.tab = 1
 		elif self.tab == 1:
-			if draw.button(
+			if self.draw.button(
 				_("Saved"), (x + w) - round(130 * self.gui.scale), yy - round(3 * self.gui.scale),
 				press=self.gui.level_2_click, w=round(100 * self.gui.scale)):
 				self.tab = 0
@@ -23946,7 +23953,9 @@ class QueueBox:
 
 	def __init__(self, tauon: Tauon, pctl: PlayerCtl):
 		self.pctl       = pctl
+		self.coll       = tauon.coll
 		self.queue_menu = tauon.queue_menu
+		self.ddt        = tauon.ddt
 		self.gui        = tauon.gui
 		self.inp        = tauon.inp
 		self.dragging = None
@@ -24029,7 +24038,6 @@ class QueueBox:
 		inp.quick_drag = False
 
 		if len(gui.shift_selection) > 1:
-
 			# if shift selection contains only same folder
 			for position in gui.shift_selection:
 				if pctl.get_track(pctl.default_playlist[position]).parent_folder_path != pctl.get_track(
@@ -24050,7 +24058,6 @@ class QueueBox:
 					insert_position, queue_item_gen(pctl.default_playlist[position], position, playlist_id))
 
 	def clear_queue_crop(self):
-
 		save = False
 		for item in pctl.force_queue:
 			if item.uuid_int == self.right_click_id:
@@ -24062,7 +24069,6 @@ class QueueBox:
 			pctl.force_queue.append(save)
 
 	def play_now(self):
-
 		queue_item = None
 		queue_index = 0
 		for i, item in enumerate(pctl.force_queue):
@@ -24096,14 +24102,12 @@ class QueueBox:
 			pctl.force_queue.insert(0, queue_item)
 
 	def toggle_auto_stop(self) -> None:
-
 		for item in pctl.force_queue:
 			if item.uuid_int == self.right_click_id:
 				item.auto_stop ^= True
 				break
 
 	def toggle_auto_stop_deco(self):
-
 		enabled = False
 		for item in pctl.force_queue:
 			if item.uuid_int == self.right_click_id:
@@ -24222,7 +24226,7 @@ class QueueBox:
 		self.ddt.rect(box_rect, colours.queue_background)
 		self.ddt.text_background_colour = colours.queue_background
 
-		if tauon.coll(box_rect) and inp.quick_drag and not pctl.force_queue:
+		if self.coll(box_rect) and inp.quick_drag and not pctl.force_queue:
 			self.ddt.rect(box_rect, [255, 255, 255, 2])
 			self.ddt.text_background_colour = alpha_blend([255, 255, 255, 2], self.ddt.text_background_colour)
 
@@ -24239,9 +24243,9 @@ class QueueBox:
 
 		qb_right_click = 0
 
-		if tauon.coll(box_rect):
+		if self.coll(box_rect):
 			# Update scroll position
-			self.scroll_position += inp.mouse_wheel * -1
+			self.scroll_position += self.inp.mouse_wheel * -1
 			self.scroll_position = max(self.scroll_position, 0)
 
 			if inp.right_click:
@@ -24284,7 +24288,7 @@ class QueueBox:
 
 		# Get new copy of queue if not dragging
 		if not self.dragging:
-			self.fq = copy.deepcopy(pctl.force_queue)
+			self.fq = copy.deepcopy(self.pctl.force_queue)
 		else:
 			# gui.update += 1
 			gui.update_on_drag = True
@@ -40352,7 +40356,6 @@ def main(holder: Holder) -> None:
 	ddt.force_subpixel_text = prefs.force_subpixel_text
 
 	launch = Launch(tauon, pctl, gui, ddt)
-	draw = Drawing(tauon=tauon)
 	if system == "Linux":
 		prime_fonts(bag)
 	else:
