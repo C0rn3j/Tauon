@@ -1738,7 +1738,7 @@ class PlayerCtl:
 		id = self.multi_playlist[self.active_playlist_viewing].uuid_int
 
 		code = self.gen_codes.get(id)
-		if code is not None and check_auto_update_okay(code, self.active_playlist_viewing):
+		if code is not None and self.tauon.check_auto_update_okay(code, self.active_playlist_viewing):
 			self.gui.regen_single_id = id
 			self.tauon.thread_manager.ready("worker")
 
@@ -1747,7 +1747,7 @@ class PlayerCtl:
 			if id in self.gui.gallery_positions:
 				self.gui.album_scroll_px = self.gui.gallery_positions[id]
 			else:
-				goto_album(self.playlist_view_position)
+				self.tauon.goto_album(self.playlist_view_position)
 
 		if self.prefs.auto_goto_playing:
 			self.show_current(this_only=True, playing=False, highlight=True, no_switch=True)
@@ -1902,7 +1902,7 @@ class PlayerCtl:
 
 			if self.prefs.album_mode:
 				self.tauon.reload_albums(True)
-				goto_album(self.playlist_view_position)
+				self.tauon.goto_album(self.playlist_view_position)
 
 		# Re-set the playing playlist number by uid
 		for i, pl in enumerate(self.multi_playlist):
@@ -2362,10 +2362,10 @@ class PlayerCtl:
 
 		if self.prefs.album_mode and not quiet:
 			if highlight:
-				self.gui.gallery_animate_highlight_on = goto_album(self.selected_in_playlist)
+				self.gui.gallery_animate_highlight_on = self.tauon.goto_album(self.selected_in_playlist)
 				self.tauon.gallery_select_animate_timer.set()
 			else:
-				goto_album(self.selected_in_playlist)
+				self.tauon.goto_album(self.selected_in_playlist)
 
 		if self.prefs.left_panel_mode == "artist list" and self.gui.lsp and not quiet:
 			self.artist_list_box.locate_artist(self.playing_object())
@@ -2616,7 +2616,7 @@ class PlayerCtl:
 			self.show_current(False, True)
 
 		if self.prefs.album_mode:
-			goto_album(self.playlist_playing_position)
+			self.tauon.goto_album(self.playlist_playing_position)
 		if self.gui.combo_mode and self.active_playlist_viewing == self.active_playlist_playing:
 			self.show_current()
 
@@ -3556,8 +3556,8 @@ class PlayerCtl:
 		elif self.prefs.auto_goto_playing:
 			self.show_current(quiet=quiet, this_only=True, playing=False, highlight=True, no_switch=True)
 
-		# if prefs.album_mode:
-		#	 goto_album(self.playlist_playing)
+		# if self.prefs.album_mode:
+		#	 self.tauon.goto_album(self.playlist_playing)
 
 		self.render_playlist()
 
@@ -4113,6 +4113,7 @@ class LastFMapi:
 class ListenBrainz:
 
 	def __init__(self, tauon: Tauon) -> None:
+		self.bag       = tauon.bag
 		self.t_title   = tauon.t_title
 		self.n_version = tauon.n_version
 		self.prefs     = tauon.prefs
@@ -4236,7 +4237,6 @@ class ListenBrainz:
 			logging.error(r.json())
 
 	def paste_key(self):
-
 		text = copy_from_clipboard()
 		if text == "":
 			show_message(_("There is no text in the clipboard"), mode="error")
@@ -4253,7 +4253,7 @@ class ListenBrainz:
 
 	def clear_key(self):
 		self.prefs.lb_token = ""
-		save_prefs()
+		save_prefs(bag=self.bag)
 		self.enable = False
 
 class LastScrob:
@@ -5416,12 +5416,22 @@ class Tauon:
 		self.tool_tip2.trigger                    = 1.8
 		self.undo                                 = Undo(tauon=self)
 		self.timed_lyrics_ren                     = TimedLyricsRen(tauon=self)
+		self.rename_files                         = TextBox2(tauon=self)
 		self.rename_track_box                     = RenameTrackBox(tauon=self)
+		self.edit_artist                          = TextBox2(tauon=self)
+		self.edit_album                           = TextBox2(tauon=self)
+		self.edit_title                           = TextBox2(tauon=self)
+		self.edit_album_artist                    = TextBox2(tauon=self)
 		self.trans_edit_box                       = TransEditBox(tauon=self)
+		self.sub_lyrics_a                         = TextBox2(tauon=self)
+		self.sub_lyrics_b                         = TextBox2(tauon=self)
 		self.sub_lyrics_box                       = SubLyricsBox(tauon=self)
 		self.export_playlist_box                  = ExportPlaylistBox(tauon=self)
+		self.rename_text_area                     = TextBox(tauon=self)
 		self.rename_playlist_box                  = RenamePlaylistBox(tauon=self)
 		self.message_box                          = MessageBox(tauon=self)
+		self.search_text                          = self.search_over.search_text
+		self.sync_target                          = TextBox2(tauon=self)
 		self.transcode_list:      list[list[int]] = []
 		self.transcode_state:                 str = ""
 		# TODO(Martin): Rework this LC_* stuff, maybe use a simple object instead?
@@ -5508,6 +5518,167 @@ class Tauon:
 		self.tau               = TauService(self)
 
 		self.tls_context = bag.tls_context
+
+	def goto_album(self, playlist_no: int, down: bool = False, force: bool = False) -> list | int | None:
+		logging.debug("Postion set by album locate")
+
+		if tauon.core_timer.get() < 0.5:
+			return None
+
+		# ----
+		w = self.gui.rspw
+		if self.window_size[0] < 750 * self.gui.scale:
+			w = self.window_size[0] - 20 * self.gui.scale
+			if self.gui.lsp:
+				w -= self.gui.lspw
+		area_x = w + 38 * self.gui.scale
+		row_len = int((area_x - album_h_gap) / (self.album_mode_art_size + album_h_gap))
+		global last_row
+		last_row = row_len
+		# ----
+
+		px = 0
+		row = 0
+		re = 0
+
+		for i in range(len(self.album_dex)):
+			if i == len(self.album_dex) - 1:
+				re = i
+				break
+			if self.album_dex[i + 1] - 1 > playlist_no - 1:
+				re = i
+				break
+			row += 1
+			if row > row_len - 1:
+				row = 0
+				px += self.album_mode_art_size + album_v_gap
+
+		# If the album is within the view port already, dont jump to it
+		# (unless we really want to with force)
+		if not force and self.gui.album_scroll_px + album_v_slide_value < px < self.gui.album_scroll_px + self.window_size[1]:
+			# Dont chance the view since its alread in the view port
+			# But if the album is just out of view on the bottom, bring it into view on to bottom row
+			if self.window_size[1] > (self.album_mode_art_size + album_v_gap) * 2:
+				while not self.gui.album_scroll_px - 20 < px + (self.album_mode_art_size + album_v_gap + 3) < self.gui.album_scroll_px + \
+					self.window_size[1] - 40:
+					self.gui.album_scroll_px += 1
+		else:
+			# Set the view to the calculated position
+			self.gui.album_scroll_px = px
+			self.gui.album_scroll_px -= album_v_slide_value
+
+			self.gui.album_scroll_px = max(self.gui.album_scroll_px, 0 - album_v_slide_value)
+
+		if len(self.album_dex) > 0:
+			return self.album_dex[re]
+		return 0
+
+		self.gui.update += 1 # TODO(Martin): WTF Unreachable??
+
+	def toggle_album_mode(self, force_on: bool = False) -> None:
+		self.gui.gall_tab_enter = False
+
+		if self.prefs.album_mode is True:
+			self.prefs.album_mode = False
+			# self.gui.album_playlist_width = self.gui.playlist_width
+			# self.gui.old_album_pos = self.gui.album_scroll_px
+			self.gui.rspw = self.gui.pref_rspw
+			self.gui.rsp = self.prefs.prefer_side
+			self.gui.album_tab_mode = False
+		else:
+			self.prefs.album_mode = True
+			if self.gui.combo_mode:
+				exit_combo()
+
+			self.gui.rsp = True
+			self.gui.rspw = self.gui.pref_gallery_w
+
+		space = self.window_size[0] - self.gui.rspw
+		if self.gui.lsp:
+			space -= self.gui.lspw
+
+		if self.prefs.album_mode and self.gui.set_mode and len(self.gui.pl_st) > 6 and space < 600 * self.gui.scale:
+			self.gui.set_mode = False
+			self.gui.pl_update = True
+			self.gui.update_layout = True
+
+		self.reload_albums(quiet=True)
+
+		# if self.pctl.active_playlist_playing == self.pctl.active_playlist_viewing:
+		# 	self.goto_album(self.pctl.playlist_playing_position)
+
+		if self.prefs.album_mode:
+			if self.pctl.selected_in_playlist < len(self.pctl.playing_playlist()):
+				self.goto_album(self.pctl.selected_in_playlist)
+
+	def toggle_gallery_keycontrol(self, always_exit: bool = False) -> None:
+		if is_level_zero():
+			if not self.prefs.album_mode:
+				self.toggle_album_mode(tauon=self)
+				self.gui.gall_tab_enter = True
+				self.gui.album_tab_mode = True
+				show_in_gal(self.pctl.selected_in_playlist, silent=True)
+			elif self.gui.gall_tab_enter or always_exit:
+				# Exit gallery and tab mode
+				self.toggle_album_mode(tauon=self)
+			else:
+				self.gui.album_tab_mode ^= True
+				if self.gui.album_tab_mode:
+					show_in_gal(self.pctl.selected_in_playlist, silent=True)
+
+	def check_auto_update_okay(self, code, pl=None):
+		try:
+			cmds = shlex.split(code)
+		except Exception:
+			logging.exception("Malformed generator code!")
+			return False
+		return "auto" in cmds or (
+			self.prefs.always_auto_update_playlists and
+			self.pctl.active_playlist_playing != pl and
+			"sf"     not in cmds and
+			"rf"     not in cmds and
+			"ra"     not in cmds and
+			"sa"     not in cmds and
+			"st"     not in cmds and
+			"rt"     not in cmds and
+			"plex"   not in cmds and
+			"jelly"  not in cmds and
+			"koel"   not in cmds and
+			"tau"    not in cmds and
+			"air"    not in cmds and
+			"sal"    not in cmds and
+			"slt"    not in cmds and
+			"spl\""  not in code and
+			"tpl\""  not in code and
+			"tar\""  not in code and
+			"tmix\"" not in code and
+			"r"      not in cmds)
+
+	def rename_playlist(self, index, generator: bool = False) -> None:
+		self.gui.rename_playlist_box = True
+		self.rename_playlist_box.edit_generator = False
+		self.rename_playlist_box.playlist_index = index
+		self.rename_playlist_box.x = self.inp.mouse_position[0]
+		self.rename_playlist_box.y = self.inp.mouse_position[1]
+
+		if generator:
+			self.rename_playlist_box.y = self.window_size[1] // 2 - round(200 * self.gui.scale)
+			self.rename_playlist_box.x = self.window_size[0] // 2 - round(250 * self.gui.scale)
+
+		self.rename_playlist_box.y = min(self.rename_playlist_box.y, round(350 * self.gui.scale))
+
+		if self.rename_playlist_box.y < self.gui.panelY:
+			self.rename_playlist_box.y = self.gui.panelY + 10 * self.gui.scale
+
+		if self.gui.radio_view:
+			self.rename_text_area.set_text(self.pctl.radio_playlists[index].name)
+		else:
+			self.rename_text_area.set_text(self.pctl.multi_playlist[index].title)
+		self.rename_text_area.highlight_all()
+		self.gui.gen_code_errors = False
+
+		if generator:
+			self.rename_playlist_box.toggle_edit_gen()
 
 	def gen_power2(self) -> list[PowerTag]:
 		tags = {}  # [tag name]: (first position, number of times we saw it)
@@ -5635,7 +5806,7 @@ class Tauon:
 		self.gui.update_layout = True
 
 		if not quiet:
-			goto_album(self.pctl.playlist_playing_position)
+			self.goto_album(self.pctl.playlist_playing_position)
 
 		# Generate POWER BAR
 		self.gui.power_bar = self.gen_power2()
@@ -5897,7 +6068,7 @@ class Tauon:
 
 	def jellyfin_get_library_thread(self) -> None:
 		self.pref_box.close()
-		save_prefs(bag=self.bag, cf=self.cf)
+		save_prefs(bag=self.bag)
 		if self.jellyfin.scanning:
 			self.inp.mouse_click = False
 			show_message(_("Job already in progress!"))
@@ -5910,7 +6081,7 @@ class Tauon:
 
 	def plex_get_album_thread(self) -> None:
 		self.pref_box.close()
-		save_prefs(bag=self.bag, cf=self.cf)
+		save_prefs(bag=self.bag)
 		if self.plex.scanning:
 			self.inp.mouse_click = False
 			show_message(_("Already scanning!"))
@@ -5927,7 +6098,7 @@ class Tauon:
 		#	 return
 
 		self.pref_box.close()
-		save_prefs(bag=self.bag, cf=self.cf)
+		save_prefs(bag=self.bag)
 		if self.subsonic.scanning:
 			self.inp.mouse_click = False
 			show_message(_("Already scanning!"))
@@ -5944,7 +6115,7 @@ class Tauon:
 		#	 return
 
 		self.pref_box.close()
-		save_prefs(bag=self.bag, cf=self.cf)
+		save_prefs(bag=self.bag)
 		if self.koel.scanning:
 			self.inp.mouse_click = False
 			show_message(_("Already scanning!"))
@@ -6866,7 +7037,7 @@ class Tauon:
 			0,  # save time (unused)
 			gui.vis_want,  # gui.vis
 			pctl.selected_in_playlist,
-			bag.album_mode_art_size,
+			self.bag.album_mode_art_size,
 			self.draw_border,
 			prefs.enable_web,
 			prefs.allow_remote,
@@ -6908,7 +7079,7 @@ class Tauon:
 			prefs.ui_scale,
 			prefs.show_lyrics_side,
 			None, #prefs.last_device,
-			album_mode,
+			self.album_mode,
 			None,  # gui.album_playlist_width
 			prefs.transcode_opus_as,
 			gui.star_mode,
@@ -6921,9 +7092,9 @@ class Tauon:
 			prefs.monitor_downloads,  # 76
 			gui.artist_info_panel,  # 77
 			prefs.extract_to_music,  # 78
-			lb.enable,
+			self.lb.enable,
 			None,  # lb.key,
-			rename_files.text,
+			self.rename_files.text,
 			rename_folder.text,
 			prefs.use_jump_crossfade,
 			prefs.use_transition_crossfade,
@@ -7056,7 +7227,7 @@ class Tauon:
 			with (self.user_directory / "lyrics_substitutions.json").open("w") as file:
 				json.dump(prefs.lyrics_subs, file)
 
-			save_prefs(bag=bag, cf=cf)
+			save_prefs(bag=self.bag)
 
 			for key, item in prefs.playlist_exports.items():
 				pl = pctl.id_to_pl(key)
@@ -7379,7 +7550,7 @@ class Tauon:
 		# Jump to playing album
 		if self.prefs.album_mode and self.gui.first_in_grid is not None:
 			if self.gui.first_in_grid < len(self.pctl.default_playlist):
-				goto_album(self.gui.first_in_grid, force=True)
+				self.goto_album(self.gui.first_in_grid, force=True)
 
 	def toggle_card_style(self, mode: int = 0) -> bool:
 		if mode == 1:
@@ -12094,14 +12265,15 @@ class ToolTip3:
 class RenameTrackBox:
 
 	def __init__(self, tauon: Tauon) -> None:
-		self.tauon       = tauon
-		self.inp         = tauon.inp
-		self.ddt         = tauon.ddt
-		self.gui         = tauon.gui
-		self.pctl        = tauon.pctl
-		self.coll        = tauon.coll
-		self.star_store  = tauon.star_store
-		self.window_size = tauon.bag.window_size
+		self.tauon        = tauon
+		self.inp          = tauon.inp
+		self.ddt          = tauon.ddt
+		self.gui          = tauon.gui
+		self.pctl         = tauon.pctl
+		self.coll         = tauon.coll
+		self.star_store   = tauon.star_store
+		self.window_size  = tauon.bag.window_size
+		self.rename_files = tauon.rename_files
 		self.active = False
 		self.target_track_id = None
 		self.single_only = False
@@ -12170,13 +12342,13 @@ class RenameTrackBox:
 		self.ddt.text((x + 10 * self.gui.scale, y + 8 * self.gui.scale), _("Track Renaming"), colours.grey(230), 213)
 
 		# if draw.button("Default", x + 230 * gui.scale, y + 8 * gui.scale,
-		if rename_files.text != self.prefs.rename_tracks_template and draw.button(
+		if self.rename_files.text != self.prefs.rename_tracks_template and draw.button(
 			_("Default"), x + w - 85 * self.gui.scale, y + h - 35 * self.gui.scale, 70 * self.gui.scale):
-			rename_files.text = self.prefs.rename_tracks_template
+			self.rename_files.text = self.prefs.rename_tracks_template
 
 		# ddt.draw_text((x + 14, y + 40,), NRN + cursor, colours.grey(150), 12)
-		rename_files.draw(x + 14 * self.gui.scale, y + 39 * self.gui.scale, colours.box_input_text, width=300)
-		NRN = rename_files.text
+		self.rename_files.draw(x + 14 * self.gui.scale, y + 39 * self.gui.scale, colours.box_input_text, width=300)
+		NRN = self.rename_files.text
 
 		self.ddt.rect_s(
 			(x + 8 * self.gui.scale, y + 36 * self.gui.scale, 300 * self.gui.scale, 22 * self.gui.scale), colours.box_text_border, 1 * self.gui.scale)
@@ -12300,14 +12472,18 @@ class RenameTrackBox:
 class TransEditBox:
 
 	def __init__(self, tauon: Tauon) -> None:
-		self.tauon       = tauon
-		self.gui         = tauon.gui
-		self.ddt         = tauon.ddt
-		self.inp         = tauon.inp
-		self.pctl        = tauon.pctl
-		self.colours     = tauon.colours
-		self.window_size = tauon.window_size
-		self.star_store  = tauon.star_store
+		self.tauon             = tauon
+		self.gui               = tauon.gui
+		self.ddt               = tauon.ddt
+		self.inp               = tauon.inp
+		self.pctl              = tauon.pctl
+		self.colours           = tauon.colours
+		self.window_size       = tauon.window_size
+		self.star_store        = tauon.star_store
+		self.edit_album        = tauon.edit_album
+		self.edit_artist       = tauon.edit_artist
+		self.edit_title        = tauon.edit_title
+		self.edit_album_artist = tauon.edit_album_artist
 		self.active = False
 		self.active_field = 1
 		self.selected = []
@@ -12347,25 +12523,25 @@ class TransEditBox:
 			#logging.info("reset")
 			self.selected = select
 			self.playlist = self.pctl.active_playlist_viewing
-			edit_album.clear()
-			edit_artist.clear()
-			edit_title.clear()
-			edit_album_artist.clear()
+			self.edit_album.clear()
+			self.edit_artist.clear()
+			self.edit_title.clear()
+			self.edit_album_artist.clear()
 
 			if len(select) == 0:
 				return
 
 			tr = self.pctl.get_track(self.pctl.default_playlist[select[0]])
-			edit_title.set_text(tr.title)
+			self.edit_title.set_text(tr.title)
 
 			if check_equal(artists):
-				edit_artist.set_text(artists[0])
+				self.edit_artist.set_text(artists[0])
 
 			if check_equal(albums):
-				edit_album.set_text(albums[0])
+				self.edit_album.set_text(albums[0])
 
 			if check_equal(album_artists):
-				edit_album_artist.set_text(album_artists[0])
+				self.edit_album_artist.set_text(album_artists[0])
 
 		x += round(20 * self.gui.scale)
 		y += round(18 * self.gui.scale)
@@ -12422,13 +12598,13 @@ class TransEditBox:
 
 		changed = 0
 		if len(select) == 1:
-			changed = field_edit(x, y, _("Track title"), 0, titles, edit_title)
+			changed = field_edit(x, y, _("Track title"), 0, titles, self.edit_title)
 		y += round(40 * self.gui.scale)
-		changed += field_edit(x, y, _("Album name"), 1, albums, edit_album)
+		changed += field_edit(x, y, _("Album name"), 1, albums, self.edit_album)
 		y += round(40 * self.gui.scale)
-		changed += field_edit(x, y, _("Artist name"), 2, artists, edit_artist)
+		changed += field_edit(x, y, _("Artist name"), 2, artists, self.edit_artist)
 		y += round(40 * self.gui.scale)
-		changed += field_edit(x, y, _("Album-artist name"), 3, album_artists, edit_album_artist)
+		changed += field_edit(x, y, _("Album-artist name"), 3, album_artists, self.edit_album_artist)
 
 		y += round(40 * self.gui.scale)
 		for s in select:
@@ -12443,24 +12619,24 @@ class TransEditBox:
 					tr = self.pctl.get_track(self.pctl.default_playlist[s])
 					star = self.star_store.full_get(tr.index)
 					self.star_store.remove(tr.index)
-					tr.title = edit_title.text
+					tr.title = self.edit_title.text
 					self.star_store.merge(tr.index, star)
 
 			if self.active_field == 1:
 				for s in select:
 					tr = self.pctl.get_track(self.pctl.default_playlist[s])
-					tr.album = edit_album.text
+					tr.album = self.edit_album.text
 			if self.active_field == 2:
 				for s in select:
 					tr = self.pctl.get_track(self.pctl.default_playlist[s])
 					star = self.star_store.full_get(tr.index)
 					self.star_store.remove(tr.index)
-					tr.artist = edit_artist.text
+					tr.artist = self.edit_artist.text
 					self.star_store.merge(tr.index, star)
 			if self.active_field == 3:
 				for s in select:
 					tr = self.pctl.get_track(self.pctl.default_playlist[s])
-					tr.album_artist = edit_album_artist.text
+					tr.album_artist = self.edit_album_artist.text
 			self.tauon.bg_save()
 
 
@@ -12523,14 +12699,16 @@ class TransEditBox:
 class SubLyricsBox:
 
 	def __init__(self, tauon: Tauon):
-		self.ddt         = tauon.ddt
-		self.gui         = tauon.gui
-		self.inp         = tauon.inp
-		self.coll        = tauon.coll
-		self.fields      = tauon.fields
-		self.prefs       = tauon.prefs
-		self.colours     = tauon.colours
-		self.window_size = tauon.window_size
+		self.ddt          = tauon.ddt
+		self.gui          = tauon.gui
+		self.inp          = tauon.inp
+		self.coll         = tauon.coll
+		self.fields       = tauon.fields
+		self.prefs        = tauon.prefs
+		self.colours      = tauon.colours
+		self.window_size  = tauon.window_size
+		self.sub_lyrics_a = tauon.sub_lyrics_a
+		self.sub_lyrics_b = tauon.sub_lyrics_b
 		self.active = False
 		self.target_track = None
 		self.active_field = 1
@@ -12540,13 +12718,13 @@ class SubLyricsBox:
 		self.gui.box_over = True
 		self.target_track = track
 
-		sub_lyrics_a.text = self.prefs.lyrics_subs.get(self.target_track.artist, "")
-		sub_lyrics_b.text = self.prefs.lyrics_subs.get(self.target_track.title, "")
+		self.sub_lyrics_a.text = self.prefs.lyrics_subs.get(self.target_track.artist, "")
+		self.sub_lyrics_b.text = self.prefs.lyrics_subs.get(self.target_track.title, "")
 
-		if not sub_lyrics_a.text:
-			sub_lyrics_a.text = self.target_track.artist
-		if not sub_lyrics_b.text:
-			sub_lyrics_b.text = self.target_track.title
+		if not self.sub_lyrics_a.text:
+			self.sub_lyrics_a.text = self.target_track.artist
+		if not self.sub_lyrics_b.text:
+			self.sub_lyrics_b.text = self.target_track.title
 
 	def render(self):
 		if not self.active:
@@ -12574,8 +12752,8 @@ class SubLyricsBox:
 			elif self.target_track.artist in self.prefs.lyrics_subs:
 				del self.prefs.lyrics_subs[self.target_track.artist]
 
-			if sub_lyrics_b.text and sub_lyrics_b.text != self.target_track.title:
-				self.prefs.lyrics_subs[self.target_track.title] = sub_lyrics_b.text
+			if self.sub_lyrics_b.text and self.sub_lyrics_b.text != self.target_track.title:
+				self.prefs.lyrics_subs[self.target_track.title] = self.sub_lyrics_b.text
 			elif self.target_track.title in self.prefs.lyrics_subs:
 				del self.prefs.lyrics_subs[self.target_track.title]
 
@@ -12601,7 +12779,7 @@ class SubLyricsBox:
 			self.active_field = 1
 			self.inp.key_tab_press = False
 
-		sub_lyrics_a.draw(
+		self.sub_lyrics_a.draw(
 			xx + round(4 * self.gui.scale), y, colours.box_input_text, self.active_field == 1,
 			width=rect1[2] - 8 * self.gui.scale)
 
@@ -12623,7 +12801,7 @@ class SubLyricsBox:
 			self.active_field = 2
 		# ddt.rect(rect1, [40, 40, 40, 255], True)
 		self.ddt.bordered_rect(rect1, self.colours.box_background, self.colours.box_text_border, round(1 * self.gui.scale))
-		sub_lyrics_b.draw(
+		self.sub_lyrics_b.draw(
 			xx + round(4 * self.gui.scale), y, self.colours.box_input_text, self.active_field == 2, width=rect1[2] - 8 * self.gui.scale)
 
 class ExportPlaylistBox:
@@ -15473,7 +15651,7 @@ class Over:
 			rect1 = (x + 0 * gui.scale, y, round(450 * gui.scale), round(17 * gui.scale))
 			tauon.fields.add(rect1)
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
-			sync_target.draw(
+			tauon.sync_target.draw(
 				x + round(4 * gui.scale), y, colours.box_input_text, not gui.sync_progress,
 				width=rect1[2] - 8 * gui.scale, click=self.click)
 
@@ -15485,7 +15663,7 @@ class Over:
 				if self.click:
 					paths = auto_get_sync_targets()
 					if paths:
-						sync_target.text = paths[0]
+						tauon.sync_target.text = paths[0]
 						show_message(_("A mounted music folder was found!"), mode="done")
 					else:
 						show_message(
@@ -19796,7 +19974,7 @@ class StandardPlaylist:
 							inp.mouse_click = False
 
 							if prefs.album_mode:
-								goto_album(pctl.playlist_playing_position)
+								tauon.goto_album(pctl.playlist_playing_position)
 
 						# Show selection menu if right clicked after select
 						if inp.right_click:
@@ -19904,7 +20082,7 @@ class StandardPlaylist:
 				line_hit = False
 
 				if prefs.album_mode:
-					goto_album(pctl.playlist_playing_position)
+					tauon.goto_album(pctl.playlist_playing_position)
 
 			if len(pctl.track_queue) > 0 and pctl.track_queue[pctl.queue_step] == track_id:
 				if track_position == pctl.playlist_playing_position and pctl.active_playlist_viewing == pctl.active_playlist_playing:
@@ -21766,9 +21944,10 @@ class RadioBox:
 class RenamePlaylistBox:
 
 	def __init__(self, tauon: Tauon) -> None:
-		self.gui            = tauon.gui
-		self.pctl           = tauon.pctl
-		self.thread_manager = tauon.thread_manager
+		self.gui              = tauon.gui
+		self.pctl             = tauon.pctl
+		self.thread_manager   = tauon.thread_manager
+		self.rename_text_area = tauon.rename_text_area
 		self.x = 300
 		self.y = 300
 		self.playlist_index = 0
@@ -21779,8 +21958,8 @@ class RenamePlaylistBox:
 		self.edit_generator ^= True
 		if self.edit_generator:
 
-			if len(rename_text_area.text) > 0:
-				self.pctl.multi_playlist[self.playlist_index].title = rename_text_area.text
+			if len(self.rename_text_area.text) > 0:
+				self.pctl.multi_playlist[self.playlist_index].title = self.rename_text_area.text
 
 			pl = self.playlist_index
 			id = self.pctl.pl_to_id(pl)
@@ -21789,15 +21968,15 @@ class RenamePlaylistBox:
 			if not text:
 				text = ""
 
-			rename_text_area.set_text(text)
-			rename_text_area.highlight_none()
+			self.rename_text_area.set_text(text)
+			self.rename_text_area.highlight_none()
 
 			self.gui.regen_single = tauon.rename_playlist_box.playlist_index
 			tauon.thread_manager.ready("worker")
 		else:
-			rename_text_area.set_text(self.pctl.multi_playlist[self.playlist_index].title)
-			rename_text_area.highlight_none()
-			# rename_text_area.highlight_all()
+			self.rename_text_area.set_text(self.pctl.multi_playlist[self.playlist_index].title)
+			self.rename_text_area.highlight_none()
+			# self.rename_text_area.highlight_all()
 
 	def render(self) -> None:
 		if self.gui.level_2_click:
@@ -21807,7 +21986,7 @@ class RenamePlaylistBox:
 		if self.inp.key_tab_press:
 			self.toggle_edit_gen()
 
-		text_w = self.ddt.get_text_w(rename_text_area.text, 315)
+		text_w = self.ddt.get_text_w(self.rename_text_area.text, 315)
 		min_w = max(250 * self.gui.scale, text_w + 50 * self.gui.scale)
 
 		rect = [self.x, self.y, min_w, 37 * self.gui.scale]
@@ -21820,7 +21999,7 @@ class RenamePlaylistBox:
 		self.ddt.rect(rect, bg)
 
 		# Draw text entry
-		rename_text_area.draw(
+		self.rename_text_area.draw(
 			rect[0] + 10 * self.gui.scale, rect[1] + 8 * self.gui.scale, colours.alpha_grey(250),
 			width=350 * self.gui.scale, font=315)
 
@@ -21831,7 +22010,7 @@ class RenamePlaylistBox:
 		if self.edit_generator:
 			pl = self.playlist_index
 			id = self.pctl.pl_to_id(pl)
-			self.pctl.gen_codes[id] = rename_text_area.text
+			self.pctl.gen_codes[id] = self.rename_text_area.text
 
 			if input_text or self.inp.key_backspace_press:
 				self.gui.regen_single = tauon.rename_playlist_box.playlist_index
@@ -21999,7 +22178,7 @@ class RenamePlaylistBox:
 			# xx += round(80 * self.gui.scale)
 			xx2 = xx
 			xx2 += self.ddt.text((xx2, yy), _("Status:"), [90, 90, 90, 255], 212) + round(6 * self.gui.scale)
-			if rename_text_area.text:
+			if self.rename_text_area.text:
 				if self.gui.gen_code_errors:
 					if self.gui.gen_code_errors == "playlist":
 						self.ddt.text((xx2, yy), _("Playlist not found"), [255, 100, 100, 255], 212)
@@ -22023,11 +22202,11 @@ class RenamePlaylistBox:
 
 			if self.edit_generator:
 				pass
-			elif len(rename_text_area.text) > 0:
+			elif len(self.rename_text_area.text) > 0:
 				if self.gui.radio_view:
-					self.pctl.radio_playlists[self.playlist_index].name = rename_text_area.text
+					self.pctl.radio_playlists[self.playlist_index].name = self.rename_text_area.text
 				else:
-					self.pctl.multi_playlist[self.playlist_index].title = rename_text_area.text
+					self.pctl.multi_playlist[self.playlist_index].title = self.rename_text_area.text
 			self.inp.key_return_press = False
 
 class PlaylistBox:
@@ -22407,7 +22586,7 @@ class PlaylistBox:
 
 class ArtistList:
 	def __init__(self, tauon: Tauon) -> None:
-
+		self.tauon = tauon
 		self.tab_h = round(60 * tauon.gui.scale)
 		self.thumb_size = round(55 * tauon.gui.scale)
 
@@ -23070,7 +23249,7 @@ class ArtistList:
 					self.d_click_ref = artist
 					self.d_click_timer.set()
 					if self.prefs.album_mode:
-						goto_album(select)
+						self.tauon.goto_album(select)
 
 			if self.inp.middle_click:
 				self.click_ref = artist
@@ -26019,7 +26198,7 @@ class ViewBox:
 				exit_combo()
 
 		if self.prefs.album_mode and self.gui.plw < 550 * self.gui.scale:
-			toggle_album_mode(tauon=self.tauon)
+			self.tauon.toggle_album_mode(tauon=self.tauon)
 
 		toggle_library_mode()
 
@@ -26595,6 +26774,7 @@ class Bag:
 	"""Holder object for all configs"""
 	mpt:                    CDLL | None
 	gme:                    CDLL | None
+	cf:                     Config
 	colours:                ColoursClass
 	console:                DConsole
 	dirs:                   Directories
@@ -26983,7 +27163,8 @@ def pumper(bag: Bag):
 		time.sleep(0.005)
 		sdl3.SDL_PumpEvents()
 
-def save_prefs(bag: Bag, cf: Config):
+def save_prefs(bag: Bag):
+	cf    = bag.cf
 	prefs = bag.prefs
 	cf.update_value("sync-bypass-transcode", prefs.bypass_transcode)
 	cf.update_value("sync-bypass-low-bitrate", prefs.smart_bypass)
@@ -27152,7 +27333,8 @@ def save_prefs(bag: Bag, cf: Config):
 	else:
 		logging.error("Missing config directory")
 
-def load_prefs(bag: Bag, cf: Config):
+def load_prefs(bag: Bag) -> None:
+	cf    = bag.cf
 	prefs = bag.prefs
 	cf.reset()
 	cf.load(str(bag.dirs.config_directory / "tauon.conf"))
@@ -29073,7 +29255,7 @@ def test_artist_dl(_):
 
 def show_in_playlist(tauon: Tauon):
 	if prefs.album_mode and window_size[0] < 750 * gui.scale:
-		toggle_album_mode(tauon=tauon)
+		tauon.toggle_album_mode(tauon=tauon)
 
 	pctl.playlist_view_position = pctl.selected_in_playlist
 	logging.debug("Position changed by show in playlist")
@@ -30250,34 +30432,8 @@ def parse_template(string, track_object: TrackClass, up_ext: bool = False, stric
 	# Attempt to ensure the output text is filename safe
 	return filename_safe(output)
 
-def rename_playlist(index, generator: bool = False) -> None:
-	gui.rename_playlist_box = True
-	tauon.rename_playlist_box.edit_generator = False
-	tauon.rename_playlist_box.playlist_index = index
-	tauon.rename_playlist_box.x = inp.mouse_position[0]
-	tauon.rename_playlist_box.y = inp.mouse_position[1]
-
-	if generator:
-		tauon.rename_playlist_box.y = window_size[1] // 2 - round(200 * gui.scale)
-		tauon.rename_playlist_box.x = window_size[0] // 2 - round(250 * gui.scale)
-
-	tauon.rename_playlist_box.y = min(tauon.rename_playlist_box.y, round(350 * gui.scale))
-
-	if tauon.rename_playlist_box.y < gui.panelY:
-		tauon.rename_playlist_box.y = gui.panelY + 10 * gui.scale
-
-	if gui.radio_view:
-		rename_text_area.set_text(pctl.radio_playlists[index].name)
-	else:
-		rename_text_area.set_text(pctl.multi_playlist[index].title)
-	rename_text_area.highlight_all()
-	gui.gen_code_errors = False
-
-	if generator:
-		tauon.rename_playlist_box.toggle_edit_gen()
-
 def edit_generator_box(index: int) -> None:
-	rename_playlist(index, generator=True)
+	tauon.rename_playlist(index, generator=True)
 
 def pin_playlist_toggle(pl: int) -> None:
 	pctl.multi_playlist[pl].hidden ^= True
@@ -31682,7 +31838,7 @@ def auto_sync_thread(pl: int) -> None:
 	gui.sync_progress = "Starting Sync..."
 	gui.update += 1
 
-	path = Path(sync_target.text.strip().rstrip("/").rstrip("\\").replace("\n", "").replace("\r", ""))
+	path = Path(tauon.sync_target.text.strip().rstrip("/").rstrip("\\").replace("\n", "").replace("\r", ""))
 	logging.debug(f"sync_path: {path}")
 	if not path:
 		show_message(_("No target folder selected"))
@@ -32642,7 +32798,7 @@ def reload_config_file():
 		show_message(_("Cannot reload while a transcode is in progress!"), mode="error")
 		return
 
-	load_prefs()
+	load_prefs(bag=bag)
 	gui.opened_config_file = False
 
 	ddt.force_subpixel_text = prefs.force_subpixel_text
@@ -32653,7 +32809,7 @@ def reload_config_file():
 	gui.update_layout = True
 
 def open_config_file():
-	save_prefs(bag=bag, cf=cf)
+	save_prefs(bag=bag)
 	target = str(config_directory / "tauon.conf")
 	if system == "Windows" or msys:
 		os.startfile(target)
@@ -33045,8 +33201,8 @@ def test_show(tauon:Tauon, dummy) -> bool:
 	return prefs.album_mode
 
 def show_in_gal(track: TrackClass, silent: bool = False):
-	# goto_album(pctl.playlist_selected)
-	gui.gallery_animate_highlight_on = goto_album(pctl.selected_in_playlist)
+	# tauon.goto_album(pctl.playlist_selected)
+	gui.gallery_animate_highlight_on = tauon.goto_album(pctl.selected_in_playlist)
 	if not silent:
 		tauon.gallery_select_animate_timer.set()
 
@@ -34482,7 +34638,7 @@ def bass_features_deco():
 	return [line_colour, colours.menu_background, None]
 
 def force_album_view(tauon: Tauon) -> None:
-	toggle_album_mode(tauon=tauon, force_on=True)
+	tauon.toggle_album_mode(tauon=tauon, force_on=True)
 
 def enter_combo(tauon: Tauon) -> None:
 	if not tauon.gui.combo_mode:
@@ -34490,7 +34646,7 @@ def enter_combo(tauon: Tauon) -> None:
 		tauon.gui.showcase_mode = False
 		tauon.gui.radio_view = False
 		if tauon.prefs.album_mode:
-			toggle_album_mode(tauon=tauon)
+			tauon.toggle_album_mode(tauon=tauon)
 		if tauon.gui.rsp:
 			tauon.gui.rsp = False
 		tauon.gui.combo_mode = True
@@ -34562,145 +34718,6 @@ def path_stem_to_playlist(path: str, title: str) -> None:
 	pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[pctl.active_playlist_viewing].title + "\" f\"" + path + "\""
 
 	pctl.switch_playlist(len(pctl.multi_playlist) - 1)
-
-def goto_album(playlist_no: int, down: bool = False, force: bool = False) -> list | int | None:
-	logging.debug("Postion set by album locate")
-
-	if tauon.core_timer.get() < 0.5:
-		return None
-
-	# ----
-	w = gui.rspw
-	if window_size[0] < 750 * gui.scale:
-		w = window_size[0] - 20 * gui.scale
-		if gui.lsp:
-			w -= gui.lspw
-	area_x = w + 38 * gui.scale
-	row_len = int((area_x - album_h_gap) / (bag.album_mode_art_size + album_h_gap))
-	global last_row
-	last_row = row_len
-	# ----
-
-	px = 0
-	row = 0
-	re = 0
-
-	for i in range(len(self.album_dex)):
-		if i == len(self.album_dex) - 1:
-			re = i
-			break
-		if self.album_dex[i + 1] - 1 > playlist_no - 1:
-			re = i
-			break
-		row += 1
-		if row > row_len - 1:
-			row = 0
-			px += bag.album_mode_art_size + album_v_gap
-
-	# If the album is within the view port already, dont jump to it
-	# (unless we really want to with force)
-	if not force and gui.album_scroll_px + album_v_slide_value < px < gui.album_scroll_px + window_size[1]:
-
-		# Dont chance the view since its alread in the view port
-		# But if the album is just out of view on the bottom, bring it into view on to bottom row
-		if window_size[1] > (bag.album_mode_art_size + album_v_gap) * 2:
-			while not gui.album_scroll_px - 20 < px + (bag.album_mode_art_size + album_v_gap + 3) < gui.album_scroll_px + \
-				window_size[1] - 40:
-				gui.album_scroll_px += 1
-	else:
-		# Set the view to the calculated position
-		gui.album_scroll_px = px
-		gui.album_scroll_px -= album_v_slide_value
-
-		gui.album_scroll_px = max(gui.album_scroll_px, 0 - album_v_slide_value)
-
-	if len(self.album_dex) > 0:
-		return self.album_dex[re]
-	return 0
-
-	gui.update += 1 # TODO(Martin): WTF Unreachable??
-
-def toggle_album_mode(tauon: Tauon, force_on: bool = False) -> None:
-	gui = tauon.gui
-	pctl = tauon.pctl
-	prefs = tauon.prefs
-	gui.gall_tab_enter = False
-
-	if prefs.album_mode is True:
-		prefs.album_mode = False
-		# gui.album_playlist_width = gui.playlist_width
-		# gui.old_album_pos = gui.album_scroll_px
-		gui.rspw = gui.pref_rspw
-		gui.rsp = prefs.prefer_side
-		gui.album_tab_mode = False
-	else:
-		prefs.album_mode = True
-		if gui.combo_mode:
-			exit_combo()
-
-		gui.rsp = True
-		gui.rspw = gui.pref_gallery_w
-
-	space = tauon.bag.window_size[0] - gui.rspw
-	if gui.lsp:
-		space -= gui.lspw
-
-	if prefs.album_mode and gui.set_mode and len(gui.pl_st) > 6 and space < 600 * gui.scale:
-		gui.set_mode = False
-		gui.pl_update = True
-		gui.update_layout = True
-
-	tauon.reload_albums(quiet=True)
-
-	# if pctl.active_playlist_playing == pctl.active_playlist_viewing:
-	# goto_album(pctl.playlist_playing_position)
-
-	if prefs.album_mode:
-		if pctl.selected_in_playlist < len(pctl.playing_playlist()):
-			goto_album(pctl.selected_in_playlist)
-
-def toggle_gallery_keycontrol(tauon: Tauon, always_exit: bool = False) -> None:
-	if is_level_zero():
-		if not prefs.album_mode:
-			toggle_album_mode(tauon=tauon)
-			gui.gall_tab_enter = True
-			gui.album_tab_mode = True
-			show_in_gal(pctl.selected_in_playlist, silent=True)
-		elif gui.gall_tab_enter or always_exit:
-			# Exit gallery and tab mode
-			toggle_album_mode(tauon=tauon)
-		else:
-			gui.album_tab_mode ^= True
-			if gui.album_tab_mode:
-				show_in_gal(pctl.selected_in_playlist, silent=True)
-
-def check_auto_update_okay(code, pl=None):
-	try:
-		cmds = shlex.split(code)
-	except Exception:
-		logging.exception("Malformed generator code!")
-		return False
-	return "auto" in cmds or (
-		prefs.always_auto_update_playlists and
-		pctl.active_playlist_playing != pl and
-		"sf"     not in cmds and
-		"rf"     not in cmds and
-		"ra"     not in cmds and
-		"sa"     not in cmds and
-		"st"     not in cmds and
-		"rt"     not in cmds and
-		"plex"   not in cmds and
-		"jelly"  not in cmds and
-		"koel"   not in cmds and
-		"tau"    not in cmds and
-		"air"    not in cmds and
-		"sal"    not in cmds and
-		"slt"    not in cmds and
-		"spl\""  not in code and
-		"tpl\""  not in code and
-		"tar\""  not in code and
-		"tmix\"" not in code and
-		"r"      not in cmds)
 
 def activate_info_box(tauon: Tauon) -> None:
 	tauon.fader.rise()
@@ -35597,7 +35614,7 @@ def view_tracks(tauon: Tauon) -> None:
 	# if gui.show_playlist is False:
 	#     gui.show_playlist = True
 	if prefs.album_mode:
-		toggle_album_mode(tauon=tauon)
+		tauon.toggle_album_mode(tauon=tauon)
 	if gui.combo_mode:
 		exit_combo()
 	if gui.rsp:
@@ -35607,7 +35624,7 @@ def view_tracks(tauon: Tauon) -> None:
 # 	# if gui.show_playlist is False:
 # 	# 	gui.show_playlist = True
 # 	if prefs.album_mode:
-# 		toggle_album_mode(tauon=tauon)
+# 		tauon.toggle_album_mode(tauon=tauon)
 # 	if gui.combo_mode:
 # 		toggle_combo_view(off=True)
 # 	if not gui.rsp:
@@ -35619,7 +35636,7 @@ def view_standard_meta(tauon: Tauon) -> None:
 	# if gui.show_playlist is False:
 	#     gui.show_playlist = True
 	if prefs.album_mode:
-		toggle_album_mode(tauon=tauon)
+		tauon.toggle_album_mode(tauon=tauon)
 
 	if gui.combo_mode:
 		exit_combo()
@@ -35634,7 +35651,7 @@ def view_standard(tauon: Tauon) -> None:
 	# if gui.show_playlist is False:
 	#     gui.show_playlist = True
 	if prefs.album_mode:
-		toggle_album_mode(tauon=tauon)
+		tauon.toggle_album_mode(tauon=tauon)
 	if gui.combo_mode:
 		exit_combo()
 	if not gui.rsp:
@@ -35651,7 +35668,7 @@ def standard_view_deco():
 # 	if gui.show_playlist is False:
 # 		return
 # 	if not prefs.album_mode:
-# 		toggle_album_mode(tauon=tauon)
+# 		tauon.toggle_album_mode(tauon=tauon)
 # 	gui.show_playlist = False
 # 	gui.update_layout = True
 # 	gui.rspw = window_size[0]
@@ -37068,7 +37085,7 @@ def worker1(tauon: Tauon) -> None:
 				if pctl.pl_to_id(i) in pctl.gen_codes:
 					code = pctl.gen_codes[pctl.pl_to_id(i)]
 					try:
-						if check_auto_update_okay(code, pl=i):
+						if tauon.check_auto_update_okay(code, pl=i):
 							if not pl_is_locked(i):
 								logging.info("Reloading smart playlist: " + plist.title)
 								regenerate_playlist(i, silent=True)
@@ -39347,6 +39364,7 @@ def main(holder: Holder) -> None:
 	prefs.theme = get_theme_number(dirs, prefs.theme_name)
 
 	bag = Bag(
+		cf=Config(),
 		gme=gme,
 		mpt=mpt,
 		colours=colours,
@@ -39936,10 +39954,9 @@ def main(holder: Holder) -> None:
 	# Loading Config -----------------
 
 	download_directories: list[str] = []
-	cf = Config()
 
-	load_prefs(bag=bag, cf=cf)
-	save_prefs(bag=bag, cf=cf)
+	load_prefs(bag=bag)
+	save_prefs(bag=bag)
 
 	if download_directory.is_dir():
 		download_directories.append(str(download_directory))
@@ -39957,7 +39974,7 @@ def main(holder: Holder) -> None:
 		prefs.linux_font = "Noto Sans"
 		prefs.linux_font_semibold = "Noto Sans Medium"
 		prefs.linux_font_bold = "Noto Sans Bold"
-		save_prefs(bag=bag, cf=cf)
+		save_prefs(bag=bag)
 
 	# Auto detect lang
 	lang: list[str] | None = None
@@ -40411,22 +40428,12 @@ def main(holder: Holder) -> None:
 		renderer, sdl3.SDL_PIXELFORMAT_ARGB8888, sdl3.SDL_TEXTUREACCESS_TARGET, round(text_box_canvas_rect.w), round(text_box_canvas_rect.h))
 	sdl3.SDL_SetTextureBlendMode(text_box_canvas, sdl3.SDL_BLENDMODE_BLEND)
 
-	rename_text_area = TextBox(tauon=tauon)
-	gst_output_field = TextBox2(tauon=tauon)
-	gst_output_field.text = prefs.gst_output
-	search_text = TextBox(tauon=tauon)
-	rename_files = TextBox2(tauon=tauon)
-	sub_lyrics_a = TextBox2(tauon=tauon)
-	sub_lyrics_b = TextBox2(tauon=tauon)
-	sync_target = TextBox2(tauon=tauon)
-	edit_artist = TextBox2(tauon=tauon)
-	edit_album = TextBox2(tauon=tauon)
-	edit_title = TextBox2(tauon=tauon)
-	edit_album_artist = TextBox2(tauon=tauon)
+	#gst_output_field = TextBox2(tauon=tauon)
+	#gst_output_field.text = prefs.gst_output
 
-	rename_files.text = prefs.rename_tracks_template
+	tauon.rename_files.text = prefs.rename_tracks_template
 	if rename_files_previous:
-		rename_files.text = rename_files_previous
+		tauon.rename_files.text = rename_files_previous
 
 	text_plex_usr = TextBox2(tauon=tauon)
 	text_plex_pas = TextBox2(tauon=tauon)
@@ -40647,10 +40654,10 @@ def main(holder: Holder) -> None:
 
 	# Create playlist tab menu
 	tab_menu = tauon.tab_menu
-	tab_menu.add(MenuItem(_("Rename"), rename_playlist, pass_ref=True, hint="Ctrl+R"))
+	tab_menu.add(MenuItem(_("Rename"), tauon.rename_playlist, pass_ref=True, hint="Ctrl+R"))
 
 	radio_tab_menu = Menu(tauon, 160, show_icons=True)
-	radio_tab_menu.add(MenuItem(_("Rename"), rename_playlist, pass_ref=True, hint="Ctrl+R"))
+	radio_tab_menu.add(MenuItem(_("Rename"), tauon.rename_playlist, pass_ref=True, hint="Ctrl+R"))
 	tab_menu.add(MenuItem("Pin", pin_playlist_toggle, pl_pin_deco, pass_ref=True, pass_ref_deco=True))
 
 	lock_asset = asset_loader(bag, loaded_asset_dc, "lock.png", True)
@@ -41469,7 +41476,7 @@ def main(holder: Holder) -> None:
 	test_show_add_home_music(tauon=tauon)
 
 	if gui.restart_album_mode:
-		toggle_album_mode(tauon=tauon, force_on=True)
+		tauon.toggle_album_mode(tauon=tauon, force_on=True)
 
 	if gui.remember_library_mode:
 		toggle_library_mode()
@@ -41549,7 +41556,7 @@ def main(holder: Holder) -> None:
 			x += block_size
 		y += block_size
 
-	sync_target.text = prefs.sync_target
+	tauon.sync_target.text = prefs.sync_target
 	sdl3.SDL_SetRenderTarget(renderer, None)
 
 	if msys:
@@ -41698,7 +41705,7 @@ def main(holder: Holder) -> None:
 					if rt:
 						random_track()
 					else:
-						toggle_gallery_keycontrol(always_exit=True)
+						tauon.toggle_gallery_keycontrol(always_exit=True)
 				if event.gbutton.button == sdl3.SDL_GAMEPAD_BUTTON_NORTH:
 					if rt:
 						pctl.advance(rr=True)
@@ -42509,7 +42516,7 @@ def main(holder: Holder) -> None:
 						show_message(_("First select a source track by copying it into clipboard"))
 
 				if keymaps.test("toggle-gallery"):
-					toggle_album_mode(tauon=tauon)
+					tauon.toggle_album_mode(tauon=tauon)
 
 				if keymaps.test("toggle-right-panel"):
 					if gui.combo_mode:
@@ -42517,7 +42524,7 @@ def main(holder: Holder) -> None:
 					elif not prefs.album_mode:
 						toggle_side_panel()
 					else:
-						toggle_album_mode(tauon=tauon)
+						tauon.toggle_album_mode(tauon=tauon)
 
 				if keymaps.test("toggle-minimode"):
 					set_mini_mode()
@@ -42555,7 +42562,7 @@ def main(holder: Holder) -> None:
 					tauon.view_box.lyrics(True)
 
 				if keymaps.test("toggle-gallery-keycontrol"):
-					toggle_gallery_keycontrol()
+					tauon.toggle_gallery_keycontrol()
 
 				if keymaps.test("toggle-show-art"):
 					toggle_side_art()
@@ -42585,9 +42592,9 @@ def main(holder: Holder) -> None:
 
 			if keymaps.test("rename-playlist"):
 				if gui.radio_view:
-					rename_playlist(pctl.radio_playlist_viewing)
+					tauon.rename_playlist(pctl.radio_playlist_viewing)
 				else:
-					rename_playlist(pctl.active_playlist_viewing)
+					tauon.rename_playlist(pctl.active_playlist_viewing)
 				tauon.rename_playlist_box.x = 60 * gui.scale
 				tauon.rename_playlist_box.y = 60 * gui.scale
 
@@ -43178,28 +43185,28 @@ def main(holder: Holder) -> None:
 						if gal_right:
 							gal_right = False
 							gal_jump_select(False, 1)
-							goto_album(pctl.selected_in_playlist)
+							self.goto_album(pctl.selected_in_playlist)
 							pctl.playlist_view_position = pctl.selected_in_playlist
 							logging.debug("Position changed by gallery key press")
 							gui.pl_update = 1
 						if gal_down:
 							gal_down = False
 							gal_jump_select(False, row_len)
-							goto_album(pctl.selected_in_playlist, down=True)
+							self.goto_album(pctl.selected_in_playlist, down=True)
 							pctl.playlist_view_position = pctl.selected_in_playlist
 							logging.debug("Position changed by gallery key press")
 							gui.pl_update = 1
 						if gal_left:
 							gal_left = False
 							gal_jump_select(True, 1)
-							goto_album(pctl.selected_in_playlist)
+							self.goto_album(pctl.selected_in_playlist)
 							pctl.playlist_view_position = pctl.selected_in_playlist
 							logging.debug("Position changed by gallery key press")
 							gui.pl_update = 1
 						if gal_up:
 							gal_up = False
 							gal_jump_select(True, row_len)
-							goto_album(pctl.selected_in_playlist)
+							self.goto_album(pctl.selected_in_playlist)
 							pctl.playlist_view_position = pctl.selected_in_playlist
 							logging.debug("Position changed by gallery key press")
 							gui.pl_update = 1
@@ -43223,7 +43230,7 @@ def main(holder: Holder) -> None:
 
 							if left < inp.mouse_position[0] < left + 20 * gui.scale and window_size[1] - gui.panelBY > \
 									inp.mouse_position[1] > gui.panelY:
-								toggle_album_mode(tauon=tauon)
+								tauon.toggle_album_mode(tauon=tauon)
 								inp.mouse_click = False
 								inp.mouse_down = False
 
@@ -43343,9 +43350,9 @@ def main(holder: Holder) -> None:
 							last_row = row_len
 
 							if pctl.selected_in_playlist < len(pctl.playing_playlist()):
-								goto_album(pctl.selected_in_playlist)
+								tauon.goto_album(pctl.selected_in_playlist)
 							# else:
-							#     goto_album(pctl.playlist_playing_position)
+							# 	tauon.goto_album(pctl.playlist_playing_position)
 
 						extend = 0
 						if card_mode:  # gui.gallery_show_text:
@@ -43966,7 +43973,7 @@ def main(holder: Holder) -> None:
 												[5, 5, 5, 255], 213, w, bg=[230, 230, 230, 255])
 
 											if inp.mouse_click:
-												goto_album(item.position)
+												tauon.goto_album(item.position)
 											if inp.right_click:
 												lightning_menu.activate(item, position=(
 												window_size[0] - 180 * gui.scale, rect[1] + rect[3] + 5 * gui.scale))
@@ -45701,7 +45708,7 @@ def main(holder: Holder) -> None:
 						gui.pl_update = 1
 						pctl.jump(pctl.default_playlist[gui.search_index], gui.search_index)
 						if prefs.album_mode:
-							goto_album(pctl.playlist_playing_position)
+							tauon.goto_album(pctl.playlist_playing_position)
 						gui.quick_search_mode = False
 						tauon.search_clear_timer.set()
 				elif not tauon.search_over.active:
@@ -45769,7 +45776,7 @@ def main(holder: Holder) -> None:
 						if pctl.default_playlist:
 							pctl.jump(pctl.default_playlist[pctl.selected_in_playlist], pctl.selected_in_playlist)
 							if prefs.album_mode:
-								goto_album(pctl.playlist_playing_position)
+								tauon.goto_album(pctl.playlist_playing_position)
 			elif gui.mode == 3:
 				if (inp.key_shift_down and inp.mouse_click) or inp.middle_click:
 					if prefs.mini_mode_mode == 4:
