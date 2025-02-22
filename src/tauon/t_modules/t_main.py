@@ -5318,6 +5318,7 @@ class Tauon:
 		self.macos                        = bag.macos
 		self.system                       = bag.system
 		self.colours                      = bag.colours
+		self.old_window_position          = bag.old_window_position
 		self.cache_directory              = bag.dirs.cache_directory
 		self.user_directory:  Path | None = bag.dirs.user_directory
 		self.install_directory            = bag.dirs.install_directory
@@ -7839,7 +7840,7 @@ class Tauon:
 			with (self.user_directory / "state.p").open("wb") as file:
 				pickle.dump(save, file, protocol=pickle.HIGHEST_PROTOCOL)
 
-			old_position = old_window_position
+			old_position = self.old_window_position
 			if not prefs.save_window_position:
 				old_position = None
 
@@ -27447,6 +27448,7 @@ class Bag:
 	track_queue:            list[int]
 	logical_size:           list[int] # X Y
 	window_size:            list[int] # X Y
+	old_window_position:    tuple[int, int] # X Y res
 	cue_list:               list[str]
 	load_orders:            list[LoadClass]
 	multi_playlist:         list[TauonPlaylist]
@@ -36487,8 +36489,6 @@ def worker2(tauon: Tauon) -> None:
 				#logging.info(tauon.perf_timer.get())
 
 def worker1(tauon: Tauon) -> None:
-	global home
-
 	bag   = tauon.bag
 	gui   = tauon.gui
 	pctl  = tauon.pctl
@@ -37505,7 +37505,6 @@ def set_mini_mode():
 	if gui.fullscreen:
 		return
 
-	global old_window_position
 	inp.mouse_down = False
 	inp.mouse_up = False
 	inp.mouse_click = False
@@ -37515,7 +37514,7 @@ def set_mini_mode():
 		update_layout_do(tauon=tauon)
 
 	if gui.mode < 3:
-		old_window_position = get_window_position(t_window)
+		tauon.old_window_position = get_window_position(t_window)
 
 	if prefs.mini_mode_on_top:
 		sdl3.SDL_SetWindowAlwaysOnTop(t_window, True)
@@ -39410,6 +39409,7 @@ def main(holder: Holder) -> None:
 		phone=phone,
 		use_natsort=use_natsort,
 		should_save_state=should_save_state,
+		old_window_position=old_window_position,
 		xdpi=xdpi,
 		desktop=desktop,
 		platform_system=platform_system,
@@ -46442,7 +46442,7 @@ def main(holder: Holder) -> None:
 		logging.info("Sending scrobble before close...")
 
 	if gui.mode < 3:
-		old_window_position = get_window_position(t_window)
+		tauon.old_window_position = get_window_position(t_window)
 
 
 	sdl3.SDL_DestroyTexture(gui.main_texture)
