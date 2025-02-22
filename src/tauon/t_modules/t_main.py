@@ -1481,6 +1481,12 @@ class PlayerCtl:
 		self.album_mbid_release_group_cache = {}
 		self.mbid_image_url_cache = {}
 
+		# ----------------------------------------
+		# Playlist right click menu
+
+		self.r_menu_index = 0
+		self.r_menu_position = 0
+
 		# Misc player control
 
 		self.url: str = ""
@@ -8210,7 +8216,7 @@ class Tauon:
 					if playlist_no is not None:
 						load_order.playlist = self.pctl.pl_to_id(playlist_no)
 					if track_id is not None:
-						load_order.playlist_position = r_menu_position
+						load_order.playlist_position = self.pctl.r_menu_position
 
 					self.load_orders.append(copy.deepcopy(load_order))
 					found = True
@@ -19566,12 +19572,7 @@ class StandardPlaylist:
 
 	def full_render(self):
 		global highlight_left
-		global highlight_right
-
 		global click_time
-
-		global r_menu_index
-		global r_menu_position
 
 		tauon       = self.tauon
 		prefs       = self.prefs
@@ -19797,7 +19798,7 @@ class StandardPlaylist:
 						# Show selection menu if right clicked after select
 						if inp.right_click:
 							folder_menu.activate(track_id)
-							r_menu_position = track_position
+							pctl.r_menu_position = track_position
 							gui.selection_stage = 2
 							gui.pl_update = 1
 
@@ -20001,8 +20002,8 @@ class StandardPlaylist:
 					selection_menu.activate(pctl.default_playlist[track_position])
 					gui.selection_stage = 2
 				else:
-					r_menu_index = pctl.default_playlist[track_position]
-					r_menu_position = track_position
+					self.pctl.r_menu_index = pctl.default_playlist[track_position]
+					self.pctl.r_menu_position = track_position
 					track_menu.activate(pctl.default_playlist[track_position])
 					gui.pl_update += 1
 					gui.update += 1
@@ -29316,7 +29317,7 @@ def finish_current():
 
 def add_album_to_queue(ref, position=None, playlist_id=None):
 	if position is None:
-		position = r_menu_position
+		position = pctl.r_menu_position
 	if playlist_id is None:
 		playlist_id = pctl.pl_to_id(pctl.active_playlist_viewing)
 
@@ -32825,8 +32826,7 @@ def temp_copy_folder(tauon: Tauon, ref: int) -> None:
 
 def activate_track_box(index: int):
 	global track_box
-	global r_menu_index
-	r_menu_index = index
+	self.pctl.r_menu_index = index
 	track_box = True
 	track_box_path_tool_timer.set()
 
@@ -33063,8 +33063,7 @@ def last_fm_test(ignore):
 	return False
 
 def heart_xmenu_colour():
-	global r_menu_index
-	if love(False, r_menu_index):
+	if love(False, self.pctl.r_menu_index):
 		return [245, 60, 60, 255]
 	if colours.lm:
 		return [255, 150, 180, 255]
@@ -33079,36 +33078,32 @@ def spot_heart_xmenu_colour():
 	return None
 
 def love_decox():
-	global r_menu_index
-
-	if love(False, r_menu_index):
+	if love(False, self.pctl.r_menu_index):
 		return [colours.menu_text, colours.menu_background, _("Un-Love Track")]
 	return [colours.menu_text, colours.menu_background, _("Love Track")]
 
 def love_index():
-	global r_menu_index
-
 	notify = False
 	if not gui.show_hearts:
 		notify = True
 
-	# love(True, r_menu_index)
-	shoot_love = threading.Thread(target=love, args=[True, r_menu_index, False, notify])
+	# love(True, self.pctl.r_menu_index)
+	shoot_love = threading.Thread(target=love, args=[True, self.pctl.r_menu_index, False, notify])
 	shoot_love.daemon = True
 	shoot_love.start()
 
 def toggle_spotify_like_ref():
-	tr = pctl.get_track(r_menu_index)
+	tr = pctl.get_track(self.pctl.r_menu_index)
 	if tr:
 		shoot_dl = threading.Thread(target=toggle_spotify_like_active2, args=([tr]))
 		shoot_dl.daemon = True
 		shoot_dl.start()
 
 def toggle_spotify_like3():
-	toggle_spotify_like_active2(pctl.get_track(r_menu_index))
+	toggle_spotify_like_active2(pctl.get_track(self.pctl.r_menu_index))
 
 def toggle_spotify_like_row_deco():
-	tr = pctl.get_track(r_menu_index)
+	tr = pctl.get_track(self.pctl.r_menu_index)
 	text = _("Spotify Like Track")
 
 	# if pctl.playing_state == 0 or not tr or not "spotify-track-url" in tr.misc:
@@ -33119,16 +33114,16 @@ def toggle_spotify_like_row_deco():
 	return [colours.menu_text, colours.menu_background, text]
 
 def spot_like_show_test(x):
-	return spotify_show_test and pctl.get_track(r_menu_index).file_ext == "SPTY"
+	return spotify_show_test and pctl.get_track(self.pctl.r_menu_index).file_ext == "SPTY"
 
 def spot_heart_menu_colour():
-	tr = pctl.get_track(r_menu_index)
+	tr = pctl.get_track(self.pctl.r_menu_index)
 	if tr and "spotify-liked" in tr.misc:
 		return [30, 215, 96, 255]
 	return None
 
 def add_to_queue(ref: int) -> None:
-	pctl.force_queue.append(queue_item_gen(ref, r_menu_position, pctl.pl_to_id(pctl.active_playlist_viewing)))
+	pctl.force_queue.append(queue_item_gen(ref, pctl.r_menu_position, pctl.pl_to_id(pctl.active_playlist_viewing)))
 	queue_timer_set()
 	if prefs.stop_end_queue:
 		pctl.auto_stop = False
@@ -33199,7 +33194,7 @@ def add_to_queue_next(ref: int) -> None:
 	if pctl.force_queue and pctl.force_queue[0].album_stage == 1:
 		split_queue_album(None)
 
-	pctl.force_queue.insert(0, queue_item_gen(ref, r_menu_position, pctl.pl_to_id(pctl.active_playlist_viewing)))
+	pctl.force_queue.insert(0, queue_item_gen(ref, pctl.r_menu_position, pctl.pl_to_id(pctl.active_playlist_viewing)))
 
 def delete_track(track_ref):
 	tr = pctl.get_track(track_ref)
@@ -33809,7 +33804,7 @@ def launch_editor_disable_test(index: int):
 def show_lyrics_menu(index: int):
 	global track_box
 	track_box = False
-	enter_showcase_view(track_id=r_menu_index)
+	enter_showcase_view(track_id=self.pctl.r_menu_index)
 	inp.mouse_click = False
 
 def recode(text, enc):
@@ -34096,12 +34091,12 @@ def tidal_copy_album(index: int) -> None:
 			copy_to_clipboard(url)
 
 def is_tidal_track(_) -> bool:
-	return pctl.master_library[r_menu_index].file_ext == "TIDAL"
+	return pctl.master_library[self.pctl.r_menu_index].file_ext == "TIDAL"
 
 # def get_track_spot_url_show_test(_):
-#     if pctl.get_track(r_menu_index).misc.get("spotify-track-url"):
-#         return True
-#     return False
+# 	if pctl.get_track(self.pctl.r_menu_index).misc.get("spotify-track-url"):
+# 		return True
+# 	return False
 
 def get_track_spot_url(track_id: int) -> None:
 	track_object = pctl.get_track(track_id)
@@ -34113,7 +34108,7 @@ def get_track_spot_url(track_id: int) -> None:
 		show_message(_("No results found"))
 
 def get_track_spot_url_deco():
-	if pctl.get_track(r_menu_index).misc.get("spotify-track-url"):
+	if pctl.get_track(self.pctl.r_menu_index).misc.get("spotify-track-url"):
 		line_colour = colours.menu_text
 	else:
 		line_colour = colours.menu_text_disabled
@@ -39246,12 +39241,6 @@ def main(holder: Holder) -> None:
 	default_playlist: list[int] = multi_playlist[0].playlist_ids
 	playlist_active: int = 0
 
-	# ----------------------------------------
-	# Playlist right click menu
-
-	r_menu_index = 0
-	r_menu_position = 0
-
 	# Library and loader Variables--------------------------------------------------------
 	master_library: dict[int, TrackClass] = {}
 
@@ -42694,12 +42683,12 @@ def main(holder: Holder) -> None:
 			if gui.quick_search_mode is False and tauon.rename_track_box.active is False and gui.rename_folder_box is False and gui.rename_playlist_box is False and not pref_box.enabled and not radiobox.active:
 				if keymaps.test("info-playing"):
 					if pctl.selected_in_playlist < len(pctl.default_playlist):
-						r_menu_index = pctl.get_track(pctl.default_playlist[pctl.selected_in_playlist]).index
+						pctl.r_menu_index = pctl.get_track(pctl.default_playlist[pctl.selected_in_playlist]).index
 						track_box = True
 
 				if keymaps.test("info-show"):
 					if pctl.selected_in_playlist < len(pctl.default_playlist):
-						r_menu_index = pctl.get_track(pctl.default_playlist[pctl.selected_in_playlist]).index
+						pctl.r_menu_index = pctl.get_track(pctl.default_playlist[pctl.selected_in_playlist]).index
 						track_box = True
 
 				# These need to be disabled when text fields are active
@@ -43535,7 +43524,7 @@ def main(holder: Holder) -> None:
 													# playlist_position = pctl.playlist_selected
 													gui.shift_selection = [pctl.selected_in_playlist]
 													gallery_menu.activate(pctl.default_playlist[pctl.selected_in_playlist])
-													r_menu_position = pctl.selected_in_playlist
+													pctl.r_menu_position = pctl.selected_in_playlist
 
 													gui.shift_selection = []
 													u = pctl.selected_in_playlist
@@ -44952,7 +44941,7 @@ def main(holder: Holder) -> None:
 						inp.mouse_click = True
 					gui.level_2_click = False
 
-					tc = pctl.master_library[r_menu_index]
+					tc = pctl.master_library[pctl.r_menu_index]
 
 					w = round(540 * gui.scale)
 					h = round(240 * gui.scale)
@@ -45309,12 +45298,12 @@ def main(holder: Holder) -> None:
 
 						y1 += int(23 * gui.scale)
 
-						total = star_store.get(r_menu_index)
+						total = star_store.get(pctl.r_menu_index)
 
 						ratio = 0
 
 						if total > 0 and pctl.master_library[
-							r_menu_index].length > 1:
+							pctl.r_menu_index].length > 1:
 							ratio = total / (tc.length - 1)
 
 						ddt.text((x1, y1), _("Play count"), key_colour_off, 212, max_w=70 * gui.scale)
@@ -45325,7 +45314,7 @@ def main(holder: Holder) -> None:
 						rect = [x1, y1, 150, 14]
 
 						if tauon.coll(rect) and inp.key_shift_down and inp.mouse_wheel != 0:
-							star_store.add(r_menu_index, 60 * inp.mouse_wheel)
+							star_store.add(pctl.r_menu_index, 60 * inp.mouse_wheel)
 
 						line = time.strftime("%H:%M:%S", time.gmtime(total))
 
@@ -45338,7 +45327,7 @@ def main(holder: Holder) -> None:
 							if draw.button(_("Lyrics"), x1 + 200 * gui.scale, y1 - 10 * gui.scale):
 								prefs.show_lyrics_showcase = True
 								track_box = False
-								enter_showcase_view(track_id=r_menu_index)
+								enter_showcase_view(track_id=pctl.r_menu_index)
 								inp.mouse_click = False
 
 						if len(tc.comment) > 0:
@@ -45757,7 +45746,7 @@ def main(holder: Holder) -> None:
 						if not keymaps.test("shift-up"):
 							if pctl.selected_in_playlist > 0:
 								pctl.selected_in_playlist -= 1
-								r_menu_index = pctl.default_playlist[pctl.selected_in_playlist]
+								pctl.r_menu_index = pctl.default_playlist[pctl.selected_in_playlist]
 							gui.shift_selection = []
 
 						if pctl.playlist_view_position > 0 and pctl.selected_in_playlist < pctl.playlist_view_position + 2:
@@ -45785,7 +45774,7 @@ def main(holder: Holder) -> None:
 						if not keymaps.test("shift-down"):
 							if pctl.selected_in_playlist < len(pctl.default_playlist) - 1:
 								pctl.selected_in_playlist += 1
-								r_menu_index = pctl.default_playlist[pctl.selected_in_playlist]
+								pctl.r_menu_index = pctl.default_playlist[pctl.selected_in_playlist]
 							gui.shift_selection = []
 
 						if pctl.playlist_view_position < len(
