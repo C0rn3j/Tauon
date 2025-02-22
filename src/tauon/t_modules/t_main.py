@@ -668,6 +668,8 @@ class GuiVar:
 		self.rename_tracks_icon = MenuIcon(asset_loader(self.bag, self.bag.loaded_asset_dc, "pen.png", True))
 		self.add_icon           = MenuIcon(asset_loader(self.bag, self.bag.loaded_asset_dc, "new.png", True))
 
+		self.last_fm_icon       = asset_loader(self.bag, self.bag.loaded_asset_dc, "as.png", True)
+
 		self.restore_showcase_view = False
 		self.restore_radio_view = False
 
@@ -13822,15 +13824,16 @@ class Over:
 		self.t_version           = tauon.t_version
 		self.pctl                = tauon.pctl
 		self.system              = tauon.system
-		self.album_mode_art_size = tauon.bag.album_mode_art_size
+		self.album_mode_art_size = tauon.album_mode_art_size
 		self.platform_system     = tauon.bag.platform_system
-		self.colours             = tauon.bag.colours
+		self.colours             = tauon.colours
 		self.dirs                = tauon.bag.dirs
-		self.prefs               = tauon.bag.prefs
+		self.prefs               = tauon.prefs
 		self.gui                 = tauon.gui
-		self.inp                 = tauon.gui.inp
-		self.ddt                 = tauon.bag.ddt
-		self.window_size         = tauon.bag.window_size
+		self.inp                 = tauon.inp
+		self.ddt                 = tauon.ddt
+		self.lastfm              = tauon.lastfm
+		self.window_size         = tauon.window_size
 		self.wayland             = tauon.bag.wayland
 		self.macos               = tauon.macos
 		self.msys                = tauon.msys
@@ -13977,7 +13980,6 @@ class Over:
 		yy = y
 		hover_name = None
 		for c, theme_name, theme_number in self.themes:
-
 			if theme_name == gui.theme_name:
 				rect = [
 					xx - outer_border, yy - outer_border, border * 2 + square * 2 + outer_border * 2,
@@ -14026,7 +14028,6 @@ class Over:
 				rect = [(xx + border + square) - (square // 2), (yy + border + square) - (square // 2), square, square]
 				self.ddt.rect(rect, c2)
 			else:
-
 				# tl
 				rect = [xx + border, yy + border, square, square]
 				self.ddt.rect(rect, c1)
@@ -15470,10 +15471,10 @@ class Over:
 			if prefs.last_fm_token is None:
 				ww = ddt.get_text_w(_("Login"), 211) + 10 * gui.scale
 				ww2 = ddt.get_text_w(_("Done"), 211) + 40 * gui.scale
-				self.button(x, y, _("Login"), lastfm.auth1)
-				self.button(x + ww + 10 * gui.scale, y, _("Done"), lastfm.auth2)
+				self.button(x, y, _("Login"), self.lastfm.auth1)
+				self.button(x + ww + 10 * gui.scale, y, _("Done"), self.lastfm.auth2)
 
-				if prefs.last_fm_token is None and lastfm.url is None:
+				if prefs.last_fm_token is None and self.lastfm.url is None:
 					prefs.use_libre_fm = self.toggle_square(
 						x + ww + ww2, y + round(1 * gui.scale), prefs.use_libre_fm, _("Use LibreFM"))
 
@@ -15484,7 +15485,7 @@ class Over:
 					colours.box_text_label, 11, max_w=270 * gui.scale)
 
 			else:
-				self.button(x, y, _("Forget account"), lastfm.auth3)
+				self.button(x, y, _("Forget account"), self.lastfm.auth3)
 
 			x = x0 + 230 * gui.scale
 			y = y0 + round(130 * gui.scale)
@@ -15508,7 +15509,7 @@ class Over:
 			y += 26 * gui.scale
 
 			self.button(x, y, _("Get friend loves"), self.get_friend_love, width=ww)
-			self.button(x + ww + round(12 * gui.scale), y, _("Clear"), lastfm.clear_friends_love, width=wcc)
+			self.button(x + ww + round(12 * gui.scale), y, _("Clear"), self.lastfm.clear_friends_love, width=wcc)
 
 			y += 26 * gui.scale
 			self.button(x, y, _("Get scrobble counts"), self.get_scrobble_counts, width=ww)
@@ -15575,7 +15576,7 @@ class Over:
 
 	def get_scrobble_counts(self):
 		if not self.inp.key_shift_down:
-			t = lastfm.get_all_scrobbles_estimate_time()
+			t = self.lastfm.get_all_scrobbles_estimate_time()
 			if not t:
 				show_message(_("Error, not  connected to last.fm"))
 				return
@@ -15584,8 +15585,8 @@ class Over:
 				_("Press again while holding Shift if you understand"), mode="warning")
 			return
 
-		if not lastfm.scanning_friends and not lastfm.scanning_scrobbles and not lastfm.scanning_loves:
-			shoot_dl = threading.Thread(target=lastfm.get_all_scrobbles)
+		if not self.lastfm.scanning_friends and not self.lastfm.scanning_scrobbles and not self.lastfm.scanning_loves:
+			shoot_dl = threading.Thread(target=self.lastfm.get_all_scrobbles)
 			shoot_dl.daemon = True
 			shoot_dl.start()
 		else:
@@ -15605,17 +15606,17 @@ class Over:
 				_("Press again while holding Shift if you understand"), mode="warning")
 			return
 
-		if not lastfm.scanning_friends and not lastfm.scanning_scrobbles and not lastfm.scanning_loves:
+		if not self.lastfm.scanning_friends and not self.lastfm.scanning_scrobbles and not self.lastfm.scanning_loves:
 			logging.info("Launch friend love thread")
-			shoot_dl = threading.Thread(target=lastfm.get_friends_love)
+			shoot_dl = threading.Thread(target=self.lastfm.get_friends_love)
 			shoot_dl.daemon = True
 			shoot_dl.start()
 		else:
 			show_message(_("A process is already running. Wait for it to finish."))
 
 	def get_user_love(self) -> None:
-		if not lastfm.scanning_friends and not lastfm.scanning_scrobbles and not lastfm.scanning_loves:
-			shoot_dl = threading.Thread(target=lastfm.dl_love)
+		if not self.lastfm.scanning_friends and not self.lastfm.scanning_scrobbles and not self.lastfm.scanning_loves:
+			shoot_dl = threading.Thread(target=self.lastfm.dl_love)
 			shoot_dl.daemon = True
 			shoot_dl.start()
 		else:
@@ -17775,11 +17776,10 @@ class TopPanel:
 			text = _("Buffering... ")
 			text += gui.buffering_text
 			bg = [18, 180, 180, 255]
-
 		elif tauon.lfm_scrobbler.queue and tauon.scrobble_warning_timer.get() < 260:
 			text = _("Network error. Will try again later.")
 			bg = [250, 250, 250, 255]
-			last_fm_icon.render(x - 4 * gui.scale, y + 4 * gui.scale, [250, 40, 40, 255])
+			gui.last_fm_icon.render(x - 4 * gui.scale, y + 4 * gui.scale, [250, 40, 40, 255])
 			x += 21 * gui.scale
 		elif tauon.listen_alongers:
 			new = {}
@@ -22594,7 +22594,8 @@ class PlaylistBox:
 
 class ArtistList:
 	def __init__(self, tauon: Tauon) -> None:
-		self.tauon = tauon
+		self.tauon  = tauon
+		self.lastfm = tauon.lastfm
 		self.tab_h = round(60 * tauon.gui.scale)
 		self.thumb_size = round(55 * tauon.gui.scale)
 
@@ -22705,7 +22706,7 @@ class ArtistList:
 			try:
 				# Lookup artist info on last.fm
 				logging.info("lastfm lookup artist: " + artist)
-				mbid = lastfm.artist_mbid(artist)
+				mbid = self.lastfm.artist_mbid(artist)
 				tauon.get_lfm_wait_timer.set()
 				# if data[0] is not False:
 				#     #cover_link = data[2]
@@ -41251,8 +41252,7 @@ def main(holder: Holder) -> None:
 	theme_files.sort()
 
 
-	last_fm_icon = asset_loader(bag, loaded_asset_dc, "as.png", True)
-	lastfm_icon = MenuIcon(last_fm_icon)
+	lastfm_icon = MenuIcon(gui.last_fm_icon)
 
 	if gui.scale == 2 or gui.scale == 1.25:
 		lastfm_icon.xoff = 0
