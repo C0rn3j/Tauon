@@ -1718,7 +1718,7 @@ class PlayerCtl:
 			self.tauon.thread_manager.ready("worker")
 
 		if self.prefs.album_mode:
-			reload_albums(True)
+			self.tauon.reload_albums(True)
 			if id in self.gui.gallery_positions:
 				self.gui.album_scroll_px = self.gui.gallery_positions[id]
 			else:
@@ -1876,7 +1876,7 @@ class PlayerCtl:
 			self.gui.shift_selection = [self.selected_in_playlist]
 
 			if self.prefs.album_mode:
-				reload_albums(True)
+				self.tauon.reload_albums(True)
 				goto_album(self.playlist_view_position)
 
 		# Re-set the playing playlist number by uid
@@ -5477,6 +5477,221 @@ class Tauon:
 
 		self.tls_context = bag.tls_context
 
+	def gen_power2(self) -> list[PowerTag]:
+		tags = {}  # [tag name]: (first position, number of times we saw it)
+		tag_list = []
+
+		last = "a"
+		noise = 0
+
+		def key(tag):
+			return tags[tag][1]
+
+		for position in album_dex:
+			index = self.pctl.default_playlist[position]
+			track = self.pctl.get_track(index)
+
+			crumbs = track.parent_folder_path.split("/")
+
+			for i, b in enumerate(crumbs):
+				if i > 0 and (track.artist in b and track.artist):
+					tag = crumbs[i - 1]
+
+					if tag != last:
+						noise += 1
+					last = tag
+
+					if tag in tags:
+						tags[tag][1] += 1
+					else:
+						tags[tag] = [position, 1, "/".join(crumbs[:i])]
+						tag_list.append(tag)
+					break
+
+		if noise > len(album_dex) / 2:
+			#logging.info("Playlist is too noisy for power bar.")
+			return []
+
+		tag_list_sort = sorted(tag_list, key=key, reverse=True)
+
+		max_tags = round((self.window_size[1] - self.gui.panelY - self.gui.panelBY - 10) // 30 * self.gui.scale)
+
+		tag_list_sort = tag_list_sort[:max_tags]
+
+		for i in reversed(range(len(tag_list))):
+			if tag_list[i] not in tag_list_sort:
+				del tag_list[i]
+
+		h: list[PowerTag] = []
+
+		for tag in tag_list:
+			if tags[tag][1] > 2:
+				t = PowerTag()
+				t.path = tags[tag][2]
+				t.name = tag.upper()
+				t.position = tags[tag][0]
+				h.append(t)
+
+		cc = random.random()
+		cj = 0.03
+		if len(h) < 5:
+			cj = 0.11
+
+		cj = 0.5 / max(len(h), 2)
+
+		for item in h:
+			item.colour = hsl_to_rgb(cc, 0.8, 0.7)
+			cc += cj
+
+		return h
+
+	def reload_albums(self, quiet: bool = False, return_playlist: int = -1, custom_list=None) -> list[int] | None:
+		global album_dex
+
+		if self.cm_clean_db:
+			# Doing reload while things are being removed may cause crash
+			return None
+
+		dex = []
+		current_folder = ""
+		current_album = ""
+		current_artist = ""
+		current_date = ""
+		current_title = ""
+
+		if custom_list is not None:
+			playlist = custom_list
+		else:
+			target_pl_no = self.pctl.active_playlist_viewing
+			if return_playlist > -1:
+				target_pl_no = return_playlist
+
+			playlist = self.pctl.multi_playlist[target_pl_no].playlist_ids
+
+		for i in range(len(playlist)):
+			tr = self.pctl.master_library[playlist[i]]
+
+			split = False
+			if i == 0:
+				split = True
+			elif tr.parent_folder_path != current_folder and tr.date and tr.date != current_date:
+				split = True
+			elif self.prefs.gallery_combine_disc and "Disc" in tr.album and "Disc" in current_album and tr.album.split("Disc")[0].rstrip(" ") == current_album.split("Disc")[0].rstrip(" "):
+				split = False
+			elif self.prefs.gallery_combine_disc and "CD" in tr.album and "CD" in current_album and tr.album.split("CD")[0].rstrip() == current_album.split("CD")[0].rstrip():
+				split = False
+			elif self.prefs.gallery_combine_disc and "cd" in tr.album and "cd" in current_album and tr.album.split("cd")[0].rstrip() == current_album.split("cd")[0].rstrip():
+				split = False
+			elif tr.album and tr.album == current_album and self.prefs.gallery_combine_disc:
+				split = False
+			elif tr.parent_folder_path != current_folder or current_title != tr.parent_folder_name:
+				split = True
+
+			if split:
+				dex.append(i)
+				current_folder = tr.parent_folder_path
+				current_title = tr.parent_folder_name
+				current_album = tr.album
+				current_date = tr.date
+				current_artist = tr.artist
+
+		if return_playlist > -1 or custom_list:
+			return dex
+
+		album_dex = dex
+		self.album_info_cache.clear()
+		self.gui.update += 2
+		self.gui.pl_update = 1
+		self.gui.update_layout = True
+
+		if not quiet:
+			goto_album(self.pctl.playlist_playing_position)
+
+		# Generate POWER BAR
+		self.gui.power_bar = self.gen_power2()
+		self.gui.pt = 0
+
+	def reload_backend(self) -> None:
+		self.gui.backend_reloading = True
+		logging.info("Reload backend...")
+		wait = 0
+		pre_state = self.pctl.stop(True)
+
+		while self.pctl.playerCommandReady:
+			time.sleep(0.01)
+			wait += 1
+			if wait > 20:
+				break
+		if self.thread_manager.player_lock.locked():
+			try:
+				self.thread_manager.player_lock.release()
+			except RuntimeError as e:
+				if str(e) == "release unlocked lock":
+					logging.error("RuntimeError: Attempted to release already unlocked player_lock")
+				else:
+					logging.exception("Unknown RuntimeError trying to release player_lock")
+			except Exception:
+				logging.exception("Unknown error trying to release player_lock")
+
+		pctl.playerCommand = "unload"
+		pctl.playerCommandReady = True
+
+		wait = 0
+		while self.pctl.playerCommand != "done":
+			time.sleep(0.01)
+			wait += 1
+			if wait > 200:
+				break
+
+		self.thread_manager.ready_playback()
+
+		if pre_state == 1:
+			pctl.revert()
+		gui.backend_reloading = False
+
+	def gen_chart(self) -> None:
+		try:
+			topchart = t_topchart.TopChart(self)
+
+			tracks = []
+
+			source_tracks = self.pctl.multi_playlist[self.pctl.active_playlist_viewing].playlist_ids
+
+			if prefs.topchart_sorts_played:
+				source_tracks = gen_folder_top(0, custom_list=source_tracks)
+				dex = self.reload_albums(quiet=True, custom_list=source_tracks)
+			else:
+				dex = self.reload_albums(quiet=True, return_playlist=self.pctl.active_playlist_viewing)
+
+			for item in dex:
+				tracks.append(self.pctl.get_track(source_tracks[item]))
+
+			cascade = False
+			if self.prefs.chart_cascade:
+				cascade = (
+					(self.prefs.chart_c1, self.prefs.chart_c2, self.prefs.chart_c3),
+					(self.prefs.chart_d1, self.prefs.chart_d2, self.prefs.chart_d3))
+
+			path = topchart.generate(
+				tracks, self.prefs.chart_bg, self.prefs.chart_rows, self.prefs.chart_columns, self.prefs.chart_text,
+				self.prefs.chart_font, self.prefs.chart_tile, cascade)
+
+		except Exception:
+			logging.exception("There was an error generating the chart")
+			gui.generating_chart = False
+			show_message(_("There was an error generating the chart"), _("Sorry!"), mode="error")
+			return
+
+		self.gui.generating_chart = False
+
+		if path:
+			open_file(path)
+		else:
+			show_message(_("There was an error generating the chart"), _("Sorry!"), mode="error")
+			return
+
+		show_message(_("Chart generated"), mode="done")
+
 	def notify_song_fire(self, notification, delay: float, id) -> None:
 		time.sleep(delay)
 		notification.show()
@@ -7099,7 +7314,7 @@ class Tauon:
 			return self.prefs.gallery_combine_disc
 
 		self.prefs.gallery_combine_disc ^= True
-		reload_albums()
+		self.reload_albums()
 
 	def toggle_gallery_click(self, mode: int = 0) -> bool:
 		if mode == 1:
@@ -7962,7 +8177,7 @@ class Tauon:
 				elif clip.startswith("https://open.spotify.com/playlist/"):
 					self.spot_ctl.playlist(link)
 			if self.prefs.album_mode:
-				reload_albums()
+				self.reload_albums()
 			self.gui.pl_update += 1
 			clip = False
 
@@ -8140,7 +8355,7 @@ class Tauon:
 		if album_dex and prefs.album_mode and (pl is None or pl == pctl.active_playlist_viewing):
 			dex = album_dex
 		else:
-			dex = reload_albums(custom_list=playlist)
+			dex = self.reload_albums(custom_list=playlist)
 
 		end = len(playlist)
 		start = 0
@@ -13123,7 +13338,7 @@ class SearchOverlay:
 							pctl.default_playlist.extend(pctl.multi_playlist[pl].playlist_ids)
 						case 12:
 							tauon.spot_ctl.append_track(item[2])
-							reload_albums()
+							tauon.reload_albums()
 
 					gui.pl_update += 1
 				elif show:
@@ -13164,10 +13379,10 @@ class SearchOverlay:
 								pctl.switch_playlist(pl)
 						case 11:
 							tauon.spot_ctl.album_playlist(item[2])
-							reload_albums()
+							tauon.reload_albums()
 						case 12:
 							tauon.spot_ctl.append_track(item[2])
-							reload_albums()
+							tauon.reload_albums()
 
 				if n in (2,) and keymaps.test("add-to-queue") and fade == 1:
 					queue_object = queue_item_gen(
@@ -15848,7 +16063,7 @@ class Over:
 		x = x0 + 260 * gui.scale
 		y = y0 + 180 * gui.scale
 
-		dex = reload_albums(quiet=True, return_playlist=pctl.active_playlist_viewing)
+		dex = tauon.reload_albums(quiet=True, return_playlist=pctl.active_playlist_viewing)
 
 		x = x0 + round(110 * gui.scale)
 		y = y0 + 240 * gui.scale
@@ -15860,7 +16075,7 @@ class Over:
 			elif not prefs.chart_font:
 				show_message(_("No font set in config"), mode="error")
 			else:
-				shoot = threading.Thread(target=gen_chart)
+				shoot = threading.Thread(target=tauon.gen_chart)
 				shoot.daemon = True
 				shoot.start()
 				gui.generating_chart = True
@@ -19756,7 +19971,7 @@ class StandardPlaylist:
 							pctl.selected_in_playlist = gui.shift_selection[0]
 							gui.pl_update += 1
 
-						reload_albums(True)
+						tauon.reload_albums(True)
 						pctl.notify_change()
 
 			# Test show drag indicator
@@ -30181,11 +30396,11 @@ def export_xspf(pl: int, direc: str | None = None, relative: bool = False, show:
 
 def reload(tauon: Tauon) -> None:
 	if tauon.prefs.album_mode:
-		reload_albums(quiet=True)
+		tauon.reload_albums(quiet=True)
 
 	# tauon.tree_view_box.clear_all()
 	# elif gui.combo_mode:
-	#	 reload_albums(quiet=True)
+	#	 tauon.reload_albums(quiet=True)
 	#	 combo_pl_render.prep()
 
 def clear_playlist(tauon: Tauon, index: int) -> None:
@@ -30488,7 +30703,7 @@ def imported_sort(pl: int) -> None:
 	og = pctl.multi_playlist[pl].playlist_ids
 	og.sort(key=lambda x: pctl.get_track(x).index)
 
-	reload_albums()
+	tauon.reload_albums()
 	tauon.tree_view_box.clear_target_pl(pl)
 
 def imported_sort_folders(pl: int) -> None:
@@ -30507,7 +30722,7 @@ def imported_sort_folders(pl: int) -> None:
 
 	og.sort(key=lambda x: first_occurrences[pctl.get_track(x).parent_folder_path])
 
-	reload_albums()
+	tauon.reload_albums()
 	tauon.tree_view_box.clear_target_pl(pl)
 
 def standard_sort(pl: int) -> None:
@@ -30517,7 +30732,7 @@ def standard_sort(pl: int) -> None:
 
 	tauon.sort_path_pl(pl)
 	tauon.sort_track_2(pl)
-	reload_albums()
+	tauon.reload_albums()
 	tauon.tree_view_box.clear_target_pl(pl)
 
 def year_s(plt):
@@ -30595,7 +30810,7 @@ def year_sort(pl: int, custom_list=None):
 
 	# We can't just assign the playlist because it may disconnect the 'pointer' pctl.default_playlist
 	pctl.multi_playlist[pl].playlist_ids[:] = pl2[:]
-	reload_albums()
+	tauon.reload_albums()
 	tauon.tree_view_box.clear_target_pl(pl)
 
 def pl_toggle_playlist_break(ref):
@@ -32744,7 +32959,7 @@ def lightning_paste():
 
 	if prefs.album_mode:
 		prep_gal()
-		reload_albums(True)
+		tauon.reload_albums(True)
 
 	pctl.cargo.clear()
 	gui.lightning_copy = False
@@ -33072,7 +33287,7 @@ def delete_folder(index, force=False):
 
 		if prefs.album_mode:
 			prep_gal()
-			reload_albums()
+			tauon.reload_albums()
 
 	except Exception:
 		if force:
@@ -34433,7 +34648,7 @@ def toggle_album_mode(tauon: Tauon, force_on: bool = False) -> None:
 		gui.pl_update = True
 		gui.update_layout = True
 
-	reload_albums(quiet=True)
+	tauon.reload_albums(quiet=True)
 
 	# if pctl.active_playlist_playing == pctl.active_playlist_viewing:
 	# goto_album(pctl.playlist_playing_position)
@@ -34531,7 +34746,7 @@ def import_spotify_playlist() -> None:
 			tauon.spot_ctl.playlist(line)
 
 	if prefs.album_mode:
-		reload_albums()
+		tauon.reload_albums()
 	gui.pl_update += 1
 
 def import_spotify_playlist_deco():
@@ -36960,9 +37175,9 @@ def worker1(tauon: Tauon) -> None:
 				_("Cleaning complete."),
 				_("{N} items were removed from the database.").format(N=str(items_removed)), mode="done")
 			if prefs.album_mode:
-				reload_albums(True)
+				tauon.reload_albums(True)
 			if gui.combo_mode:
-				reload_albums()
+				tauon.reload_albums()
 
 			gui.update = 1
 			gui.pl_update = 1
@@ -37200,224 +37415,6 @@ def gal_jump_select(up=False, num=1):
 			pctl.selected_in_playlist = max(tauon.get_album_info(on)[1][0], 0)
 			num -= 1
 
-def gen_power2():
-	tags = {}  # [tag name]: (first position, number of times we saw it)
-	tag_list = []
-
-	last = "a"
-	noise = 0
-
-	def key(tag):
-		return tags[tag][1]
-
-	for position in album_dex:
-
-		index = pctl.default_playlist[position]
-		track = pctl.get_track(index)
-
-		crumbs = track.parent_folder_path.split("/")
-
-		for i, b in enumerate(crumbs):
-
-			if i > 0 and (track.artist in b and track.artist):
-				tag = crumbs[i - 1]
-
-				if tag != last:
-					noise += 1
-				last = tag
-
-				if tag in tags:
-					tags[tag][1] += 1
-				else:
-					tags[tag] = [position, 1, "/".join(crumbs[:i])]
-					tag_list.append(tag)
-				break
-
-	if noise > len(album_dex) / 2:
-		#logging.info("Playlist is too noisy for power bar.")
-		return []
-
-	tag_list_sort = sorted(tag_list, key=key, reverse=True)
-
-	max_tags = round((window_size[1] - gui.panelY - gui.panelBY - 10) // 30 * gui.scale)
-
-	tag_list_sort = tag_list_sort[:max_tags]
-
-	for i in reversed(range(len(tag_list))):
-		if tag_list[i] not in tag_list_sort:
-			del tag_list[i]
-
-	h = []
-
-	for tag in tag_list:
-
-		if tags[tag][1] > 2:
-			t = PowerTag()
-			t.path = tags[tag][2]
-			t.name = tag.upper()
-			t.position = tags[tag][0]
-			h.append(t)
-
-	cc = random.random()
-	cj = 0.03
-	if len(h) < 5:
-		cj = 0.11
-
-	cj = 0.5 / max(len(h), 2)
-
-	for item in h:
-		item.colour = hsl_to_rgb(cc, 0.8, 0.7)
-		cc += cj
-
-	return h
-
-def reload_albums(tauon: Tauon, quiet: bool = False, return_playlist: int = -1, custom_list=None) -> list[int] | None:
-	global album_dex
-
-	if tauon.cm_clean_db:
-		# Doing reload while things are being removed may cause crash
-		return None
-
-	dex = []
-	current_folder = ""
-	current_album = ""
-	current_artist = ""
-	current_date = ""
-	current_title = ""
-
-	if custom_list is not None:
-		playlist = custom_list
-	else:
-		target_pl_no = pctl.active_playlist_viewing
-		if return_playlist > -1:
-			target_pl_no = return_playlist
-
-		playlist = pctl.multi_playlist[target_pl_no].playlist_ids
-
-	for i in range(len(playlist)):
-		tr = pctl.master_library[playlist[i]]
-
-		split = False
-		if i == 0:
-			split = True
-		elif tr.parent_folder_path != current_folder and tr.date and tr.date != current_date:
-			split = True
-		elif prefs.gallery_combine_disc and "Disc" in tr.album and "Disc" in current_album and tr.album.split("Disc")[0].rstrip(" ") == current_album.split("Disc")[0].rstrip(" "):
-			split = False
-		elif prefs.gallery_combine_disc and "CD" in tr.album and "CD" in current_album and tr.album.split("CD")[0].rstrip() == current_album.split("CD")[0].rstrip():
-			split = False
-		elif prefs.gallery_combine_disc and "cd" in tr.album and "cd" in current_album and tr.album.split("cd")[0].rstrip() == current_album.split("cd")[0].rstrip():
-			split = False
-		elif tr.album and tr.album == current_album and prefs.gallery_combine_disc:
-			split = False
-		elif tr.parent_folder_path != current_folder or current_title != tr.parent_folder_name:
-			split = True
-
-		if split:
-			dex.append(i)
-			current_folder = tr.parent_folder_path
-			current_title = tr.parent_folder_name
-			current_album = tr.album
-			current_date = tr.date
-			current_artist = tr.artist
-
-	if return_playlist > -1 or custom_list:
-		return dex
-
-	album_dex = dex
-	tauon.album_info_cache.clear()
-	gui.update += 2
-	gui.pl_update = 1
-	gui.update_layout = True
-
-	if not quiet:
-		goto_album(pctl.playlist_playing_position)
-
-	# Generate POWER BAR
-	gui.power_bar = gen_power2()
-	gui.pt = 0
-
-def reload_backend() -> None:
-	gui.backend_reloading = True
-	logging.info("Reload backend...")
-	wait = 0
-	pre_state = pctl.stop(True)
-
-	while pctl.playerCommandReady:
-		time.sleep(0.01)
-		wait += 1
-		if wait > 20:
-			break
-	if tauon.thread_manager.player_lock.locked():
-		try:
-			tauon.thread_manager.player_lock.release()
-		except RuntimeError as e:
-			if str(e) == "release unlocked lock":
-				logging.error("RuntimeError: Attempted to release already unlocked player_lock")
-			else:
-				logging.exception("Unknown RuntimeError trying to release player_lock")
-		except Exception:
-			logging.exception("Unknown error trying to release player_lock")
-
-	pctl.playerCommand = "unload"
-	pctl.playerCommandReady = True
-
-	wait = 0
-	while pctl.playerCommand != "done":
-		time.sleep(0.01)
-		wait += 1
-		if wait > 200:
-			break
-
-	tauon.thread_manager.ready_playback()
-
-	if pre_state == 1:
-		pctl.revert()
-	gui.backend_reloading = False
-
-def gen_chart() -> None:
-	try:
-		topchart = t_topchart.TopChart(tauon)
-
-		tracks = []
-
-		source_tracks = pctl.multi_playlist[pctl.active_playlist_viewing].playlist_ids
-
-		if prefs.topchart_sorts_played:
-			source_tracks = gen_folder_top(0, custom_list=source_tracks)
-			dex = reload_albums(quiet=True, custom_list=source_tracks)
-		else:
-			dex = reload_albums(quiet=True, return_playlist=pctl.active_playlist_viewing)
-
-		for item in dex:
-			tracks.append(pctl.get_track(source_tracks[item]))
-
-		cascade = False
-		if prefs.chart_cascade:
-			cascade = (
-				(prefs.chart_c1, prefs.chart_c2, prefs.chart_c3),
-				(prefs.chart_d1, prefs.chart_d2, prefs.chart_d3))
-
-		path = topchart.generate(
-			tracks, prefs.chart_bg, prefs.chart_rows, prefs.chart_columns, prefs.chart_text,
-			prefs.chart_font, prefs.chart_tile, cascade)
-
-	except Exception:
-		logging.exception("There was an error generating the chart")
-		gui.generating_chart = False
-		show_message(_("There was an error generating the chart"), _("Sorry!"), mode="error")
-		return
-
-	gui.generating_chart = False
-
-	if path:
-		open_file(path)
-	else:
-		show_message(_("There was an error generating the chart"), _("Sorry!"), mode="error")
-		return
-
-	show_message(_("Chart generated"), mode="done")
-
 def update_playlist_call():
 	gui.update + 2
 	gui.pl_update = 2
@@ -37610,7 +37607,7 @@ def create_artist_pl(artist: str, replace: bool = False):
 		pctl.multi_playlist[this_pl].playlist_ids[:] = playlist[:]
 		pctl.multi_playlist[this_pl].title = _("Artist: ") + artist
 		if prefs.album_mode:
-			reload_albums()
+			tauon.reload_albums()
 
 		# Transfer playing track back to original playlist
 		if pctl.multi_playlist[this_pl].parent_playlist_id:
@@ -41318,8 +41315,6 @@ def main(holder: Holder) -> None:
 	gui.pt_off = Timer()
 	gui.pt = 0
 
-	tauon.reload_albums = reload_albums
-
 	# ------------------------------------------------------------------------------------
 	# WEBSERVER
 	if prefs.enable_web is True:
@@ -43450,7 +43445,7 @@ def main(holder: Holder) -> None:
 												gui.pl_update += 1
 												gui.playlist_hold = False
 
-												reload_albums(True)
+												tauon.reload_albums(True)
 												pctl.notify_change()
 										elif not gui.side_drag and is_level_zero():
 											if coll_point(inp.click_location, rect) and gui.panelY < inp.mouse_position[1] < \
@@ -43533,7 +43528,7 @@ def main(holder: Holder) -> None:
 															for i in range(len(pctl.default_playlist)):
 																if pctl.get_track(pctl.default_playlist[i]).parent_folder_path == parent:
 																	pctl.multi_playlist[pl].playlist_ids.append(pctl.default_playlist[i])
-													reload_albums(True)
+													tauon.reload_albums(True)
 												else:
 													pctl.selected_in_playlist = album_dex[album_on]
 													# playlist_position = pctl.playlist_selected
