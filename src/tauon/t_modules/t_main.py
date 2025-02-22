@@ -1879,7 +1879,7 @@ class PlayerCtl:
 		if len(self.multi_playlist) == 1:
 			logging.warning("Deleting final playlist and creating a new Default one")
 			self.multi_playlist.clear()
-			self.multi_playlist.append(pl_gen())
+			self.multi_playlist.append(self.tauon.pl_gen())
 			self.default_playlist = self.multi_playlist[0].playlist_ids
 			self.active_playlist_playing = 0
 			return
@@ -4514,7 +4514,7 @@ class MenuItem:
 		self.sub_menu_width = sub_menu_width
 
 class ThreadManager:
-	def __init__(self, tauon: Tauon):
+	def __init__(self, tauon: Tauon) -> None:
 		self.prefs = tauon.bag.prefs
 		self.tauon = tauon
 		self.worker1:  threading.Thread | None = None  # Artist list, download monitor, folder move, importing, db cleaning, transcoding
@@ -4525,7 +4525,7 @@ class ThreadManager:
 
 		self.d: dict = {}
 
-	def ready(self, type):
+	def ready(self, type: str) -> None:
 		if self.d[type][2] is None or not self.d[type][2].is_alive():
 			shoot = threading.Thread(target=self.d[type][0], args=self.d[type][1])
 			shoot.daemon = True
@@ -5423,6 +5423,8 @@ class Tauon:
 		self.thread_manager: ThreadManager | None = None # Avoid NameError
 		self.thread_manager:        ThreadManager = ThreadManager(tauon=self)
 		self.album_mode_art_size                  = bag.album_mode_art_size
+		self.artist_picture_render                = PictureRender(tauon=self)
+		self.artist_preview_render                = PictureRender(tauon=self)
 		self.pctl                                 = PlayerCtl(tauon=self)
 		self.artist_info_box                      = self.pctl.artist_info_box
 		self.draw                                 = self.pctl.draw
@@ -5517,13 +5519,11 @@ class Tauon:
 		self.whicher                              = whicher
 		self.load_orders:         list[LoadClass] = bag.load_orders
 		self.switch_playlist                      = None
-		self.open_uri                             = open_uri
 		self.album_info_cache                     = {}
 		self.album_info_cache_key                 = (-1, -1)
 		self.album_mode:                     bool = False
 		self.console                              = bag.console
 		self.TrackClass                           = TrackClass
-		self.pl_gen                               = pl_gen
 		self.gall_ren                             = GallClass(tauon=self, size=self.album_mode_art_size)
 		self.QuickThumbnail                       = QuickThumbnail
 		self.thumb_tracks                         = ThumbTracks(tauon=self)
@@ -5588,6 +5588,174 @@ class Tauon:
 		self.subsonic          = self.album_star_store.subsonic
 
 		self.tls_context = bag.tls_context
+
+	def pl_gen(self,
+		title:        str = "Default",
+		playing:      int = 0,
+		playlist_ids: list[int] | None = None,
+		position:     int = 0,
+		hide_title:   bool = False,
+		selected:     int = 0,
+		parent:       str = "",
+		hidden:       bool = False,
+		notify:       bool = True, # Allows us to generate initial playlist before worker thread is ready
+	) -> TauonPlaylist:
+		"""Generate a TauonPlaylist
+
+		Creates a default playlist when called without parameters
+		"""
+		if playlist_ids == None:
+			playlist_ids = []
+		if notify:
+			self.pctl.notify_change()
+
+		#return copy.deepcopy([title, playing, playlist, position, hide_title, selected, uid_gen(), [], hidden, False, parent, False])
+		return TauonPlaylist(title=title, playing=playing, playlist_ids=playlist_ids, position=position, hide_title=hide_title, selected=selected, uuid_int=uid_gen(), last_folder=[], hidden=hidden, locked=False, parent_playlist_id=parent, persist_time_positioning=False)
+
+	def open_uri(self, uri: str) -> None:
+		logging.info("OPEN URI")
+		load_order = LoadClass()
+
+		for w in range(len(self.pctl.multi_playlist)):
+			if self.pctl.multi_playlist[w].title == "Default":
+				load_order.playlist = self.pctl.multi_playlist[w].uuid_int
+				break
+		else:
+			logging.warning("'Default' playlist not found, generating a new one!")
+			self.pctl.multi_playlist.append(self.pl_gen())
+			load_order.playlist = self.pctl.multi_playlist[len(self.pctl.multi_playlist) - 1].uuid_int
+			self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
+
+		load_order.target = str(urllib.parse.unquote(uri)).replace("file:///", "/").replace("\r", "")
+
+		if self.gui.auto_play_import is False:
+			load_order.play = True
+			self.gui.auto_play_import = True
+
+		self.load_orders.append(copy.deepcopy(load_order))
+		self.gui.update += 1
+
+	def toast(self, text: str) -> None:
+		self.gui.mode_toast_text = text
+		self.toast_mode_timer.set()
+		self.gui.frame_callback_list.append(TestTimer(1.5))
+
+	def set_artist_preview(self, path, artist, x, y) -> None:
+		m = min(round(500 * self.gui.scale), self.window_size[1] - (self.gui.panelY + self.gui.panelBY + 50 * self.gui.scale))
+		self.artist_preview_render.load(path, box_size=(m, m))
+		self.artist_preview_render.show = True
+		ah = self.artist_preview_render.size[1]
+		ay = round(y) - (ah // 2)
+		if ay < self.gui.panelY + 20 * self.gui.scale:
+			ay = self.gui.panelY + round(20 * self.gui.scale)
+		if ay + ah > self.window_size[1] - (self.gui.panelBY + 5 * self.gui.scale):
+			ay = self.window_size[1] - (self.gui.panelBY + ah + round(5 * self.gui.scale))
+		self.gui.preview_artist = artist
+		self.gui.preview_artist_location = (x + 15 * self.gui.scale, ay)
+
+	def get_artist_preview(self, artist: str, x, y) -> None:
+		# self.show_message(_("Loading artist image..."))
+
+		gui.preview_artist_loading = artist
+		tauon.artist_info_box.get_data(artist, force_dl=True)
+		path = tauon.artist_info_box.get_data(artist, get_img_path=True)
+		if not path:
+			self.show_message(_("No artist image found."))
+			if not prefs.enable_fanart_artist and not verify_discogs():
+				self.show_message(_("No artist image found."), _("No providers are enabled in settings!"), mode="warning")
+			gui.preview_artist_loading = ""
+			return
+		set_artist_preview(path, artist, x, y)
+		gui.message_box = False
+		gui.preview_artist_loading = ""
+
+	def update_set(self) -> None:
+		"""This is used to scale columns when windows is resized or items added/removed"""
+		wid = self.gui.plw - round(16 * self.gui.scale)
+		if self.gui.tracklist_center_mode:
+			wid = self.gui.tracklist_highlight_width - round(16 * self.gui.scale)
+
+		total = 0
+		for item in self.gui.pl_st:
+			if item[2] is False:
+				total += item[1]
+			else:
+				wid -= item[1]
+
+		wid = max(75, wid)
+
+		for i in range(len(self.gui.pl_st)):
+			if self.gui.pl_st[i][2] is False and total:
+				self.gui.pl_st[i][1] = int(round((self.gui.pl_st[i][1] / total) * wid))  # + 1
+
+	def auto_size_columns(self) -> None:
+		fixed_n = 0
+
+		wid = self.gui.plw - round(16 * self.gui.scale)
+		if self.gui.tracklist_center_mode:
+			wid = self.gui.tracklist_highlight_width - round(16 * self.gui.scale)
+
+		total = wid
+		for item in self.gui.pl_st:
+
+			if item[2]:
+				fixed_n += 1
+
+			if item[0] == "Lyrics":
+				item[1] = round(50 * self.gui.scale)
+				total  -= round(50 * self.gui.scale)
+
+			if item[0] == "Rating":
+				item[1] = round(80 * self.gui.scale)
+				total  -= round(80 * self.gui.scale)
+
+			if item[0] == "Starline":
+				item[1] = round(78 * self.gui.scale)
+				total  -= round(78 * self.gui.scale)
+
+			if item[0] == "Time":
+				item[1] = round(58 * self.gui.scale)
+				total  -= round(58 * self.gui.scale)
+
+			if item[0] == "Codec":
+				item[1] = round(58 * self.gui.scale)
+				total  -= round(58 * self.gui.scale)
+
+			if item[0] == "P" or item[0] == "S" or item[0] == "#":
+				item[1] = round(32 * self.gui.scale)
+				total  -= round(32 * self.gui.scale)
+
+			if item[0] == "Date":
+				item[1] = round(55 * self.gui.scale)
+				total  -= round(55 * self.gui.scale)
+
+			if item[0] == "Bitrate":
+				item[1] = round(67 * self.gui.scale)
+				total  -= round(67 * self.gui.scale)
+
+			if item[0] == "❤":
+				item[1] = round(27 * self.gui.scale)
+				total  -= round(27 * self.gui.scale)
+
+		vr = len(self.gui.pl_st) - fixed_n
+
+		if vr > 0 and total > 50:
+			space = round(total / vr)
+
+			for item in gui.pl_st:
+				if not item[2]:
+					item[1] = space
+
+		self.gui.pl_update += 1
+		self.update_set()
+
+	def set_colour(self, colour: list[int]) -> None:
+		sdl3.SDL_SetRenderDrawColor(self.renderer, colour[0], colour[1], colour[2], colour[3])
+
+	# 2025-02-02 - commented out as it was not used
+	#def advance_theme() -> None:
+	#	prefs.theme += 1
+	#	gui.reload_theme = True
 
 	def reload_metadata(self, input: int | list, keep_star: bool = True) -> None:
 		# vacuum_playtimes(index)
@@ -9399,7 +9567,7 @@ class Tauon:
 		self.top_panel.prime_side = 1
 		self.top_panel.prime_tab = len(self.pctl.multi_playlist)
 
-		self.pctl.multi_playlist.append(pl_gen(title=title))  # [title, 0, [], 0, 0, 0])
+		self.pctl.multi_playlist.append(self.pl_gen(title=title))  # [title, 0, [], 0, 0, 0])
 		if switch:
 			self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 		return len(self.pctl.multi_playlist) - 1
@@ -9614,9 +9782,10 @@ class Tauon:
 class PlexService:
 
 	def __init__(self, tauon: Tauon) -> None:
+		self.tauon = tauon
 		self.prefs = tauon.prefs
-		self.pctl = tauon.pctl
-		self.gui = tauon.gui
+		self.pctl  = tauon.pctl
+		self.gui   = tauon.gui
 		self.connected = False
 		self.resource = None
 		self.scanning = False
@@ -9755,7 +9924,7 @@ class PlexService:
 		if return_list:
 			return playlist
 
-		self.pctl.multi_playlist.append(pl_gen(title=_("PLEX Collection"), playlist_ids=playlist))
+		self.pctl.multi_playlist.append(self.tauon.pl_gen(title=_("PLEX Collection"), playlist_ids=playlist))
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "plex path"
 		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 
@@ -9998,7 +10167,7 @@ class SubsonicService:
 		if return_list:
 			return playlist
 
-		self.pctl.multi_playlist.append(pl_gen(title=_("Airsonic Collection"), playlist_ids=playlist))
+		self.pctl.multi_playlist.append(self.tauon.pl_gen(title=_("Airsonic Collection"), playlist_ids=playlist))
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "air"
 		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 
@@ -10114,7 +10283,7 @@ class SubsonicService:
 	#	 if return_list:
 	#		 return playlist
 	#
-	#	 pctl.multi_playlist.append(pl_gen(title="Airsonic Collection", playlist_ids=playlist))
+	#	 pctl.multi_playlist.append(self.tauon.pl_gen(title="Airsonic Collection", playlist_ids=playlist))
 	#	 pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "air"
 	#	 pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 
@@ -10316,7 +10485,7 @@ class KoelService:
 		if return_list:
 			return playlist
 
-		self.pctl.multi_playlist.append(pl_gen(title=_("Koel Collection"), playlist_ids=playlist))
+		self.pctl.multi_playlist.append(self.tauon.pl_gen(title=_("Koel Collection"), playlist_ids=playlist))
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "koel path tn"
 		standard_sort(len(self.pctl.multi_playlist) - 1)
 		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
@@ -10422,7 +10591,7 @@ class TauService:
 			self.processing = False
 			return playlist
 
-		self.pctl.multi_playlist.append(pl_gen(title=name, playlist_ids=playlist))
+		self.pctl.multi_playlist.append(self.tauon.pl_gen(title=name, playlist_ids=playlist))
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "tau path tn"
 		standard_sort(len(self.pctl.multi_playlist) - 1)
 		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
@@ -13873,7 +14042,7 @@ class SearchOverlay:
 		if get_list:
 			return playlist
 
-		self.pctl.multi_playlist.append(pl_gen(
+		self.pctl.multi_playlist.append(self.tauon.pl_gen(
 			title=_("Artist: ") + name,
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
@@ -13896,7 +14065,7 @@ class SearchOverlay:
 		if get_list:
 			return playlist
 
-		self.pctl.multi_playlist.append(pl_gen(
+		self.pctl.multi_playlist.append(self.tauon.pl_gen(
 			title=_("Year: ") + name,
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
@@ -13918,7 +14087,7 @@ class SearchOverlay:
 		if get_list:
 			return playlist
 
-		self.pctl.multi_playlist.append(pl_gen(
+		self.pctl.multi_playlist.append(self.tauon.pl_gen(
 			title=_("Composer: ") + name,
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
@@ -13946,7 +14115,7 @@ class SearchOverlay:
 		if get_list:
 			return playlist
 
-		self.pctl.multi_playlist.append(pl_gen(
+		self.pctl.multi_playlist.append(self.tauon.pl_gen(
 			title=os.path.basename(name).upper(),
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
@@ -13989,7 +14158,7 @@ class SearchOverlay:
 		if get_list:
 			return playlist
 
-		self.pctl.multi_playlist.append(pl_gen(
+		self.pctl.multi_playlist.append(self.tauon.pl_gen(
 			title=_("Genre: ") + name,
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
@@ -23485,12 +23654,13 @@ class PlaylistBox:
 
 class ArtistList:
 	def __init__(self, tauon: Tauon, pctl: PlayerCtl) -> None:
-		self.tauon           = tauon
-		self.ddt             = tauon.ddt
-		self.gui             = tauon.gui
-		self.prefs           = tauon.prefs
-		self.lastfm          = pctl.lastfm
-		self.artist_info_box = pctl.artist_info_box
+		self.tauon                 = tauon
+		self.ddt                   = tauon.ddt
+		self.gui                   = tauon.gui
+		self.prefs                 = tauon.prefs
+		self.lastfm                = pctl.lastfm
+		self.artist_info_box       = pctl.artist_info_box
+		self.artist_preview_render = tauon.artist_preview_render
 		self.tab_h = round(60 * self.gui.scale)
 		self.thumb_size = round(55 * self.gui.scale)
 
@@ -24297,7 +24467,7 @@ class ArtistList:
 		if not self.hover_any:
 			self.gui.preview_artist = ""
 			self.hover_timer.force_set(10)
-			artist_preview_render.show = False
+			self.artist_preview_render.show = False
 			self.hover_on = False
 
 class TreeView:
@@ -24912,7 +25082,7 @@ class QueueBox:
 						playlist.append(part[0])
 
 			self.pctl.multi_playlist.append(
-				pl_gen(
+				self.tauon.pl_gen(
 					title=_("Queued Tracks"),
 					playlist_ids=copy.deepcopy(playlist),
 					hide_title=False))
@@ -25722,7 +25892,9 @@ class MetaBox:
 
 class PictureRender:
 
-	def __init__(self) -> None:
+	def __init__(self, tauon: Tauon) -> None:
+		self.ddt      = tauon.ddt
+		self.renderer = tauon.renderer
 		self.show = False
 		self.path = ""
 
@@ -25732,7 +25904,6 @@ class PictureRender:
 		self.size = (0, 0)
 
 	def load(self, path, box_size=None):
-
 		if not os.path.isfile(path):
 			logging.warning("NO PICTURE FILE TO LOAD")
 			return
@@ -25761,7 +25932,7 @@ class PictureRender:
 			# Convert raw image to sdl texture
 			#logging.info("Create Texture")
 			s_image = self.ddt.load_image(self.image_data)
-			self.texture = sdl3.SDL_CreateTextureFromSurface(renderer, s_image)
+			self.texture = sdl3.SDL_CreateTextureFromSurface(self.renderer, s_image)
 			sdl3.SDL_DestroySurface(s_image)
 			tex_w = pointer(c_float(0))
 			tex_h = pointer(c_float(0))
@@ -25774,15 +25945,16 @@ class PictureRender:
 		if self.texture is not None:
 			self.srect.x = round(x)
 			self.srect.y = round(y)
-			sdl3.SDL_RenderTexture(renderer, self.texture, None, self.srect)
+			sdl3.SDL_RenderTexture(self.renderer, self.texture, None, self.srect)
 			tauon.style_overlay.hole_punches.append(self.srect)
 
 class ArtistInfoBox:
 
 	def __init__(self, tauon: Tauon, pctl: PlayerCtl) -> None:
-		bag       = tauon.bag
-		self.ddt  = tauon.ddt
-		self.pctl = pctl
+		bag                        = tauon.bag
+		self.ddt                   = tauon.ddt
+		self.pctl                  = pctl
+		self.artist_picture_render = tauon.artist_picture_render
 		self.artist_on = None
 		self.min_rq_timer = Timer()
 		self.min_rq_timer.force_set(10)
@@ -25918,8 +26090,8 @@ class ArtistInfoBox:
 			#     self.th = th
 			#     self.w = w
 			p_off = round(5 * self.gui.scale)
-			if artist_picture_render.show and artist_picture_render.srect:
-				p_off += artist_picture_render.srect.w + round(12 * self.gui.scale)
+			if self.artist_picture_render.show and self.artist_picture_render.srect:
+				p_off += self.artist_picture_render.srect.w + round(12 * self.gui.scale)
 
 			text_max_w = w - (round(55 * self.gui.scale) + p_off)
 
@@ -25944,7 +26116,7 @@ class ArtistInfoBox:
 				right -= 15
 				# text_max_w -= 15
 
-			artist_picture_render.draw(x + 20 * self.gui.scale, y + 10 * self.gui.scale)
+			self.artist_picture_render.draw(x + 20 * self.gui.scale, y + 10 * self.gui.scale)
 			width = text_max_w - (text_max_w % 20)
 			if width > 20 * self.gui.scale:
 				self.ddt.text(
@@ -26021,17 +26193,16 @@ class ArtistInfoBox:
 		box_size = (
 		round(self.gui.artist_panel_height - 20 * self.gui.scale) * 2, round(self.gui.artist_panel_height - 20 * self.gui.scale))
 		try:
-
 			if os.path.isfile(text_filepath):
 				logging.info("Load cached bio and image")
 
-				artist_picture_render.show = False
+				self.artist_picture_render.show = False
 
 				for path in image_paths:
 					if os.path.isfile(path):
 						filepath = path
-						artist_picture_render.load(filepath, box_size)
-						artist_picture_render.show = True
+						self.artist_picture_render.load(filepath, box_size)
+						self.artist_picture_render.show = True
 						break
 
 				with open(text_filepath, encoding="utf-8") as f:
@@ -26047,7 +26218,7 @@ class ArtistInfoBox:
 				# . Alt: No artist data has been downloaded (try imply this needs to be manually triggered)
 				self.status = _("No artist data downloaded")
 				self.artist_on = artist
-				artist_picture_render.show = False
+				self.artist_picture_render.show = False
 				self.lock = False
 				return None
 
@@ -26058,7 +26229,7 @@ class ArtistInfoBox:
 			data = lastfm.artist_info(artist)
 			self.text = ""
 			if data[0] is False:
-				artist_picture_render.show = False
+				self.artist_picture_render.show = False
 				self.status = _("No artist bio found")
 				self.artist_on = artist
 				self.lock = False
@@ -26072,25 +26243,25 @@ class ArtistInfoBox:
 			f.close()
 			logging.info("Save bio text")
 
-			artist_picture_render.show = False
+			self.artist_picture_render.show = False
 			if data[3] and prefs.enable_fanart_artist:
 				try:
 					save_fanart_artist_thumb(data[3], img_filepath)
-					artist_picture_render.load(img_filepath, box_size)
+					self.artist_picture_render.load(img_filepath, box_size)
 
-					artist_picture_render.show = True
+					self.artist_picture_render.show = True
 				except Exception:
 					logging.exception("Failed to find image from fanart.tv")
-			if not artist_picture_render.show:
+			if not self.artist_picture_render.show:
 				if verify_discogs():
 					try:
 						save_discogs_artist_thumb(artist, img_filepath_dcg)
-						artist_picture_render.load(img_filepath_dcg, box_size)
+						self.artist_picture_render.load(img_filepath_dcg, box_size)
 
-						artist_picture_render.show = True
+						self.artist_picture_render.show = True
 					except Exception:
 						logging.exception("Failed to find image from discogs")
-			if not artist_picture_render.show and data[4]:
+			if not self.artist_picture_render.show and data[4]:
 				try:
 					r = requests.get(data[4], timeout=10)
 					html = BeautifulSoup(r.text, "html.parser")
@@ -26101,8 +26272,8 @@ class ArtistInfoBox:
 						assert len(r.content) > 1000
 						with open(standard_path, "wb") as f:
 							f.write(r.content)
-						artist_picture_render.load(standard_path, box_size)
-						artist_picture_render.show = True
+						self.artist_picture_render.load(standard_path, box_size)
+						self.artist_picture_render.show = True
 				except Exception:
 					logging.exception("Failed to scrape art")
 
@@ -26130,8 +26301,8 @@ class ArtistInfoBox:
 			#
 			#             #logging.info("written file, now loading...")
 			#
-			#             artist_picture_render.load(filepath, round(self.gui.artist_panel_height - 20 * self.gui.scale))
-			#             artist_picture_render.show = True
+			#             self.artist_picture_render.load(filepath, round(self.gui.artist_panel_height - 20 * self.gui.scale))
+			#             self.artist_picture_render.show = True
 			#
 			#             self.status = "Ready"
 			#             self.gui.update = 2
@@ -26515,7 +26686,9 @@ class RadioView:
 			gui.update += 1
 
 class Showcase:
-	def __init__(self, tauon: Tauon):
+	def __init__(self, tauon: Tauon) -> None:
+		self.tauon         = tauon
+		self.pctl          = tauon.pctl
 		self.showcase_menu = tauon.showcase_menu
 		self.gui           = tauon.gui
 		self.ddt           = tauon.ddt
@@ -26813,9 +26986,9 @@ class Showcase:
 
 			# Define colour for bar
 			if self.gui.vis_4_colour is None:
-				set_colour(
+				self.tauon.set_colour(
 					hsl_to_rgb(
-						0.7 + min(0.15, (bar / 150)) + pctl.total_playtime / 300, min(0.9, 0.7 + (dis / 300)),
+						0.7 + min(0.15, (bar / 150)) + self.pctl.total_playtime / 300, min(0.9, 0.7 + (dis / 300)),
 						min(0.9, 0.7 + (dis / 600))))
 
 			# Define bar size and draw
@@ -27795,179 +27968,12 @@ def no_padding() -> int:
 def uid_gen() -> int:
 	return random.randrange(1, 100000000)
 
-# TODO(Martin): Get rid of this
-notify_change = lambda: None
-
-def pl_gen(
-	title:        str = "Default",
-	playing:      int = 0,
-	playlist_ids: list[int] | None = None,
-	position:     int = 0,
-	hide_title:   bool = False,
-	selected:     int = 0,
-	parent:       str = "",
-	hidden:       bool = False,
-) -> TauonPlaylist:
-	"""Generate a TauonPlaylist
-
-	Creates a default playlist when called without parameters
-	"""
-	if playlist_ids == None:
-		playlist_ids = []
-
-	#TODO(Martin): Change to pctl.notify_change()
-	notify_change()
-
-	#return copy.deepcopy([title, playing, playlist, position, hide_title, selected, uid_gen(), [], hidden, False, parent, False])
-	return TauonPlaylist(title=title, playing=playing, playlist_ids=playlist_ids, position=position, hide_title=hide_title, selected=selected, uuid_int=uid_gen(), last_folder=[], hidden=hidden, locked=False, parent_playlist_id=parent, persist_time_positioning=False)
-
 def queue_item_gen(track_id: int, position: int, pl_id: int, type: int = 0, album_stage: int = 0) -> TauonQueueItem:
 	# type; 0 is track, 1 is album
 	auto_stop = False
 
 	#return [track_id, position, pl_id, type, album_stage, uid_gen(), auto_stop]
 	return TauonQueueItem(track_id=track_id, position=position, playlist_id=pl_id, type=type, album_stage=album_stage, uuid_int=uid_gen(), auto_stop=auto_stop)
-
-def open_uri(uri:str) -> None:
-	logging.info("OPEN URI")
-	load_order = LoadClass()
-
-	for w in range(len(pctl.multi_playlist)):
-		if pctl.multi_playlist[w].title == "Default":
-			load_order.playlist = pctl.multi_playlist[w].uuid_int
-			break
-	else:
-		logging.warning("'Default' playlist not found, generating a new one!")
-		pctl.multi_playlist.append(pl_gen())
-		load_order.playlist = pctl.multi_playlist[len(pctl.multi_playlist) - 1].uuid_int
-		pctl.switch_playlist(len(pctl.multi_playlist) - 1)
-
-	load_order.target = str(urllib.parse.unquote(uri)).replace("file:///", "/").replace("\r", "")
-
-	if gui.auto_play_import is False:
-		load_order.play = True
-		gui.auto_play_import = True
-
-	tauon.load_orders.append(copy.deepcopy(load_order))
-	gui.update += 1
-
-def toast(text: str) -> None:
-	gui.mode_toast_text = text
-	tauon.toast_mode_timer.set()
-	gui.frame_callback_list.append(TestTimer(1.5))
-
-def set_artist_preview(path, artist, x, y):
-	m = min(round(500 * gui.scale), window_size[1] - (gui.panelY + gui.panelBY + 50 * gui.scale))
-	artist_preview_render.load(path, box_size=(m, m))
-	artist_preview_render.show = True
-	ah = artist_preview_render.size[1]
-	ay = round(y) - (ah // 2)
-	if ay < gui.panelY + 20 * gui.scale:
-		ay = gui.panelY + round(20 * gui.scale)
-	if ay + ah > window_size[1] - (gui.panelBY + 5 * gui.scale):
-		ay = window_size[1] - (gui.panelBY + ah + round(5 * gui.scale))
-	gui.preview_artist = artist
-	gui.preview_artist_location = (x + 15 * gui.scale, ay)
-
-def get_artist_preview(artist: str, x, y) -> None:
-	# self.show_message(_("Loading artist image..."))
-
-	gui.preview_artist_loading = artist
-	tauon.artist_info_box.get_data(artist, force_dl=True)
-	path = tauon.artist_info_box.get_data(artist, get_img_path=True)
-	if not path:
-		self.show_message(_("No artist image found."))
-		if not prefs.enable_fanart_artist and not verify_discogs():
-			self.show_message(_("No artist image found."), _("No providers are enabled in settings!"), mode="warning")
-		gui.preview_artist_loading = ""
-		return
-	set_artist_preview(path, artist, x, y)
-	gui.message_box = False
-	gui.preview_artist_loading = ""
-
-def update_set(tauon: Tauon) -> None:
-	"""This is used to scale columns when windows is resized or items added/removed"""
-	gui = tauon.gui
-	wid = gui.plw - round(16 * gui.scale)
-	if gui.tracklist_center_mode:
-		wid = gui.tracklist_highlight_width - round(16 * gui.scale)
-
-	total = 0
-	for item in gui.pl_st:
-		if item[2] is False:
-			total += item[1]
-		else:
-			wid -= item[1]
-
-	wid = max(75, wid)
-
-	for i in range(len(gui.pl_st)):
-		if gui.pl_st[i][2] is False and total:
-			gui.pl_st[i][1] = int(round((gui.pl_st[i][1] / total) * wid))  # + 1
-
-def auto_size_columns():
-	fixed_n = 0
-
-	wid = gui.plw - round(16 * gui.scale)
-	if gui.tracklist_center_mode:
-		wid = gui.tracklist_highlight_width - round(16 * gui.scale)
-
-	total = wid
-	for item in gui.pl_st:
-
-		if item[2]:
-			fixed_n += 1
-
-		if item[0] == "Lyrics":
-			item[1] = round(50 * gui.scale)
-			total -= round(50 * gui.scale)
-
-		if item[0] == "Rating":
-			item[1] = round(80 * gui.scale)
-			total -= round(80 * gui.scale)
-
-		if item[0] == "Starline":
-			item[1] = round(78 * gui.scale)
-			total -= round(78 * gui.scale)
-
-		if item[0] == "Time":
-			item[1] = round(58 * gui.scale)
-			total -= round(58 * gui.scale)
-
-		if item[0] == "Codec":
-			item[1] = round(58 * gui.scale)
-			total -= round(58 * gui.scale)
-
-		if item[0] == "P" or item[0] == "S" or item[0] == "#":
-			item[1] = round(32 * gui.scale)
-			total -= round(32 * gui.scale)
-
-		if item[0] == "Date":
-			item[1] = round(55 * gui.scale)
-			total -= round(55 * gui.scale)
-
-		if item[0] == "Bitrate":
-			item[1] = round(67 * gui.scale)
-			total -= round(67 * gui.scale)
-
-		if item[0] == "❤":
-			item[1] = round(27 * gui.scale)
-			total -= round(27 * gui.scale)
-
-	vr = len(gui.pl_st) - fixed_n
-
-	if vr > 0 and total > 50:
-		space = round(total / vr)
-
-		for item in gui.pl_st:
-			if not item[2]:
-				item[1] = space
-
-	gui.pl_update += 1
-	update_set()
-
-def set_colour(colour: list[int]) -> None:
-	sdl3.SDL_SetRenderDrawColor(tauon.bag.renderer, colour[0], colour[1], colour[2], colour[3])
 
 def get_themes(dirs: Directories, deco: bool = False) -> list[str] | dict[str, str]:
 	themes: list[str] = []  # full, name
@@ -27997,11 +28003,6 @@ def get_themes(dirs: Directories, deco: bool = False) -> list[str] | dict[str, s
 	if deco:
 		return decos
 	return themes
-
-# 2025-02-02 - commented out as it was not used
-#def advance_theme() -> None:
-#	prefs.theme += 1
-#	gui.reload_theme = True
 
 def get_theme_number(dirs: Directories, name: str) -> int:
 	if name == "Mindaro":
@@ -29657,7 +29658,7 @@ def load_m3u(path: str) -> None:
 
 	if playlist:
 		pctl.multi_playlist.append(
-			pl_gen(title=name, playlist_ids=playlist))
+			self.tauon.pl_gen(title=name, playlist_ids=playlist))
 	if stations:
 		add_stations(stations, name)
 
@@ -29905,7 +29906,7 @@ def load_xspf(path: str) -> None:
 	#logging.info(playlist)
 	if playlist:
 		pctl.multi_playlist.append(
-			pl_gen(title=name, playlist_ids=playlist))
+			self.tauon.pl_gen(title=name, playlist_ids=playlist))
 	gui.update = 1
 
 	# tauon.log("Finished importing XSPF")
@@ -32969,7 +32970,7 @@ def gen_top_rating(index, custom_list=None):
 		return playlist
 
 	pctl.multi_playlist.append(
-		pl_gen(
+		self.tauon.pl_gen(
 			title=pctl.multi_playlist[index].title + add_pl_tag(_("Top Rated Tracks")),
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=True))
@@ -32987,7 +32988,7 @@ def gen_top_100(index, custom_list=None):
 		return playlist
 
 	pctl.multi_playlist.append(
-		pl_gen(
+		self.tauon.pl_gen(
 			title=pctl.multi_playlist[index].title + add_pl_tag(_("Top Played Tracks")),
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=True))
@@ -33046,7 +33047,7 @@ def gen_folder_top(pl: int, get_sets: bool = False, custom_list=None):
 		return playlist
 
 	pctl.multi_playlist.append(
-		pl_gen(
+		self.tauon.pl_gen(
 			title=pctl.multi_playlist[pl].title + add_pl_tag(_("Top Played Albums")),
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
@@ -33095,7 +33096,7 @@ def gen_folder_top_rating(pl: int, get_sets: bool = False, custom_list=None):
 		return playlist
 
 	pctl.multi_playlist.append(
-		pl_gen(
+		self.tauon.pl_gen(
 			title=pctl.multi_playlist[pl].title + add_pl_tag(_("Top Rated Albums")),
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
@@ -33118,7 +33119,7 @@ def gen_lyrics(plpl: int, custom_list=None):
 
 	if len(playlist) > 0:
 		pctl.multi_playlist.append(
-			pl_gen(
+			self.tauon.pl_gen(
 				title=_("Tracks with lyrics"),
 				playlist_ids=copy.deepcopy(playlist),
 				hide_title=False))
@@ -33174,7 +33175,7 @@ def gen_incomplete(plpl: int, custom_list=None):
 	if len(playlist) > 0:
 		self.show_message(_("Note this may include albums that simply have tracks missing an album tag"))
 		pctl.multi_playlist.append(
-			pl_gen(
+			self.tauon.pl_gen(
 				title=pctl.multi_playlist[pl].title + add_pl_tag(_("Incomplete Albums")),
 				playlist_ids=copy.deepcopy(playlist),
 				hide_title=False))
@@ -33194,7 +33195,7 @@ def gen_codec_pl(codec):
 
 	if len(playlist) > 0:
 		pctl.multi_playlist.append(
-			pl_gen(
+			self.tauon.pl_gen(
 				title=_("Codec: ") + codec,
 				playlist_ids=copy.deepcopy(playlist),
 				hide_title=False))
@@ -33250,7 +33251,7 @@ def gen_last_modified(index, custom_list=None, reverse=True):
 		return playlist
 
 	pctl.multi_playlist.append(
-		pl_gen(
+		self.tauon.pl_gen(
 			title=pctl.multi_playlist[index].title + add_pl_tag(_("File Modified")),
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
@@ -33276,7 +33277,7 @@ def gen_love(pl: int, custom_list=None):
 	if len(playlist) > 0:
 		# pctl.multi_playlist.append(["Interesting Comments", 0, copy.deepcopy(playlist), 0, 0, 0])
 		pctl.multi_playlist.append(
-			pl_gen(
+			self.tauon.pl_gen(
 				title=_("Loved"),
 				playlist_ids=copy.deepcopy(playlist),
 				hide_title=False))
@@ -33308,7 +33309,7 @@ def gen_comment(pl: int) -> None:
 	if len(playlist) > 0:
 		# pctl.multi_playlist.append(["Interesting Comments", 0, copy.deepcopy(playlist), 0, 0, 0])
 		pctl.multi_playlist.append(
-			pl_gen(
+			self.tauon.pl_gen(
 				title=_("Interesting Comments"),
 				playlist_ids=copy.deepcopy(playlist),
 				hide_title=False))
@@ -33324,7 +33325,7 @@ def gen_replay(pl: int) -> None:
 
 	if len(playlist) > 0:
 		pctl.multi_playlist.append(
-			pl_gen(
+			self.tauon.pl_gen(
 				title=_("ReplayGain Tracks"),
 				playlist_ids=copy.deepcopy(playlist),
 				hide_title=False))
@@ -33352,7 +33353,7 @@ def gen_sort_len(index: int, custom_list=None):
 	#	 [pctl.multi_playlist[index].title + " <Duration Sorted>", 0, copy.deepcopy(playlist), 0, 1, 0])
 
 	pctl.multi_playlist.append(
-		pl_gen(
+		self.tauon.pl_gen(
 			title=pctl.multi_playlist[index].title + add_pl_tag(_("Duration Sorted")),
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=True))
@@ -33395,7 +33396,7 @@ def gen_folder_duration(pl: int, get_sets: bool = False):
 		playlist += se
 
 	pctl.multi_playlist.append(
-		pl_gen(
+		self.tauon.pl_gen(
 			title=pctl.multi_playlist[pl].title + add_pl_tag(_("Longest Albums")),
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
@@ -33444,7 +33445,7 @@ def gen_sort_date(index: int, rev: bool = False, custom_list=None):
 			line = " <" + str(lowest) + "-" + str(highest) + ">"
 
 	pctl.multi_playlist.append(
-		pl_gen(
+		self.tauon.pl_gen(
 			title=pctl.multi_playlist[index].title + line,
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
@@ -33463,7 +33464,7 @@ def gen_500_random(index: int):
 	random.shuffle(playlist)
 
 	pctl.multi_playlist.append(
-		pl_gen(
+		self.tauon.pl_gen(
 			title=pctl.multi_playlist[index].title + add_pl_tag(_("Shuffled Tracks")),
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=True))
@@ -33496,7 +33497,7 @@ def gen_folder_shuffle(index, custom_list=None):
 		return playlist
 
 	pctl.multi_playlist.append(
-		pl_gen(
+		self.tauon.pl_gen(
 			title=pctl.multi_playlist[index].title + add_pl_tag(_("Shuffled Albums")),
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
@@ -33516,7 +33517,7 @@ def gen_best_random(index: int):
 
 	if len(playlist) > 0:
 		pctl.multi_playlist.append(
-			pl_gen(
+			self.tauon.pl_gen(
 				title=pctl.multi_playlist[index].title + add_pl_tag(_("Lucky Random")),
 				playlist_ids=copy.deepcopy(playlist),
 				hide_title=True))
@@ -33534,7 +33535,7 @@ def gen_reverse(index, custom_list=None):
 		return playlist
 
 	pctl.multi_playlist.append(
-		pl_gen(
+		self.tauon.pl_gen(
 			title=pctl.multi_playlist[index].title + add_pl_tag(_("Reversed")),
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=pctl.multi_playlist[index].hide_title))
@@ -33566,7 +33567,7 @@ def gen_folder_reverse(index: int, custom_list=None):
 		return playlist
 
 	pctl.multi_playlist.append(
-		pl_gen(
+		self.tauon.pl_gen(
 			title=pctl.multi_playlist[index].title + add_pl_tag(_("Reversed Albums")),
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
@@ -33577,7 +33578,7 @@ def gen_dupe(index: int) -> None:
 	playlist = pctl.multi_playlist[index].playlist_ids
 
 	pctl.multi_playlist.append(
-		pl_gen(
+		self.tauon.pl_gen(
 			title=gen_unique_pl_title(pctl.multi_playlist[index].title, _("Duplicate") + " ", 0),
 			playing=pctl.multi_playlist[index].playing,
 			playlist_ids=copy.deepcopy(playlist),
@@ -33593,7 +33594,7 @@ def gen_sort_path(index: int) -> None:
 	playlist = sorted(playlist, key=path)
 
 	pctl.multi_playlist.append(
-		pl_gen(
+		self.tauon.pl_gen(
 			title=pctl.multi_playlist[index].title + add_pl_tag(_("Filepath Sorted")),
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
@@ -33606,7 +33607,7 @@ def gen_sort_artist(index: int) -> None:
 	playlist = sorted(playlist, key=artist)
 
 	pctl.multi_playlist.append(
-		pl_gen(
+		self.tauon.pl_gen(
 			title=pctl.multi_playlist[index].title + add_pl_tag(_("Artist Sorted")),
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
@@ -33619,7 +33620,7 @@ def gen_sort_album(index: int) -> None:
 	playlist = sorted(playlist, key=album)
 
 	pctl.multi_playlist.append(
-		pl_gen(
+		self.tauon.pl_gen(
 			title=pctl.multi_playlist[index].title + add_pl_tag(_("Album Sorted")),
 			playlist_ids=copy.deepcopy(playlist),
 			hide_title=False))
@@ -34877,7 +34878,7 @@ def get_album_spot_active(tr: TrackClass | None = None) -> None:
 		self.show_message(_("Looks like that's the only track in the album"))
 		return
 	pctl.multi_playlist.append(
-		pl_gen(
+		self.tauon.pl_gen(
 			title=f"{pctl.get_track(l[0]).artist} - {pctl.get_track(l[0]).album}",
 			playlist_ids=l,
 			hide_title=False))
@@ -35307,7 +35308,7 @@ def path_stem_to_playlist(path: str, title: str) -> None:
 			if path in pctl.master_library[item].parent_folder_path:
 				playlist.append(item)
 
-	pctl.multi_playlist.append(pl_gen(
+	pctl.multi_playlist.append(self.tauon.pl_gen(
 		title=os.path.basename(title).upper(),
 		playlist_ids=copy.deepcopy(playlist),
 		hide_title=False))
@@ -35375,7 +35376,7 @@ def show_import_music(_: int, tauon: Tauon) -> bool:
 	return tauon.gui.add_music_folder_ready
 
 def import_music():
-	pl = pl_gen(_("Music"))
+	pl = self.tauon.pl_gen(_("Music"))
 	pl.last_folder = [str(music_directory)]
 	pctl.multi_playlist.append(pl)
 	load_order = LoadClass()
@@ -35432,7 +35433,7 @@ def export_database():
 	self.show_message(_("Export complete."), _("Saved as: ") + path, mode="done")
 
 def q_to_playlist():
-	pctl.multi_playlist.append(pl_gen(
+	pctl.multi_playlist.append(self.tauon.pl_gen(
 		title=_("Play History"),
 		playing=0,
 		playlist_ids=list(reversed(copy.deepcopy(pctl.track_queue))),
@@ -37675,7 +37676,7 @@ def create_artist_pl(artist: str, replace: bool = False):
 		pctl.gen_codes[pctl.pl_to_id(this_pl)] = "s\"" + pctl.multi_playlist[source_pl].title + "\" a\"" + artist + "\""
 	else:
 		pctl.multi_playlist.append(
-			pl_gen(
+			self.tauon.pl_gen(
 				title=_("Artist: ") + artist,
 				playlist_ids=playlist,
 				hide_title=False,
@@ -37842,9 +37843,7 @@ def art_metadata_overlay(right, bottom, showc):
 		tag_width = ddt.get_text_w(line, 12) + 12 * gui.scale
 		ddt.rect_a((right - (tag_width + padding), y), (tag_width, 18 * gui.scale), [8, 8, 8, 255])
 		ddt.text(((right) - (6 * gui.scale + padding), y, 1), line, [200, 200, 200, 255], 12, bg=[30, 30, 30, 255])
-
 	else:  # Extended metadata
-
 		line = ""
 		if showc[0] == 1:
 			line += "Embedded"
@@ -38580,7 +38579,7 @@ def update_layout_do(tauon: Tauon):
 			sdl3.SDL_SetRenderTarget(renderer, gui.main_texture_overlay_temp)
 			sdl3.SDL_RenderClear(renderer)
 
-		update_set(tauon=tauon)
+		tauon.update_set()
 
 	if prefs.art_bg:
 		tauon.thread_manager.ready("style")
@@ -39257,8 +39256,8 @@ def main(holder: Holder) -> None:
 	random_mode = False
 	repeat_mode = False
 
-	multi_playlist: list[TauonPlaylist] = [pl_gen()]
-	default_playlist: list[int] = multi_playlist[0].playlist_ids
+	multi_playlist: list[TauonPlaylist] = []
+	default_playlist: list[int] = []
 	playlist_active: int = 0
 
 	# Library and loader Variables--------------------------------------------------------
@@ -40116,6 +40115,9 @@ def main(holder: Holder) -> None:
 	radiobox = tauon.radiobox
 	star_store = tauon.star_store
 	pctl = tauon.pctl
+	if not multi_playlist:
+		multi_playlist = [tauon.pl_gen(notify=False)]
+		default_playlist = multi_playlist[0].playlist_ids
 	pctl.default_playlist = default_playlist
 	deco = tauon.deco
 	deco.get_themes = get_themes
@@ -41061,7 +41063,7 @@ def main(holder: Holder) -> None:
 	# set_menu.add(_("Sort Ascending"), sort_ass, pass_ref=True, disable_test=tauon.view_pl_is_locked, pass_ref_deco=True)
 	# set_menu.add(_("Sort Decending"), sort_dec, pass_ref=True, disable_test=tauon.view_pl_is_locked, pass_ref_deco=True)
 	# set_menu.br()
-	set_menu.add(MenuItem(_("Auto Resize"), auto_size_columns))
+	set_menu.add(MenuItem(_("Auto Resize"), tauon.auto_size_columns))
 	set_menu.add(MenuItem(_("Hide bar"), hide_set_bar))
 	set_menu_hidden.add(MenuItem(_("Show bar"), show_set_bar))
 	set_menu.br()
@@ -41323,8 +41325,6 @@ def main(holder: Holder) -> None:
 	radio_view_scroll     = ScrollBox(tauon=tauon)
 
 	meta_box = MetaBox(tauon=tauon)
-	artist_picture_render = PictureRender()
-	artist_preview_render = PictureRender()
 
 	artist_info_menu.add(MenuItem(_("Download Artist Data"), tauon.artist_info_box.manual_dl, artist_dl_deco, show_test=test_artist_dl))
 	artist_info_menu.add(MenuItem(_("Clear Bio"), flush_artist_bio, pass_ref=True, show_test=inp.test_shift))
@@ -41361,10 +41361,10 @@ def main(holder: Holder) -> None:
 	except Exception:
 		logging.exception("Failed to cast")
 
-	tauon.thread_manager.d["worker"] = [worker1, [tauon], None]
-	tauon.thread_manager.d["search"] = [worker2, [tauon], None]
+	tauon.thread_manager.d["worker"]  = [worker1, [tauon], None]
+	tauon.thread_manager.d["search"]  = [worker2, [tauon], None]
 	tauon.thread_manager.d["gallery"] = [worker3, [tauon], None]
-	tauon.thread_manager.d["style"] = [worker4, [tauon], None]
+	tauon.thread_manager.d["style"]   = [worker4, [tauon], None]
 	tauon.thread_manager.d["radio-thumb"] = [tauon.radio_thumb_gen.loader, [tauon], None]
 
 	tauon.thread_manager.ready("search")
@@ -41400,7 +41400,7 @@ def main(holder: Holder) -> None:
 		if (os.path.isdir(item) or os.path.isfile(item) or "file://" in item) \
 		and not item.endswith(".py") and not item.endswith("tauon.exe") and not item.endswith("tauonmb") \
 		and not item.startswith("-"):
-			open_uri(item)
+			tauon.open_uri(item)
 
 	sdl_version = sdl3.SDL_GetVersion()
 	logging.info("Using SDL version: " + str(sdl_version))
@@ -45559,7 +45559,7 @@ def main(holder: Holder) -> None:
 										if search_over.search_text.text in pctl.master_library[item].parent_folder_path.lower():
 											playlist.append(item)
 									if len(playlist) > 0:
-										pctl.multi_playlist.append(pl_gen(title=tt_title, playlist_ids=copy.deepcopy(playlist)))
+										pctl.multi_playlist.append(tauon.pl_gen(title=tt_title, playlist_ids=copy.deepcopy(playlist)))
 										pctl.switch_playlist(len(pctl.multi_playlist) - 1)
 
 							else:
@@ -45577,7 +45577,7 @@ def main(holder: Holder) -> None:
 									if all(word in line for word in search_terms):
 										playlist.append(item)
 								if len(playlist) > 0:
-									pctl.multi_playlist.append(pl_gen(
+									pctl.multi_playlist.append(tauon.pl_gen(
 										title=_("Search Results"),
 										playlist_ids=copy.deepcopy(playlist)))
 									pctl.gen_codes[pctl.pl_to_id(len(pctl.multi_playlist) - 1)] = "s\"" + pctl.multi_playlist[
