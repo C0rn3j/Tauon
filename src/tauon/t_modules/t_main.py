@@ -377,6 +377,8 @@ class GuiVar:
 
 		self.track_box   = False
 
+		self.move_on_title = False
+
 		self.message_box = False
 		self.message_text = ""
 		self.message_mode = "info"
@@ -686,6 +688,7 @@ class GuiVar:
 		self.tracklist_inset_left = 0
 		self.tracklist_inset_width = 0
 		self.tracklist_highlight_width = 0
+		self.highlight_left = 0
 		self.tracklist_highlight_left = 0
 
 		self.hide_tracklist_in_gallery = False
@@ -12468,9 +12471,8 @@ class AlbumArt:
 				del self.image_cache[0]
 
 			# temp fix
-			global move_on_title
 			self.inp.quick_drag = False
-			move_on_title = False
+			self.gui.move_on_title = False
 			self.gui.playlist_hold = False
 
 		except Exception:
@@ -18419,7 +18421,7 @@ class TopPanel:
 		elif tauon.transcode_list:
 			bg = colours.status_info_text
 			# if inp.key_ctrl_down and inp.key_c_press:
-			# 	del transcode_list[1:]
+			# 	del tauon.transcode_list[1:]
 			# 	gui.tc_cancel = True
 			if inp.right_click and tauon.coll([x, y, 280 * gui.scale, 18 * gui.scale]):
 				cancel_menu.activate(position=(x + 20 * gui.scale, y + 23 * gui.scale))
@@ -18464,9 +18466,9 @@ class TopPanel:
 			if gui.sync_progress:
 				text = gui.sync_progress
 			else:
-				text = _("{N} Folder Remaining {T}").format(N=str(len(transcode_list)), T=tauon.transcode_state)
-				if len(transcode_list) > 1:
-					text = _("{N} Folders Remaining {T}").format(N=str(len(transcode_list)), T=tauon.transcode_state)
+				text = _("{N} Folder Remaining {T}").format(N=str(len(tauon.transcode_list)), T=tauon.transcode_state)
+				if len(tauon.transcode_list) > 1:
+					text = _("{N} Folders Remaining {T}").format(N=str(len(tauon.transcode_list)), T=tauon.transcode_state)
 
 			x += ddt.text((x, y), text, bg, 311) + 8 * gui.scale
 
@@ -20377,7 +20379,6 @@ class StandardPlaylist:
 		self.pl_bg       = pl_bg
 
 	def full_render(self):
-		global highlight_left
 		tauon       = self.tauon
 		prefs       = self.prefs
 		pctl        = self.pctl
@@ -20392,7 +20393,7 @@ class StandardPlaylist:
 		width       = gui.plw
 
 		highlight_width = gui.tracklist_highlight_width
-		highlight_left  = gui.tracklist_highlight_left
+		gui.highlight_left  = gui.tracklist_highlight_left
 		inset_width     = gui.tracklist_inset_width
 		inset_left      = gui.tracklist_inset_left
 		center_mode     = gui.tracklist_center_mode
@@ -20517,7 +20518,6 @@ class StandardPlaylist:
 		number = 0
 
 		for i in range(gui.playlist_view_length + 1):
-
 			track_position = i + pctl.playlist_view_position
 
 			# Make sure the view position is valid
@@ -20529,12 +20529,12 @@ class StandardPlaylist:
 
 			track_object = pctl.get_track(pctl.default_playlist[track_position])
 			track_id = track_object.index
-			move_on_title = False
+			self.gui.move_on_title = False
 
 			line_y = gui.playlist_top + gui.playlist_row_height * number
 
 			track_box = (
-				left + highlight_left, line_y, highlight_width,
+				left + gui.highlight_left, line_y, highlight_width,
 				gui.playlist_row_height - 1)
 
 			input_box = (track_box[0] + 30 * gui.scale, track_box[1] + 1, track_box[2] - 36 * gui.scale, track_box[3])
@@ -20556,7 +20556,7 @@ class StandardPlaylist:
 					# Tracks have been dropped?
 					if gui.playlist_hold is True and tauon.coll(input_box):
 						if inp.mouse_up:
-							move_on_title = True
+							gui.move_on_title = True
 
 					# Ignore click in ratings box
 					click_title = (inp.mouse_click or inp.right_click or inp.middle_click) and tauon.coll(input_box)
@@ -20669,7 +20669,7 @@ class StandardPlaylist:
 			line_y = gui.playlist_top + gui.playlist_row_height * number
 
 			track_box = (
-				left + highlight_left, line_y, highlight_width,
+				left + gui.highlight_left, line_y, highlight_width,
 				gui.playlist_row_height - 1)
 
 			input_box = (track_box[0] + 30 * gui.scale, track_box[1] + 1, track_box[2] - 36 * gui.scale, track_box[3])
@@ -20744,8 +20744,8 @@ class StandardPlaylist:
 				gui.set_drag_source()
 
 			# Shift Move Selection
-			if move_on_title or (inp.mouse_up and gui.playlist_hold is True and tauon.coll((
-					left + highlight_left, line_y, highlight_width, gui.playlist_row_height))):
+			if gui.move_on_title or (inp.mouse_up and gui.playlist_hold is True and tauon.coll((
+					left + gui.highlight_left, line_y, highlight_width, gui.playlist_row_height))):
 
 				if len(gui.shift_selection) > 1 or inp.key_shift_down:
 					if track_position not in gui.shift_selection:  # p_track != gui.playlist_hold_position and
@@ -20754,7 +20754,7 @@ class StandardPlaylist:
 
 							ref = pctl.default_playlist[gui.playlist_hold_position]
 							pctl.default_playlist[gui.playlist_hold_position] = "old"
-							if move_on_title:
+							if gui.move_on_title:
 								pctl.default_playlist.insert(track_position, "new")
 							else:
 								pctl.default_playlist.insert(track_position + 1, "new")
@@ -20775,7 +20775,7 @@ class StandardPlaylist:
 								pctl.default_playlist[item] = "old"
 
 							for item in gui.shift_selection:
-								if move_on_title:
+								if gui.move_on_title:
 									pctl.default_playlist.insert(track_position, "new")
 								else:
 									pctl.default_playlist.insert(track_position + 1, "new")
@@ -20957,7 +20957,7 @@ class StandardPlaylist:
 				if prefs.append_total_time:
 					date += duration
 
-				ex = left + highlight_left + highlight_width - 7 * gui.scale
+				ex = left + gui.highlight_left + highlight_width - 7 * gui.scale
 
 				height = line_y + gui.playlist_row_height - 19 * gui.scale  # gui.pl_title_y_offset
 
@@ -20985,7 +20985,7 @@ class StandardPlaylist:
 						colours.row_select_highlight,
 						colours.playlist_panel_background)
 					ddt.rect_a(
-						(left + highlight_left, gui.playlist_top + gui.playlist_row_height * number),
+						(left + gui.highlight_left, gui.playlist_top + gui.playlist_row_height * number),
 						(highlight_width, gui.playlist_row_height), colours.row_select_highlight)
 
 				#logging.info(d_date) # date of album release / release year
@@ -20999,7 +20999,7 @@ class StandardPlaylist:
 					separator = " | "
 
 					start_offset = round(15 * gui.scale)
-					xx = left + highlight_left + start_offset
+					xx = left + gui.highlight_left + start_offset
 					ww = highlight_width
 
 					was = False
@@ -21054,7 +21054,7 @@ class StandardPlaylist:
 					if ft_width > left_align:
 						date_w += 19 * gui.scale
 						ddt.text(
-							(left + highlight_left + 8 * gui.scale + extra, height), line,
+							(left + gui.highlight_left + 8 * gui.scale + extra, height), line,
 							colours.folder_title,
 							gui.row_font_size + gui.pl_title_font_offset,
 							highlight_width - date_w - extra - star_offset)
@@ -21068,13 +21068,13 @@ class StandardPlaylist:
 
 				# Draw separation line below title
 				ddt.rect(
-					(left + highlight_left, line_y + gui.playlist_row_height - 1 * gui.scale, highlight_width,
+					(left + gui.highlight_left, line_y + gui.playlist_row_height - 1 * gui.scale, highlight_width,
 					1 * gui.scale), colours.folder_line)
 
 				# Draw blue highlight insert line
 				if drag_highlight:
 					ddt.rect(
-						[left + highlight_left, line_y + gui.playlist_row_height - 1 * gui.scale,
+						[left + gui.highlight_left, line_y + gui.playlist_row_height - 1 * gui.scale,
 						highlight_width, 3 * gui.scale], [135, 145, 190, 255])
 
 				continue
@@ -21094,13 +21094,13 @@ class StandardPlaylist:
 			# Blue drop line
 			if drag_highlight:  # gui.playlist_hold_position != p_track:
 				ddt.rect(
-					[left + highlight_left, line_y + gui.playlist_row_height - 1 * gui.scale, highlight_width,
+					[left + gui.highlight_left, line_y + gui.playlist_row_height - 1 * gui.scale, highlight_width,
 					3 * gui.scale], [125, 105, 215, 255])
 
 			# Highlight
 			if highlight:
 				ddt.rect_a(
-					(left + highlight_left, line_y), (highlight_width, gui.playlist_row_height),
+					(left + gui.highlight_left, line_y), (highlight_width, gui.playlist_row_height),
 					colours.row_select_highlight)
 
 				ddt.text_background_colour = alpha_blend(colours.row_select_highlight, ddt.text_background_colour)
@@ -21109,7 +21109,7 @@ class StandardPlaylist:
 					and tr.album == pctl.get_track(pctl.default_playlist[track_position - 1]).album and tr.parent_folder_path == pctl.get_track(pctl.default_playlist[track_position - 1]).parent_folder_path:
 				# Draw disc change line
 				ddt.rect(
-					(left + highlight_left, line_y + 0 * gui.scale, highlight_width,
+					(left + gui.highlight_left, line_y + 0 * gui.scale, highlight_width,
 					1 * gui.scale), colours.folder_line)
 
 			if not gui.set_mode:
@@ -30156,8 +30156,8 @@ def add_album_to_queue_fc(ref):
 		pctl.auto_stop = False
 
 def cancel_import():
-	if transcode_list:
-		del transcode_list[1:]
+	if tauon.transcode_list:
+		del tauon.transcode_list[1:]
 		gui.tc_cancel = True
 	if pctl.loading_in_progress:
 		gui.im_cancel = True
@@ -31203,8 +31203,6 @@ def clear_playlist(tauon: Tauon, index: int) -> None:
 	gui.pl_update = 1
 
 def convert_playlist(pl: int, get_list: bool = False) -> list[list[int]]| None:
-	global transcode_list
-
 	if not tauon.test_ffmpeg():
 		return None
 
@@ -31231,7 +31229,7 @@ def convert_playlist(pl: int, get_list: bool = False) -> list[list[int]]| None:
 	if get_list:
 		return folders
 
-	transcode_list.extend(folders)
+	tauon.transcode_list.extend(folders)
 
 def get_folder_tracks_local(pl_in: int) -> list[int]:
 	selection = []
@@ -32543,9 +32541,9 @@ def auto_sync_thread(pl: int) -> None:
 					gui.sync_progress = _("{N} Folders Remaining").format(N=str(remain))
 				else:
 					gui.sync_progress = _("{N} Folder Remaining").format(N=str(remain))
-				transcode_list.append(folder_dict[item])
+				tauon.transcode_list.append(folder_dict[item])
 				tauon.thread_manager.ready("worker")
-				while transcode_list:
+				while tauon.transcode_list:
 					time.sleep(1)
 				if gui.stop_sync:
 					break
@@ -33394,7 +33392,7 @@ def get_playing_line() -> str:
 	return "Stopped"
 
 def reload_config_file():
-	if transcode_list:
+	if tauon.transcode_list:
 		self.show_message(_("Cannot reload while a transcode is in progress!"), mode="error")
 		return
 
@@ -33465,8 +33463,6 @@ def remove_folder(index: int):
 	reload()
 
 def convert_folder(index: int):
-	global transcode_list
-
 	if not tauon.test_ffmpeg():
 		return
 
@@ -33512,7 +33508,7 @@ def convert_folder(index: int):
 					return
 
 	#logging.info(folder)
-	transcode_list.append(folder)
+	tauon.transcode_list.append(folder)
 	tauon.thread_manager.ready("worker")
 
 def transfer(tauon: Tauon, index: int, args: list[int]) -> None:
@@ -37251,7 +37247,7 @@ def worker1(tauon: Tauon) -> None:
 				tauon.transcode_state = ""
 				gui.update += 1
 
-				folder_items = transcode_list[0]
+				folder_items = tauon.transcode_list[0]
 
 				ref_track_object = pctl.master_library[folder_items[0]]
 				ref_album = ref_track_object.album
@@ -37328,9 +37324,9 @@ def worker1(tauon: Tauon) -> None:
 				else:
 					tauon.album_art_gen.save_thumb(pctl.get_track(folder_items[0]), (1080, 1080), str(output_dir / "cover"))
 
-				#logging.info(transcode_list[0])
+				#logging.info(tauon.transcode_list[0])
 
-				del transcode_list[0]
+				del tauon.transcode_list[0]
 				tauon.transcode_state = ""
 				gui.update += 1
 			except Exception:
@@ -37340,9 +37336,9 @@ def worker1(tauon: Tauon) -> None:
 				self.show_message(_("Transcode failed."), _("An error was encountered."), mode="error")
 				gui.update += 1
 				time.sleep(0.1)
-				del transcode_list[0]
+				del tauon.transcode_list[0]
 
-			if len(transcode_list) == 0:
+			if len(tauon.transcode_list) == 0:
 				if gui.tc_cancel:
 					gui.tc_cancel = False
 					self.show_message(
@@ -38493,10 +38489,10 @@ def update_layout_do(tauon: Tauon):
 		if gui.set_mode and window_size[0] < 600:
 			center_mode = False
 
-		highlight_left = 0
+		gui.highlight_left = 0
 		highlight_width = width
 
-		inset_left = highlight_left + 23 * gui.scale
+		inset_left = gui.highlight_left + 23 * gui.scale
 		inset_width = highlight_width - 32 * gui.scale
 
 		if gui.lsp and not gui.rsp:
@@ -38508,15 +38504,15 @@ def update_layout_do(tauon: Tauon):
 
 		if center_mode:
 			if gui.set_mode:
-				highlight_left = int(pow((window_size[0] / gui.scale * 0.005), 2) * gui.scale)
+				gui.highlight_left = int(pow((window_size[0] / gui.scale * 0.005), 2) * gui.scale)
 			else:
-				highlight_left = int(pow((window_size[0] / gui.scale * 0.01), 2) * gui.scale)
+				gui.highlight_left = int(pow((window_size[0] / gui.scale * 0.01), 2) * gui.scale)
 
 			if window_size[0] < 600 * gui.scale:
-				highlight_left = 3 * gui.scale
+				gui.highlight_left = 3 * gui.scale
 
-			highlight_width -= highlight_left * 2
-			inset_left = highlight_left + 18 * gui.scale
+			highlight_width -= gui.highlight_left * 2
+			inset_left = gui.highlight_left + 18 * gui.scale
 			inset_width = highlight_width - 25 * gui.scale
 
 		if window_size[0] < 600 and gui.lsp:
@@ -38525,7 +38521,7 @@ def update_layout_do(tauon: Tauon):
 		gui.tracklist_center_mode = center_mode
 		gui.tracklist_inset_left = inset_left
 		gui.tracklist_inset_width = inset_width
-		gui.tracklist_highlight_left = highlight_left
+		gui.tracklist_highlight_left = gui.highlight_left
 		gui.tracklist_highlight_width = highlight_width
 
 		if prefs.album_mode and gui.hide_tracklist_in_gallery:
@@ -43600,7 +43596,7 @@ def main(holder: Holder) -> None:
 										if (encode_folder_name(track) in os.listdir(prefs.encoder_output)):
 											tr = True
 										else:
-											for folder in transcode_list:
+											for folder in tauon.transcode_list:
 												if pctl.get_track(folder[0]).parent_folder_path == track.parent_folder_path:
 													tr = True
 													break
