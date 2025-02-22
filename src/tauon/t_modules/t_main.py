@@ -1452,6 +1452,7 @@ class PlayerCtl:
 		self.queue_box                 = QueueBox(tauon=self.tauon, pctl=self)
 		self.running:             bool = True
 		self.prefs                     = self.bag.prefs
+		self.sm                        = self.bag.sm
 		self.star_store                = StarStore(tauon=self.tauon, pctl=self)
 		self.lastfm                    = LastFMapi(tauon=self.tauon, pctl=self)
 		self.lfm_scrobbler             = LastScrob(tauon=self.tauon, pctl=self)
@@ -2070,7 +2071,7 @@ class PlayerCtl:
 				image_path = image_path.replace("/", "\\")
 				#logging.info(image_path)
 
-				sm.update(
+				self.sm.update(
 					state, tr.title.encode("utf-16"), len(tr.title), tr.artist.encode("utf-16"), len(tr.artist),
 					image_path.encode("utf-16"), len(image_path))
 
@@ -5399,6 +5400,12 @@ class Tauon:
 		self.tool_tip2.trigger                    = 1.8
 		self.undo                                 = Undo(tauon=self)
 		self.timed_lyrics_ren                     = TimedLyricsRen(tauon=self)
+		self.rename_track_box                     = RenameTrackBox(tauon=self)
+		self.trans_edit_box                       = TransEditBox(tauon=self)
+		self.sub_lyrics_box                       = SubLyricsBox(tauon=self)
+		self.export_playlist_box                  = ExportPlaylistBox(tauon=self)
+		self.rename_playlist_box                  = RenamePlaylistBox(tauon=self)
+		self.message_box                          = MessageBox(tauon=self)
 		self.transcode_list:      list[list[int]] = []
 		self.transcode_state:                 str = ""
 		# TODO(Martin): Rework this LC_* stuff, maybe use a simple object instead?
@@ -7043,7 +7050,7 @@ class Tauon:
 					continue
 				if item["auto"] is False:
 					continue
-				export_playlist_box.run_export(item, key, warnings=False)
+				self.tauon.export_playlist_box.run_export(item, key, warnings=False)
 
 			logging.info("Done writing database")
 
@@ -12117,7 +12124,7 @@ class RenameTrackBox:
 		self.ddt.text_background_colour = colours.box_background
 
 		if self.inp.key_esc_press or ((self.inp.mouse_click or self.inp.right_click or self.inp.level_2_right_click) and not self.coll((x, y, w, h))):
-			rename_track_box.active = False
+			self.tauon.rename_track_box.active = False
 
 		r_todo = []
 
@@ -12129,10 +12136,10 @@ class RenameTrackBox:
 
 					# Close and display error if any tracks are not single local files
 					if self.pctl.master_library[item].is_network is True:
-						rename_track_box.active = False
+						self.tauon.rename_track_box.active = False
 						show_message(_("Cannot rename"), _("One or more tracks is from a network location!"), mode="info")
 					if self.pctl.master_library[item].is_cue is True:
-						rename_track_box.active = False
+						self.tauon.rename_track_box.active = False
 						show_message(_("This function does not support renaming CUE Sheet tracks."))
 					else:
 						r_todo.append(item)
@@ -12252,7 +12259,7 @@ class RenameTrackBox:
 					logging.exception("Rendering error")
 					total_todo -= 1
 
-			rename_track_box.active = False
+			self.tauon.rename_track_box.active = False
 			logging.info("Done")
 			if pre_state == 1:
 				self.pctl.revert()
@@ -12723,7 +12730,6 @@ class SearchOverlay:
 		self.gui         = tauon.gui
 		self.inp         = tauon.inp
 		self.window_size = tauon.window_size
-		self.search_over = tauon.search_over
 
 		self.active = False
 		self.search_text = TextBox(tauon=tauon)
@@ -12917,14 +12923,13 @@ class SearchOverlay:
 		gui   = self.gui
 
 		if self.active is False:
-
 			# Activate search overlay on key presses
 			if prefs.search_on_letter and inp.input_text != "" and gui.layer_focus == 0 and \
 					not inp.key_lalt and not inp.key_ralt and \
-					not inp.key_ctrl_down and not radiobox.active and not rename_track_box.active and \
-					not gui.quick_search_mode and not pref_box.enabled and not gui.rename_playlist_box \
+					not inp.key_ctrl_down and not self.tauon.radiobox.active and not self.tauon.rename_track_box.active and \
+					not gui.quick_search_mode and not self.tauon.pref_box.enabled and not gui.rename_playlist_box \
 					and not gui.rename_folder_box and inp.input_text.isalnum() and not gui.box_over \
-					and not trans_edit_box.active:
+					and not self.tauon.trans_edit_box.active:
 
 				# Divert to artist list if mouse over
 				if gui.lsp and prefs.left_panel_mode == "artist list" and 2 < inp.mouse_position[0] < gui.lspw \
@@ -13042,9 +13047,9 @@ class SearchOverlay:
 				self.window_size[0] - 100, big=True, click=gui.level_2_click, selection_height=30)
 
 			if inp.key_tab_press:
-				self.search_over.spotify_mode ^= True
+				self.spotify_mode ^= True
 				self.sip = True
-				self.search_over.searched_text = self.search_over.search_text.text
+				self.searched_text = self.search_text.text
 				if self.worker2_lock.locked():
 					try:
 						self.worker2_lock.release()
@@ -13061,8 +13066,8 @@ class SearchOverlay:
 
 				gui.update += 1
 			elif self.input_timer.get() >= 0.20 and \
-					(len(self.search_over.search_text.text) > 1 or (len(self.search_over.search_text.text) == 1 and ord(self.search_over.search_text.text) > 128)) \
-					and self.search_over.search_text.text != self.search_over.searched_text:
+					(len(self.search_text.text) > 1 or (len(self.search_text.text) == 1 and ord(self.search_text.text) > 128)) \
+					and self.search_text.text != self.searched_text:
 				self.sip = True
 				if self.worker2_lock.locked():
 					try:
@@ -16575,7 +16580,7 @@ class Over:
 			ddt.rect_a((x, y), (tab_width, full_height), tab_bg)
 			for item in self.tabs:
 				if self.click and gui.message_box:
-					if not tauon.coll(message_box.get_rect()):
+					if not tauon.coll(tauon.message_box.get_rect()):
 						gui.message_box = False
 					else:
 						inp.mouse_click = True
@@ -16783,9 +16788,9 @@ class TopPanel:
 					title = tr.filename
 				artist = tr.artist
 
-				if pctl.playing_state == 3 and not radiobox.dummy_track.title:
+				if pctl.playing_state == 3 and not tauon.radiobox.dummy_track.title:
 					title = pctl.tag_meta
-					artist = radiobox.loaded_url  # pctl.url
+					artist = tauon.radiobox.loaded_url  # pctl.url
 
 				ddt.text_background_colour = colours.top_panel_background
 
@@ -19614,7 +19619,7 @@ class StandardPlaylist:
 		# Mouse wheel scrolling
 		if inp.mouse_wheel != 0 and window_size[1] - gui.panelBY - 1 > inp.mouse_position[
 			1] > gui.panelY - 2 and gui.playlist_left < inp.mouse_position[0] < gui.playlist_left + gui.plw \
-				and not (tauon.coll(pl_rect)) and not tauon.search_over.active and not radiobox.active:
+				and not (tauon.coll(pl_rect)) and not tauon.search_over.active and not tauon.radiobox.active:
 
 			# Set scroll speed
 			mx = 4
@@ -20747,9 +20752,9 @@ class ArtBox:
 
 		# Draw picture metadata
 		if showc is not None and tauon.coll(border) \
-			and rename_track_box.active is False \
+			and tauon.rename_track_box.active is False \
 			and radiobox.active is False \
-			and pref_box.enabled is False \
+			and tauon.pref_box.enabled is False \
 			and gui.rename_playlist_box is False \
 			and gui.message_box is False \
 			and track_box is False \
@@ -21714,7 +21719,6 @@ class RadioBox:
 		#     self.drag = None
 
 	def footer(self):
-
 		y = self.y
 		x = self.x + round(15 * gui.scale)
 		w = self.w
@@ -21723,20 +21727,20 @@ class RadioBox:
 		yy = y + round(328 * gui.scale)
 		if pctl.playing_state == 3 and not prefs.auto_rec:
 			old = prefs.auto_rec
-			if not old and pref_box.toggle_square(
+			if not old and tauon.pref_box.toggle_square(
 				x, yy, prefs.auto_rec, _("Record and auto split songs"),
 				click=gui.level_2_click):
 				show_message(_("Please stop playback first before toggling this setting"))
 		elif pctl.playing_state == 3:
 			old = prefs.auto_rec
-			if old and not pref_box.toggle_square(
+			if old and not tauon.pref_box.toggle_square(
 				x, yy, prefs.auto_rec, _("Record and auto split songs"),
 				click=gui.level_2_click):
 				show_message(_("Please stop playback first to end current recording"))
 
 		else:
 			old = prefs.auto_rec
-			prefs.auto_rec = pref_box.toggle_square(
+			prefs.auto_rec = tauon.pref_box.toggle_square(
 				x, yy, prefs.auto_rec, _("Record and auto split songs"),
 				click=gui.level_2_click)
 			if prefs.auto_rec != old and prefs.auto_rec:
@@ -21785,7 +21789,7 @@ class RenamePlaylistBox:
 			rename_text_area.set_text(text)
 			rename_text_area.highlight_none()
 
-			gui.regen_single = rename_playlist_box.playlist_index
+			gui.regen_single = tauon.rename_playlist_box.playlist_index
 			tauon.thread_manager.ready("worker")
 		else:
 			rename_text_area.set_text(pctl.multi_playlist[self.playlist_index].title)
@@ -21827,10 +21831,10 @@ class RenamePlaylistBox:
 			pctl.gen_codes[id] = rename_text_area.text
 
 			if input_text or inp.key_backspace_press:
-				gui.regen_single = rename_playlist_box.playlist_index
+				gui.regen_single = tauon.rename_playlist_box.playlist_index
 				tauon.thread_manager.ready("worker")
 
-				# regenerate_playlist(rename_playlist_box.playlist_index)
+				# regenerate_playlist(tauon.rename_playlist_box.playlist_index)
 			# if gui.gen_code_errors:
 			#     del_icon.render(rect[0] + rect[2] - 21 * gui.scale, rect[1] + 10 * gui.scale, (255, 70, 70, 255))
 			ddt.text_background_colour = [4, 4, 4, 255]
@@ -23148,7 +23152,7 @@ class ArtistList:
 		scroll_x = x + w - 18 * gui.scale
 		if colours.lm:
 			scroll_x = x + w - 22 * gui.scale
-		if (tauon.coll(area2) or artist_list_scroll.held) and not pref_box.enabled:
+		if (tauon.coll(area2) or artist_list_scroll.held) and not tauon.pref_box.enabled:
 			scroll_width = 15 * gui.scale
 			inset = 0
 			if gui.compact_artist_list:
@@ -26645,6 +26649,7 @@ class Bag:
 	gen_codes:              dict[int, str]
 	master_library:         dict[int, TrackClass]
 	loaded_asset_dc:        dict[str, WhiteModImageAsset | LoadImageAsset]
+	sm:                     CDLL | None = None
 	song_notification:      None = None
 
 @dataclass
@@ -29649,7 +29654,7 @@ def split_lyrics(track_object: TrackClass):
 		track_object.lyrics = track_object.lyrics.replace(". ", ". \n")
 
 def show_sub_search(track_object: TrackClass):
-	sub_lyrics_box.activate(track_object)
+	tauon.sub_lyrics_box.activate(track_object)
 
 def save_embed_img_disable_test(track_object: TrackClass):
 	if type(track_object) is int:
@@ -30253,19 +30258,19 @@ def parse_template(string, track_object: TrackClass, up_ext: bool = False, stric
 
 def rename_playlist(index, generator: bool = False) -> None:
 	gui.rename_playlist_box = True
-	rename_playlist_box.edit_generator = False
-	rename_playlist_box.playlist_index = index
-	rename_playlist_box.x = inp.mouse_position[0]
-	rename_playlist_box.y = inp.mouse_position[1]
+	tauon.rename_playlist_box.edit_generator = False
+	tauon.rename_playlist_box.playlist_index = index
+	tauon.rename_playlist_box.x = inp.mouse_position[0]
+	tauon.rename_playlist_box.y = inp.mouse_position[1]
 
 	if generator:
-		rename_playlist_box.y = window_size[1] // 2 - round(200 * gui.scale)
-		rename_playlist_box.x = window_size[0] // 2 - round(250 * gui.scale)
+		tauon.rename_playlist_box.y = window_size[1] // 2 - round(200 * gui.scale)
+		tauon.rename_playlist_box.x = window_size[0] // 2 - round(250 * gui.scale)
 
-	rename_playlist_box.y = min(rename_playlist_box.y, round(350 * gui.scale))
+	tauon.rename_playlist_box.y = min(tauon.rename_playlist_box.y, round(350 * gui.scale))
 
-	if rename_playlist_box.y < gui.panelY:
-		rename_playlist_box.y = gui.panelY + 10 * gui.scale
+	if tauon.rename_playlist_box.y < gui.panelY:
+		tauon.rename_playlist_box.y = gui.panelY + 10 * gui.scale
 
 	if gui.radio_view:
 		rename_text_area.set_text(pctl.radio_playlists[index].name)
@@ -30275,7 +30280,7 @@ def rename_playlist(index, generator: bool = False) -> None:
 	gui.gen_code_errors = False
 
 	if generator:
-		rename_playlist_box.toggle_edit_gen()
+		tauon.rename_playlist_box.toggle_edit_gen()
 
 def edit_generator_box(index: int) -> None:
 	rename_playlist(index, generator=True)
@@ -33241,7 +33246,7 @@ def rename_tracks_deco(track_id: int):
 	return [colours.menu_text, colours.menu_background, _("Rename Tracks…")]
 
 def activate_trans_editor():
-	trans_edit_box.active = True
+	tauon.trans_edit_box.active = True
 
 def delete_folder(index, force=False):
 	track = pctl.master_library[index]
@@ -38584,12 +38589,12 @@ def is_level_zero(include_menus: bool = True) -> bool:
 		and not track_box \
 		and not rename_track_box.active \
 		and not radiobox.active \
-		and not pref_box.enabled \
+		and not tauon.pref_box.enabled \
 		and not gui.quick_search_mode \
 		and not gui.rename_playlist_box \
 		and not tauon.search_over.active \
 		and not gui.box_over \
-		and not trans_edit_box.active
+		and not tauon.trans_edit_box.active
 
 def main(holder: Holder) -> None:
 	t_window               = holder.t_window
@@ -40000,13 +40005,12 @@ def main(holder: Holder) -> None:
 	if prefs.use_gamepad:
 		sdl3.SDL_InitSubSystem(sdl3.SDL_INIT_GAMEPAD)
 
-
 	if msys and win_ver >= 10:
 		#logging.info(sss.info.win.window)
 		SMTC_path = install_directory / "lib" / "TauonSMTC.dll"
 		if SMTC_path.exists():
 			try:
-				sm = ctypes.cdll.LoadLibrary(str(SMTC_path))
+				bag.sm = ctypes.cdll.LoadLibrary(str(SMTC_path))
 
 				def SMTC_button_callback(button: int) -> None:
 					logging.debug(f"SMTC sent key ID: {button}")
@@ -40024,7 +40028,7 @@ def main(holder: Holder) -> None:
 					tauon.wake()
 
 				close_callback = ctypes.WINFUNCTYPE(ctypes.c_void_p, ctypes.c_int)(SMTC_button_callback)
-				smtc = sm.init(close_callback) == 0
+				smtc = bag.sm.init(close_callback) == 0
 			except Exception:
 				logging.exception("Failed to load TauonSMTC.dll - Media keys will not work!")
 		else:
@@ -40537,12 +40541,6 @@ def main(holder: Holder) -> None:
 	radio_entry_menu.add(MenuItem(_("Visit Website"), visit_radio_site, visit_radio_site_deco, pass_ref=True, pass_ref_deco=True))
 	radio_entry_menu.add(MenuItem(_("Save"), save_to_radios, pass_ref=True))
 
-	rename_track_box = RenameTrackBox(tauon=tauon)
-	trans_edit_box = TransEditBox(tauon=tauon)
-	sub_lyrics_box = SubLyricsBox(tauon=tauon)
-	export_playlist_box = ExportPlaylistBox(tauon=tauon)
-	rename_playlist_box = RenamePlaylistBox(tauon=tauon)
-
 	tauon.toggle_repeat = toggle_repeat
 	tauon.menu_album_repeat = menu_album_repeat
 	tauon.menu_repeat_off = menu_repeat_off
@@ -40771,7 +40769,7 @@ def main(holder: Holder) -> None:
 
 	# tab_menu.add("Sort By Filepath", tauon.sort_path_pl, pass_ref=True)
 
-	tab_menu.add(MenuItem(_("Export…"), export_playlist_box.activate, pass_ref=True))
+	tab_menu.add(MenuItem(_("Export…"), tauon.export_playlist_box.activate, pass_ref=True))
 
 	tab_menu.add_sub(_("Misc…"), 175)
 	tab_menu.add_to_sub(2, MenuItem(_("Export Playlist Stats"), export_stats, pass_ref=True))
@@ -40915,8 +40913,8 @@ def main(holder: Holder) -> None:
 	# gui.rename_tracks_icon.colour = [204, 255, 66, 255]
 	gui.rename_tracks_icon.colour = [204, 100, 205, 255]
 	gui.rename_tracks_icon.xoff = 1
-	track_menu.add_to_sub(0, MenuItem(_("Rename Tracks…"), rename_track_box.activate, rename_tracks_deco, pass_ref=True,
-		pass_ref_deco=True, icon=gui.rename_tracks_icon, disable_test=rename_track_box.disable_test))
+	track_menu.add_to_sub(0, MenuItem(_("Rename Tracks…"), tauon.rename_track_box.activate, rename_tracks_deco, pass_ref=True,
+		pass_ref_deco=True, icon=gui.rename_tracks_icon, disable_test=tauon.rename_track_box.disable_test))
 
 	track_menu.add_to_sub(0, MenuItem(_("Edit fields…"), activate_trans_editor))
 
@@ -40960,9 +40958,9 @@ def main(holder: Holder) -> None:
 
 	gallery_menu.add(MenuItem(_("Modify Folder…"), rename_folders, pass_ref=True, pass_ref_deco=True, icon=gui.mod_folder_icon, disable_test=rename_folders_disable_test))
 
-	folder_menu.add(MenuItem(_("Rename Tracks…"), rename_track_box.activate, rename_tracks_deco,
-		pass_ref=True, pass_ref_deco=True, icon=gui.rename_tracks_icon, disable_test=rename_track_box.disable_test))
-	folder_tree_menu.add(MenuItem(_("Rename Tracks…"), rename_track_box.activate, pass_ref=True, pass_ref_deco=True, icon=gui.rename_tracks_icon, disable_test=rename_track_box.disable_test))
+	folder_menu.add(MenuItem(_("Rename Tracks…"), tauon.rename_track_box.activate, rename_tracks_deco,
+		pass_ref=True, pass_ref_deco=True, icon=gui.rename_tracks_icon, disable_test=tauon.rename_track_box.disable_test))
+	folder_tree_menu.add(MenuItem(_("Rename Tracks…"), tauon.rename_track_box.activate, pass_ref=True, pass_ref_deco=True, icon=gui.rename_tracks_icon, disable_test=tauon.rename_track_box.disable_test))
 
 	if not snap_mode:
 		folder_menu.add(MenuItem("Edit with", launch_editor_selection, pass_ref=True,
@@ -41306,7 +41304,6 @@ def main(holder: Holder) -> None:
 	x_menu.add(MenuItem(_("Disengage Quick Add"), stop_quick_add, show_test=show_stop_quick_add))
 
 	added = []
-	message_box = MessageBox(tauon=tauon)
 	nagbox = NagBox(tauon=tauon)
 
 	spot_search_rate_timer = Timer()
@@ -42392,7 +42389,7 @@ def main(holder: Holder) -> None:
 				sdl3.SDL_SetWindowFullscreen(t_window, 0)
 
 			# Disable keys for text cursor control
-			if not gui.rename_folder_box and not rename_track_box.active and not gui.rename_playlist_box and not radiobox.active and not pref_box.enabled and not trans_edit_box.active:
+			if not gui.rename_folder_box and not tauon.rename_track_box.active and not gui.rename_playlist_box and not radiobox.active and not pref_box.enabled and not tauon.trans_edit_box.active:
 
 				if not gui.quick_search_mode and not tauon.search_over.active:
 					if prefs.album_mode and gui.album_tab_mode \
@@ -42446,9 +42443,9 @@ def main(holder: Holder) -> None:
 					pctl.selected_in_playlist = len(pctl.default_playlist) - 1
 					gui.pl_update = 1
 
-			if not pref_box.enabled and not radiobox.active and not rename_track_box.active \
+			if not pref_box.enabled and not radiobox.active and not tauon.rename_track_box.active \
 					and not gui.rename_folder_box \
-					and not gui.rename_playlist_box and not tauon.search_over.active and not gui.box_over and not trans_edit_box.active:
+					and not gui.rename_playlist_box and not tauon.search_over.active and not gui.box_over and not tauon.trans_edit_box.active:
 
 				if gui.quick_search_mode:
 					if keymaps.test("add-to-queue") and pctl.selected_ready():
@@ -42471,7 +42468,7 @@ def main(holder: Holder) -> None:
 						pctl.play_pause()
 
 
-			if inp.key_return_press and (gui.rename_folder_box or rename_track_box.active or radiobox.active):
+			if inp.key_return_press and (gui.rename_folder_box or tauon.rename_track_box.active or radiobox.active):
 				inp.key_return_press = False
 				inp.level_2_enter = True
 
@@ -42615,8 +42612,8 @@ def main(holder: Holder) -> None:
 					rename_playlist(pctl.radio_playlist_viewing)
 				else:
 					rename_playlist(pctl.active_playlist_viewing)
-				rename_playlist_box.x = 60 * gui.scale
-				rename_playlist_box.y = 60 * gui.scale
+				tauon.rename_playlist_box.x = 60 * gui.scale
+				tauon.rename_playlist_box.y = 60 * gui.scale
 
 			# Transfer click register to menus
 			if inp.mouse_click:
@@ -42629,7 +42626,7 @@ def main(holder: Holder) -> None:
 					tauon.view_box.clicked = True
 
 			if inp.mouse_click and (
-					prefs.show_nag or gui.box_over or radiobox.active or tauon.search_over.active or gui.rename_folder_box or gui.rename_playlist_box or rename_track_box.active or tauon.view_box.active or trans_edit_box.active):  # and not gui.message_box:
+					prefs.show_nag or gui.box_over or radiobox.active or tauon.search_over.active or gui.rename_folder_box or gui.rename_playlist_box or tauon.rename_track_box.active or tauon.view_box.active or tauon.trans_edit_box.active):  # and not gui.message_box:
 				inp.mouse_click = False
 				gui.level_2_click = True
 			else:
@@ -42668,7 +42665,7 @@ def main(holder: Holder) -> None:
 						pass
 
 			if inp.right_click and (
-					radiobox.active or rename_track_box.active or gui.rename_playlist_box or gui.rename_folder_box or tauon.search_over.active):
+					radiobox.active or tauon.rename_track_box.active or gui.rename_playlist_box or gui.rename_folder_box or tauon.search_over.active):
 				inp.right_click = False
 
 			if inp.mouse_wheel != 0:
@@ -42694,7 +42691,7 @@ def main(holder: Holder) -> None:
 					logging.debug("Position changed by page key")
 					gui.shift_selection.clear()
 
-			if gui.quick_search_mode is False and rename_track_box.active is False and gui.rename_folder_box is False and gui.rename_playlist_box is False and not pref_box.enabled and not radiobox.active:
+			if gui.quick_search_mode is False and tauon.rename_track_box.active is False and gui.rename_folder_box is False and gui.rename_playlist_box is False and not pref_box.enabled and not radiobox.active:
 				if keymaps.test("info-playing"):
 					if pctl.selected_in_playlist < len(pctl.default_playlist):
 						r_menu_index = pctl.get_track(pctl.default_playlist[pctl.selected_in_playlist]).index
@@ -42706,7 +42703,7 @@ def main(holder: Holder) -> None:
 						track_box = True
 
 				# These need to be disabled when text fields are active
-				if not tauon.search_over.active and not gui.box_over and not radiobox.active and not gui.rename_folder_box and not rename_track_box.active and not gui.rename_playlist_box and not trans_edit_box.active:
+				if not tauon.search_over.active and not gui.box_over and not radiobox.active and not gui.rename_folder_box and not tauon.rename_track_box.active and not gui.rename_playlist_box and not tauon.trans_edit_box.active:
 					if keymaps.test("advance"):
 						inp.key_up_press = False
 						pctl.advance()
@@ -43096,7 +43093,7 @@ def main(holder: Holder) -> None:
 				click_time = n_click_time
 
 				# Don't register bottom level click when closing message box
-				if gui.message_box and pref_box.enabled and not key_focused and not tauon.coll(message_box.get_rect()):
+				if gui.message_box and pref_box.enabled and not key_focused and not tauon.coll(tauon.message_box.get_rect()):
 					inp.mouse_click = False
 					gui.message_box = False
 
@@ -43126,7 +43123,7 @@ def main(holder: Holder) -> None:
 				tauon.fields.add(rect)
 
 				if (tauon.coll(rect) or gui.side_drag is True) \
-					and rename_track_box.active is False \
+					and tauon.rename_track_box.active is False \
 					and radiobox.active is False \
 					and gui.rename_playlist_box is False \
 					and gui.message_box is False \
@@ -44912,7 +44909,7 @@ def main(holder: Holder) -> None:
 				tauon.style_overlay.hole_punches.clear()
 
 				if gui.set_mode:
-					if rename_track_box.active is False \
+					if tauon.rename_track_box.active is False \
 							and radiobox.active is False \
 							and gui.rename_playlist_box is False \
 							and gui.message_box is False \
@@ -44929,7 +44926,7 @@ def main(holder: Holder) -> None:
 				# Overlay GUI ----------------------
 
 				if gui.rename_playlist_box:
-					rename_playlist_box.render()
+					tauon.rename_playlist_box.render()
 
 				if gui.preview_artist:
 
@@ -45491,23 +45488,23 @@ def main(holder: Holder) -> None:
 					line = parse_template2(rename_folder.text, pctl.master_library[rename_index])
 					ddt.text((x + 60 * gui.scale, y + 101 * gui.scale), line, colours.grey(220), 211, max_w=420 * gui.scale)
 
-				if rename_track_box.active:
-					rename_track_box.render()
+				if tauon.rename_track_box.active:
+					tauon.rename_track_box.render()
 
-				if sub_lyrics_box.active:
-					sub_lyrics_box.render()
+				if tauon.sub_lyrics_box.active:
+					tauon.sub_lyrics_box.render()
 
-				if export_playlist_box.active:
-					export_playlist_box.render()
+				if tauon.export_playlist_box.active:
+					tauon.export_playlist_box.render()
 
-				if trans_edit_box.active:
-					trans_edit_box.render()
+				if tauon.trans_edit_box.active:
+					tauon.trans_edit_box.render()
 
 				if radiobox.active:
 					radiobox.render()
 
 				if gui.message_box:
-					message_box.render()
+					tauon.message_box.render()
 
 				if prefs.show_nag:
 					nagbox.draw()
@@ -45801,7 +45798,7 @@ def main(holder: Holder) -> None:
 
 						pctl.selected_in_playlist = max(pctl.selected_in_playlist, 0)
 
-					if inp.key_return_press and not pref_box.enabled and not radiobox.active and not trans_edit_box.active:
+					if inp.key_return_press and not pref_box.enabled and not radiobox.active and not tauon.trans_edit_box.active:
 						gui.pl_update = 1
 						if pctl.selected_in_playlist > len(pctl.default_playlist) - 1:
 							pctl.selected_in_playlist = 0
@@ -46279,7 +46276,7 @@ def main(holder: Holder) -> None:
 
 						gui.bar.x += round(4 * gui.scale)
 
-					if pref_box.enabled:
+					if tauon.pref_box.enabled:
 						ddt.rect((0, 0, gui.spec_w, gui.spec_h), [0, 0, 0, 90])
 
 					sdl3.SDL_SetRenderTarget(renderer, None)
@@ -46563,7 +46560,7 @@ def main(holder: Holder) -> None:
 	if system == "Windows" or msys:
 		tray.stop()
 		if smtc:
-			sm.unload()
+			bag.sm.unload()
 	elif bag.de_notify_support:
 		try:
 			bag.song_notification.close()
