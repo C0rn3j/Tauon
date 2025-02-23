@@ -1249,8 +1249,8 @@ class ColoursClass:
 		self.artist_bio_text = [230, 230, 230, 255]
 
 	def apply_transparency(self) -> None:
-		self.top_panel_background[3] = 80
-		self.side_panel_background[3] = 130
+		self.top_panel_background[3] = 140
+		self.side_panel_background[3] = 140
 		self.art_box[3] = 100
 		self.window_frame[3] = 100
 		self.bottom_panel_colour[3] = 200
@@ -19828,9 +19828,8 @@ class BottomBarType_ao1:
 	def render(self):
 		global clicked
 
-		sdl3.SDL_SetRenderDrawBlendMode(renderer, sdl3.SDL_BLENDMODE_NONE)
+		self.ddt.clear_rect((0, 0, self.window_size[0], self.gui.panelY))
 		self.ddt.rect_a((0, self.window_size[1] - self.gui.panelBY), (self.window_size[0], self.gui.panelBY), colours.bottom_panel_colour)
-		sdl3.SDL_SetRenderDrawBlendMode(renderer, sdl3.SDL_BLENDMODE_BLEND)
 
 		right_offset = 0
 		if self.gui.display_time_mode >= 2:
@@ -19975,7 +19974,6 @@ class BottomBarType_ao1:
 			self.ddt.text((x + 1 * self.gui.scale, y), text_time, colours.time_playing, fonts.bottom_panel_time)
 			self.ddt.text((x - 5 * self.gui.scale, y), "-", colours.time_playing, fonts.bottom_panel_time)
 		elif self.gui.display_time_mode == 2:
-
 			colours.time_sub = alpha_blend([255, 255, 255, 80], colours.bottom_panel_colour)
 
 			x -= 4
@@ -19998,7 +19996,6 @@ class BottomBarType_ao1:
 			self.ddt.text((x + offset2, y), text_time, colours.time_sub, fonts.bottom_panel_time)
 
 		elif self.gui.display_time_mode == 3:
-
 			colours.time_sub = alpha_blend([255, 255, 255, 80], colours.bottom_panel_colour)
 
 			track = self.pctl.playing_object()
@@ -34563,11 +34560,9 @@ def intel_moji(index: int):
 	gui.update += 1
 
 	track = pctl.master_library[index]
-
 	lot = []
 
 	for item in pctl.default_playlist:
-
 		if track.album == pctl.master_library[item].album and \
 				track.parent_folder_name == pctl.master_library[item].parent_folder_name:
 			lot.append(item)
@@ -43004,9 +42999,12 @@ def main(holder: Holder) -> None:
 				reset_render = False
 
 			sdl3.SDL_SetRenderTarget(renderer, None)
+			sdl3.SDL_SetRenderDrawBlendMode(renderer, sdl3.SDL_BLENDMODE_NONE)
 			sdl3.SDL_SetRenderDrawColor(
-				renderer, colours.top_panel_background[0], colours.top_panel_background[1],
-				colours.top_panel_background[2], colours.top_panel_background[3])
+				renderer, 0, 0,
+				0, 0)
+			sdl3.SDL_RenderClear(renderer)
+			sdl3.SDL_SetRenderDrawBlendMode(renderer, sdl3.SDL_BLENDMODE_BLEND)
 			sdl3.SDL_RenderClear(renderer)
 			sdl3.SDL_SetRenderTarget(renderer, gui.main_texture)
 			sdl3.SDL_RenderClear(renderer)
@@ -46068,10 +46066,12 @@ def main(holder: Holder) -> None:
 
 			sdl3.SDL_SetRenderTarget(renderer, None)
 			if not gui.present:
+				sdl3.SDL_SetRenderDrawBlendMode(renderer, sdl3.SDL_BLENDMODE_NONE)
 				sdl3.SDL_SetRenderDrawColor(
-				renderer, colours.top_panel_background[0], colours.top_panel_background[1],
-				colours.top_panel_background[2], colours.top_panel_background[3])
+					renderer, 0, 0,
+					0, 0)
 				sdl3.SDL_RenderClear(renderer)
+				sdl3.SDL_SetRenderDrawBlendMode(renderer, sdl3.SDL_BLENDMODE_BLEND)
 				sdl3.SDL_RenderTexture(renderer, gui.main_texture, None, gui.tracklist_texture_rect)
 				gui.present = True
 
