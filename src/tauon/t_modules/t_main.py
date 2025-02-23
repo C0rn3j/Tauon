@@ -1729,7 +1729,7 @@ class PlayerCtl:
 		#     self.multi_playlist[self.playlist_active][1] = copy.deepcopy(self.playlist_playing)
 
 		if self.gui.showcase_mode and self.gui.combo_mode and not quiet:
-			view_standard()
+			self.tauon.view_standard()
 
 		self.multi_playlist[self.active_playlist_viewing].playlist_ids = self.default_playlist
 		self.multi_playlist[self.active_playlist_viewing].position = self.playlist_view_position
@@ -1778,7 +1778,7 @@ class PlayerCtl:
 			self.tauon.view_box.lyrics(hit=True)
 			if self.active_playlist_viewing:
 				self.active_playlist_playing = self.active_playlist_viewing
-				random_track()
+				self.tauon.random_track()
 
 	def cycle_playlist_pinned(self, step: int) -> None:
 		if self.gui.radio_view:
@@ -1937,7 +1937,7 @@ class PlayerCtl:
 			self.active_playlist_playing = self.active_playlist_viewing
 			self.playlist_playing_position = -1
 
-		test_show_add_home_music(tauon=self.tauon)
+		self.tauon.test_show_add_home_music()
 
 		# Cleanup
 		ids = []
@@ -2501,7 +2501,7 @@ class PlayerCtl:
 			self.tauon.stream_proxy.stop()
 
 		if self.prefs.update_title:
-			update_title_do()
+			self.tauon.update_title_do()
 
 		self.deduct_shuffle(self.target_object.index)
 
@@ -2543,7 +2543,7 @@ class PlayerCtl:
 
 	def update_change(self) -> None:
 		if self.prefs.update_title:
-			update_title_do()
+			self.tauon.update_title_do()
 		self.notify_update()
 		self.tauon.hit_discord()
 		self.render_playlist()
@@ -2682,7 +2682,7 @@ class PlayerCtl:
 		# gui.update_level = True  # Allows visualiser to enter decay sequence
 		self.gui.update = True
 		if self.prefs.update_title:
-			update_title_do()  # Update title bar text
+			self.tauon.update_title_do()  # Update title bar text
 
 		if self.tauon.stream_proxy and self.tauon.stream_proxy.download_running:
 			self.tauon.stream_proxy.stop()
@@ -3052,7 +3052,7 @@ class PlayerCtl:
 				self.gui.pl_update = 1
 
 				if self.prefs.update_title:
-					update_title_do()
+					self.tauon.update_title_do()
 				self.notify_update()
 			else:
 				# self.advance(quiet=True, end=True)
@@ -5349,6 +5349,7 @@ class Tauon:
 		self.install_directory            = bag.dirs.install_directory
 		self.music_directory: Path | None = bag.dirs.music_directory
 		self.locale_directory             = bag.dirs.locale_directory
+		self.a_cache_directory            = bag.dirs.a_cache_directory
 		self.g_cache_directory            = bag.dirs.g_cache_directory
 		self.n_cache_directory            = bag.dirs.n_cache_directory
 		self.e_cache_directory            = bag.dirs.e_cache_directory
@@ -5506,6 +5507,8 @@ class Tauon:
 		self.lyric_side_bottom_pulse              = EdgePulse2(tauon=self)
 		self.tab_pulse                            = EdgePulse(tauon=self)
 		self.radio_thumb_gen                      = RadioThumbGen(tauon=self)
+		self.dl_mon                               = DLMon(tauon=self)
+
 		if self.system == "Linux" and not self.macos and not self.msys:
 			self.gnome = Gnome(tauon=self)
 
@@ -5704,7 +5707,7 @@ class Tauon:
 				mac_circle.render(xx + 6 * gui.scale, y, colour)
 				if self.coll(rect) and not gui.mouse_unknown:
 					if (inp.mouse_up or inp.ab_click) and coll_point(inp.last_click_location, rect):
-						restore_full_mode()
+						self.restore_full_mode()
 						gui.update += 2
 
 		# maximize
@@ -5804,7 +5807,7 @@ class Tauon:
 					ddt.rect_a((rect[0], rect[1]), (rect[2], rect[3]), bg_on)
 					self.top_panel.restore_button.render(rect[0] + 8 * gui.scale, rect[1] + 9 * gui.scale, fg_on)
 					if (inp.mouse_click or inp.ab_click) and coll_point(inp.click_location, rect):
-						restore_full_mode()
+						self.restore_full_mode()
 						gui.update += 2
 				else:
 					self.top_panel.restore_button.render(rect[0] + 8 * gui.scale, rect[1] + 9 * gui.scale, fg_off)
@@ -5942,10 +5945,10 @@ class Tauon:
 		self.ddt.prime_font(standard_font, 12, 515)
 		self.ddt.prime_font(standard_font, 13, 516)
 
-	def get_real_time(self):
+	def get_real_time(self) -> float:
 		offset = self.pctl.decode_time - (self.prefs.sync_lyrics_time_offset / 1000)
 		if self.prefs.backend == 4:
-			offset -= (prefs.device_buffer - 120) / 1000
+			offset -= (self.prefs.device_buffer - 120) / 1000
 		elif self.prefs.backend == 2:
 			offset += 0.1
 		return max(0, offset)
@@ -6010,9 +6013,9 @@ class Tauon:
 
 		for q in range(len(todo)):
 			# key = self.pctl.master_library[todo[q]].title + self.pctl.master_library[todo[q]].filename
-			old_star = star_store.full_get(todo[q])
+			old_star = self.star_store.full_get(todo[q])
 			if old_star != None:
-				star_store.remove(todo[q])
+				self.star_store.remove(todo[q])
 
 			if enc_field == "All" or enc_field == "Artist":
 				line = self.pctl.master_library[todo[q]].artist
@@ -6033,7 +6036,7 @@ class Tauon:
 				self.pctl.master_library[todo[q]].title = line
 
 			if old_star != None:
-				star_store.insert(todo[q], old_star)
+				self.star_store.insert(todo[q], old_star)
 
 			# if key in self.pctl.star_library:
 			#	 newkey = self.pctl.master_library[todo[q]].title + self.pctl.master_library[todo[q]].filename
@@ -6070,7 +6073,7 @@ class Tauon:
 		else:
 			self.pctl.radio_playlists.append(RadioPlaylist(uid=uid_gen(), name=name, stations=stations, scroll=0))
 			self.pctl.radio_playlist_viewing = len(self.pctl.radio_playlists) - 1
-		if not gui.radio_view:
+		if not self.gui.radio_view:
 			self.enter_radio_view()
 
 	def load_m3u(self, path: str) -> None:
@@ -6104,9 +6107,9 @@ class Tauon:
 						title=line_title if line_title else os.path.splitext(os.path.basename(path))[0].strip())
 					stations.append(radio)
 
-					if gui.auto_play_import:
-						gui.auto_play_import = False
-						radiobox.start(radio)
+					if self.gui.auto_play_import:
+						self.gui.auto_play_import = False
+						self.radiobox.start(radio)
 				else:
 					line = uri_parse(line)
 					# Join file path if possibly relative
@@ -6188,7 +6191,7 @@ class Tauon:
 							logging.info("Download .pls")
 							response = requests.get(radio.stream_url, stream=True, timeout=15)
 							if int(response.headers["Content-Length"]) < 2000:
-								read_pls(response.content.decode().splitlines(), path, followed=True)
+								self.read_pls(response.content.decode().splitlines(), path, followed=True)
 						except Exception:
 							logging.exception("Failed to retrieve .pls")
 				else:
@@ -6605,8 +6608,8 @@ class Tauon:
 		# self.gui.update_layout = True
 
 	def flush_artist_bio(self, artist) -> None:
-		if os.path.isfile(os.path.join(a_cache_dir, artist + "-lfm.txt")):
-			os.remove(os.path.join(a_cache_dir, artist + "-lfm.txt"))
+		if os.path.isfile(os.path.join(self.a_cache_directory, artist + "-lfm.txt")):
+			os.remove(os.path.join(self.a_cache_directory, artist + "-lfm.txt"))
 		self.artist_info_box.text = ""
 		self.artist_info_box.artist_on = None
 
@@ -6631,7 +6634,7 @@ class Tauon:
 		else:
 			line = path
 			line += "/"
-			if macos:
+			if self.macos:
 				subprocess.Popen(["open", line])
 			else:
 				subprocess.Popen(["xdg-open", line])
@@ -6646,14 +6649,14 @@ class Tauon:
 			self.show_message(_("Can't open folder of a network track."))
 			return
 
-		if system == "Windows" or msys:
+		if self.system == "Windows" or self.msys:
 			line = r'explorer /select,"%s"' % (
 				track.fullpath.replace("/", "\\"))
 			subprocess.Popen(line)
 		else:
 			line = track.parent_folder_path
 			line += "/"
-			if macos:
+			if self.macos:
 				line = track.fullpath
 				subprocess.Popen(["open", "-R", line])
 			else:
@@ -6687,7 +6690,7 @@ class Tauon:
 		# Stop playing track if its in the current folder
 		if self.pctl.playing_state > 0:
 			if move_folder in self.pctl.playing_object().parent_folder_path:
-				pctl.stop(True)
+				self.pctl.stop(True)
 
 		target_base = path
 
@@ -6832,7 +6835,7 @@ class Tauon:
 		if self.tree_view_box.lock_pl:
 			self.tree_view_box.lock_pl = None
 		else:
-			self.tree_view_box.lock_pl = self.pctl.multi_playlist[pctl.active_playlist_viewing].uuid_int
+			self.tree_view_box.lock_pl = self.pctl.multi_playlist[self.pctl.active_playlist_viewing].uuid_int
 
 	def lock_folder_tree_deco(self):
 		if self.tree_view_box.lock_pl:
@@ -6903,7 +6906,7 @@ class Tauon:
 			else:
 				queue_item = queue_item_gen(
 					ref, self.pctl.playlist_playing_position, self.pctl.pl_to_id(self.pctl.active_playlist_playing), 1, 0)
-				self.pctl.force_queue.insert(len(pctl.force_queue), queue_item)
+				self.pctl.force_queue.insert(len(self.pctl.force_queue), queue_item)
 		if queue_item:
 			self.queue_timer_set(queue_object=queue_item)
 		if self.prefs.stop_end_queue:
@@ -6960,7 +6963,7 @@ class Tauon:
 	def toggle_lyrics_deco(self, track_object: TrackClass):
 		colour = self.colours.menu_text
 
-		if gui.combo_mode:
+		if self.gui.combo_mode:
 			if self.prefs.show_lyrics_showcase:
 				line = _("Hide Lyrics")
 			else:
@@ -7142,7 +7145,7 @@ class Tauon:
 		return [line_colour, self.colours.menu_background, text]
 
 	def paste_lyrics_deco(self):
-		if SDL_HasClipboardText():
+		if sdl3.SDL_HasClipboardText():
 			line_colour = self.colours.menu_text
 		else:
 			line_colour = self.colours.menu_text_disabled
@@ -7363,7 +7366,7 @@ class Tauon:
 					artlink = r.json()["albums"][album_id]["albumcover"][0]["url"]
 					id = r.json()["albums"][album_id]["albumcover"][0]["id"]
 
-					response = urllib.request.urlopen(artlink, context=tls_context)
+					response = urllib.request.urlopen(artlink, context=self.tls_context)
 					info = response.info()
 
 					t = io.BytesIO()
@@ -7568,11 +7571,11 @@ class Tauon:
 			return
 		info = self.album_art_gen.get_info(track_object)
 		if info and info[0] == 0:
-			delete_file_image(track_object)
+			self.delete_file_image(track_object)
 		elif info and info[0] == 1:
-			n = remove_embed_picture(track_object, dry=True)
-			gui.message_box_confirm_callback = remove_embed_picture
-			gui.message_box_confirm_reference = (track_object, False)
+			n = self.remove_embed_picture(track_object, dry=True)
+			self.gui.message_box_confirm_callback = self.remove_embed_picture
+			self.gui.message_box_confirm_reference = (track_object, False)
 			self.show_message(_("This will erase any embedded image in {N} files. Are you sure?").format(N=n), mode="confirm")
 
 	def search_image_deco(self, track_object: TrackClass):
@@ -7736,7 +7739,7 @@ class Tauon:
 		for i, ref in enumerate(self.pctl.multi_playlist[index].playlist_ids):
 			li.append((i, ref))
 
-		undo.bk_tracks(index, list(reversed(li)))
+		self.undo.bk_tracks(index, list(reversed(li)))
 
 		del self.pctl.multi_playlist[index].playlist_ids[:]
 		if self.pctl.active_playlist_viewing == index:
@@ -7766,7 +7769,7 @@ class Tauon:
 			for track in self.pctl.multi_playlist[pl].playlist_ids:
 				if self.pctl.master_library[track].parent_folder_path == path:
 					folder.append(track)
-					if prefs.transcode_codec == "flac" and self.pctl.master_library[track].file_ext.lower() in (
+					if self.prefs.transcode_codec == "flac" and self.pctl.master_library[track].file_ext.lower() in (
 						"mp3", "opus",
 						"m4a", "mp4",
 						"ogg", "aac"):
@@ -7988,16 +7991,16 @@ class Tauon:
 
 		ls = self.stats_gen.artist_list
 		for i, item in enumerate(ls[:50]):
-			line += str(i + 1) + ".\t" + stt2(item[1]) + "\t" + item[0] + "\n"
+			line += str(i + 1) + ".\t" + self.stt2(item[1]) + "\t" + item[0] + "\n"
 
 		line += "\n\n" + f"-------------- {_('Top Albums')} --------------------" + "\n\n"
 		ls = self.stats_gen.album_list
 		for i, item in enumerate(ls[:50]):
-			line += str(i + 1) + ".\t" + stt2(item[1]) + "\t" + item[0] + "\n"
+			line += str(i + 1) + ".\t" + self.stt2(item[1]) + "\t" + item[0] + "\n"
 		line += "\n\n" + f"-------------- {_('Top Genres')} --------------------" + "\n\n"
 		ls = self.stats_gen.genre_list
 		for i, item in enumerate(ls[:50]):
-			line += str(i + 1) + ".\t" + stt2(item[1]) + "\t" + item[0] + "\n"
+			line += str(i + 1) + ".\t" + self.stt2(item[1]) + "\t" + item[0] + "\n"
 
 		line = line.encode("utf-8")
 		xport = (self.user_directory / "stats.txt").open("wb")
@@ -8200,7 +8203,7 @@ class Tauon:
 		logging.info("Got list")
 
 		# Get list of folders we want
-		folders = convert_playlist(pl, get_list=True)
+		folders = self.convert_playlist(pl, get_list=True)
 		folder_names: list[str] = []
 		folder_dict = {}
 
@@ -8247,7 +8250,7 @@ class Tauon:
 		# Prepare and copy
 		for i, item in enumerate(todos):
 			self.gui.sync_progress = _("Copying files to device")
-			if gui.stop_sync:
+			if self.gui.stop_sync:
 				break
 
 			free_space = shutil.disk_usage(path)[2] / 8 / 100000000  # in GB
@@ -8393,7 +8396,7 @@ class Tauon:
 				if id not in albums:
 					albums.append(id)
 
-			playtimes[last_folder] = playtimes.get(last_folder, 0) + int(star_store.get(id))
+			playtimes[last_folder] = playtimes.get(last_folder, 0) + int(self.star_store.get(id))
 
 		filename = f"{self.user_directory}/{name}.csv"
 		xport = open(filename, "w")
@@ -8453,7 +8456,7 @@ class Tauon:
 		if source is None:
 			source = self.pctl.multi_playlist[index].playlist_ids
 		playlist = copy.deepcopy(source)
-		playlist = sorted(playlist, key=key_rating, reverse=True)
+		playlist = sorted(playlist, key=self.key_rating, reverse=True)
 
 		if custom_list is not None:
 			return playlist
@@ -8471,7 +8474,7 @@ class Tauon:
 		if source is None:
 			source = self.pctl.multi_playlist[index].playlist_ids
 		playlist = copy.deepcopy(source)
-		playlist = sorted(playlist, key=best, reverse=True)
+		playlist = sorted(playlist, key=self.best, reverse=True)
 
 		if custom_list is not None:
 			return playlist
@@ -8482,7 +8485,7 @@ class Tauon:
 				playlist_ids=copy.deepcopy(playlist),
 				hide_title=True))
 
-		self.pctl.gen_codes[pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "s\"" + self.pctl.multi_playlist[index].title + "\" a pt>"
+		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "s\"" + self.pctl.multi_playlist[index].title + "\" a pt>"
 
 	def gen_folder_top(self, pl: int, get_sets: bool = False, custom_list=None):
 		source = custom_list
@@ -9062,7 +9065,7 @@ class Tauon:
 
 		self.pctl.multi_playlist.append(
 			self.pl_gen(
-				title=gen_unique_pl_title(self.pctl.multi_playlist[index].title, _("Duplicate") + " ", 0),
+				title=self.gen_unique_pl_title(self.pctl.multi_playlist[index].title, _("Duplicate") + " ", 0),
 				playing=self.pctl.multi_playlist[index].playing,
 				playlist_ids=copy.deepcopy(playlist),
 				position=self.pctl.multi_playlist[index].position,
@@ -9184,7 +9187,7 @@ class Tauon:
 			r_folder = self.pctl.master_library[index].parent_folder_name
 			if self.pctl.master_library[self.pctl.default_playlist[b]].parent_folder_name == r_folder:
 				del self.pctl.default_playlist[b]
-		reload()
+		self.reload()
 
 	def convert_folder(self, index: int) -> None:
 		if not self.test_ffmpeg():
@@ -9236,7 +9239,7 @@ class Tauon:
 		self.thread_manager.ready("worker")
 
 	def transfer(self, index: int, args: list[int]) -> None:
-		old_cargo = copy.deepcopy(pctl.cargo)
+		old_cargo = copy.deepcopy(self.pctl.cargo)
 
 		if args[0] == 1 or args[0] == 0:  # copy
 			if args[1] == 1:  # single track
@@ -9247,7 +9250,7 @@ class Tauon:
 				for b in range(len(self.pctl.default_playlist)):
 					if self.pctl.master_library[self.pctl.default_playlist[b]].parent_folder_name == self.pctl.master_library[
 						index].parent_folder_name:
-						pctl.cargo.append(self.pctl.default_playlist[b])
+						self.pctl.cargo.append(self.pctl.default_playlist[b])
 				if args[0] == 0:  # cut
 					for b in reversed(range(len(self.pctl.default_playlist))):
 						if self.pctl.master_library[self.pctl.default_playlist[b]].parent_folder_name == self.pctl.master_library[
@@ -9277,7 +9280,7 @@ class Tauon:
 				and self.pctl.master_library[self.pctl.default_playlist[insert]].parent_folder_name == self.pctl.master_library[index].parent_folder_name:
 					insert += 1
 
-				while len(pctl.cargo) > 0:
+				while len(self.pctl.cargo) > 0:
 					self.pctl.default_playlist.insert(insert, self.pctl.cargo.pop())
 			elif args[1] == 3:  # End
 				self.pctl.default_playlist += self.pctl.cargo
@@ -9403,7 +9406,7 @@ class Tauon:
 				load_order.target = os.path.join(artist_folder, move_track.parent_folder_name)
 				load_order.playlist = self.pctl.multi_playlist[self.pctl.active_playlist_viewing].uuid_int
 
-				insert = gui.shift_selection[0]
+				insert = self.gui.shift_selection[0]
 				old_insert = insert
 				while insert < len(self.pctl.default_playlist) and self.pctl.master_library[
 					self.pctl.multi_playlist[self.pctl.active_playlist_viewing].playlist_ids[insert]].parent_folder_name == \
@@ -9489,7 +9492,7 @@ class Tauon:
 								logging.exception("Error deleting one or more files")
 								self.show_message(_("Error deleting one or more files"), mode="error")
 		else:
-			undo.bk_tracks(self.pctl.active_playlist_viewing, li)
+			self.undo.bk_tracks(self.pctl.active_playlist_viewing, li)
 
 		self.reload()
 		self.tree_view_box.clear_target_pl(self.pctl.active_playlist_viewing)
@@ -9519,7 +9522,7 @@ class Tauon:
 		return False
 
 	def heart_xmenu_colour(self) -> list[int] | None:
-		if love(False, self.pctl.r_menu_index):
+		if self.love(False, self.pctl.r_menu_index):
 			return [245, 60, 60, 255]
 		if self.colours.lm:
 			return [255, 150, 180, 255]
@@ -9534,7 +9537,7 @@ class Tauon:
 		return None
 
 	def love_decox(self):
-		if love(False, self.pctl.r_menu_index):
+		if self.love(False, self.pctl.r_menu_index):
 			return [self.colours.menu_text, self.colours.menu_background, _("Un-Love Track")]
 		return [self.colours.menu_text, self.colours.menu_background, _("Love Track")]
 
@@ -9544,7 +9547,7 @@ class Tauon:
 			notify = True
 
 		# love(True, self.pctl.r_menu_index)
-		shoot_love = threading.Thread(target=love, args=[True, self.pctl.r_menu_index, False, notify])
+		shoot_love = threading.Thread(target=self.love, args=[True, self.pctl.r_menu_index, False, notify])
 		shoot_love.daemon = True
 		shoot_love.start()
 
@@ -9589,7 +9592,7 @@ class Tauon:
 		if self.prefs.stop_end_queue:
 			self.pctl.auto_stop = False
 		if self.gui.album_tab_mode:
-			add_album_to_queue(self.pctl.default_playlist[self.get_album_info(self.pctl.selected_in_playlist)[1][0]], self.pctl.selected_in_playlist)
+			self.add_album_to_queue(self.pctl.default_playlist[self.get_album_info(self.pctl.selected_in_playlist)[1][0]], self.pctl.selected_in_playlist)
 			self.queue_timer_set()
 		else:
 			self.pctl.force_queue.append(
@@ -9725,7 +9728,7 @@ class Tauon:
 
 		try:
 			if self.pctl.playing_state > 0 and os.path.normpath(
-					self.pctl.master_library[self.pctl.track_queue[pctl.queue_step]].parent_folder_path) == os.path.normpath(old):
+					self.pctl.master_library[self.pctl.track_queue[self.pctl.queue_step]].parent_folder_path) == os.path.normpath(old):
 				self.pctl.stop(True)
 
 			if force:
@@ -10015,7 +10018,7 @@ class Tauon:
 
 			key = self.star_store.object_key(tr)
 			value = [total_playtime, flags, 0]
-			if key not in star_store.db:
+			if key not in self.star_store.db:
 				logging.info("Saving value")
 				self.star_store.db[key] = value
 			else:
@@ -10441,45 +10444,45 @@ class Tauon:
 				key = self.key_fullpath
 				ns = True
 		if name == "Artist":
-			key = key_artist
+			key = self.key_artist
 		if name == "Album Artist":
-			key = key_album_artist
+			key = self.key_album_artist
 		if name == "Title":
-			key = key_title
+			key = self.key_title
 		if name == "Album":
-			key = key_album
+			key = self.key_album
 		if name == "Composer":
-			key = key_composer
+			key = self.key_composer
 		if name == "Time":
-			key = key_duration
+			key = self.key_duration
 		if name == "Date":
-			key = key_date
+			key = self.key_date
 		if name == "Genre":
-			key = key_genre
+			key = self.key_genre
 		if name == "#":
-			key = key_t
+			key = self.key_t
 		if name == "S":
-			key = key_scrobbles
+			key = self.key_scrobbles
 		if name == "P":
-			key = key_playcount
+			key = self.key_playcount
 		if name == "Starline":
-			key = best
+			key = self.best
 		if name == "Rating":
-			key = key_rating
+			key = self.key_rating
 		if name == "Comment":
-			key = key_comment
+			key = self.key_comment
 		if name == "Codec":
-			key = key_codec
+			key = self.key_codec
 		if name == "Bitrate":
-			key = key_bitrate
+			key = self.key_bitrate
 		if name == "Lyrics":
-			key = key_hl
+			key = self.key_hl
 		if name == "❤":
-			key = key_love
+			key = self.key_love
 		if name == "Disc":
-			key = key_disc
+			key = self.key_disc
 		if name == "CUE":
-			key = key_cue
+			key = self.key_cue
 
 		if custom_list is None:
 			if key is not None:
@@ -10538,7 +10541,7 @@ class Tauon:
 			xport.write(str(track.length) + ",")
 			xport.write(csv_string(track.date) + ",")
 			xport.write(csv_string(track.genre) + ",")
-			xport.write(str(int(star_store.get_by_object(track))) + ",")
+			xport.write(str(int(self.star_store.get_by_object(track))) + ",")
 			xport.write(csv_string(track.fullpath))
 
 		xport.close()
@@ -10565,9 +10568,9 @@ class Tauon:
 
 	def import_fmps(self) -> None:
 		unique = set()
-		for playlist in pctl.multi_playlist:
+		for playlist in self.pctl.multi_playlist:
 			for id in playlist.playlist_ids:
-				tr = pctl.get_track(id)
+				tr = self.pctl.get_track(id)
 				if "FMPS_Rating" in tr.misc:
 					rating = round(tr.misc["FMPS_Rating"] * 10)
 					self.star_store.set_rating(tr.index, rating)
@@ -10624,7 +10627,7 @@ class Tauon:
 		self.gui.pl_update += 1
 
 	def find_incomplete(self) -> None:
-		gen_incomplete(self.pctl.active_playlist_viewing)
+		self.gen_incomplete(self.pctl.active_playlist_viewing)
 
 	def cast_deco(self) -> list:
 		line_colour = self.colours.menu_text
@@ -10905,7 +10908,7 @@ class Tauon:
 		release_group_id = None
 		if (artist, tr.album) in self.pctl.album_mbid_release_cache or (artist, tr.album) in self.pctl.album_mbid_release_group_cache:
 			release_id = self.pctl.album_mbid_release_cache[(artist, tr.album)]
-			release_group_id = pctl.album_mbid_release_group_cache[(artist, tr.album)]
+			release_group_id = self.pctl.album_mbid_release_group_cache[(artist, tr.album)]
 			if release_id is None and release_group_id is None:
 				return None
 
@@ -10924,7 +10927,7 @@ class Tauon:
 				#logging.info("got release group id")
 			except Exception:
 				logging.exception("Error lookup mbid for discord")
-				pctl.album_mbid_release_group_cache[(artist, tr.album)] = None
+				self.pctl.album_mbid_release_group_cache[(artist, tr.album)] = None
 
 		if not release_id:
 			try:
@@ -11020,8 +11023,8 @@ class Tauon:
 			state = 0
 			index = -1
 			br = False
-			gui.discord_status = "Connected"
-			gui.update += 1
+			self.gui.discord_status = "Connected"
+			self.gui.update += 1
 			current_state = 0
 
 			while True:
@@ -11057,7 +11060,7 @@ class Tauon:
 							if self.pctl.playing_state == 1:
 								logging.info("Reconnect discord...")
 								RPC.connect()
-								gui.discord_status = "Connected"
+								self.gui.discord_status = "Connected"
 								break
 							time.sleep(2)
 
@@ -11070,7 +11073,7 @@ class Tauon:
 						RPC.clear(pid)
 						RPC.close()
 						self.prefs.disconnect_discord = False
-						gui.discord_status = "Not connected"
+						self.gui.discord_status = "Not connected"
 						br = True
 						break
 
@@ -11089,7 +11092,7 @@ class Tauon:
 				else:
 					album = _("Unknown Album")
 					if self.pctl.playing_state == 3:
-						album = radiobox.loaded_station["title"]
+						album = self.radiobox.loaded_station["title"]
 
 				if len(album) == 1:
 					album += " "
@@ -11097,7 +11100,7 @@ class Tauon:
 				if state == 1:
 					#logging.info("PLAYING: " + title)
 					#logging.info(start_time)
-					url = get_album_art_url(self.pctl.playing_object())
+					url = self.get_album_art_url(self.pctl.playing_object())
 
 					large_image = "tauon-standard"
 					small_image = None
@@ -11274,7 +11277,7 @@ class Tauon:
 			return
 		if "tmix\"" in self.pctl.gen_codes.get(id, ""):
 			return
-		self.gui.message_box_confirm_callback = clear_gen
+		self.gui.message_box_confirm_callback = self.clear_gen
 		self.gui.message_box_confirm_reference = (id,)
 		self.show_message(_("You added tracks to a generator playlist. Do you want to clear the generator?"), mode="confirm")
 
@@ -11290,7 +11293,7 @@ class Tauon:
 			sdl3.SDL_RestoreWindow(self.t_window)
 			self.update_layout_do()
 
-		if gui.mode < 3:
+		if self.gui.mode < 3:
 			self.old_window_position = get_window_position(self.t_window)
 
 		if self.prefs.mini_mode_on_top:
@@ -11406,7 +11409,7 @@ class Tauon:
 
 	def save_to_radios(self, station: RadioStation) -> None:
 		self.pctl.radio_playlists[self.pctl.radio_playlist_viewing].stations.append(station)
-		toast(_("Added station to: ") + self.pctl.radio_playlists[self.pctl.radio_playlist_viewing].name)
+		self.toast(_("Added station to: ") + self.pctl.radio_playlists[self.pctl.radio_playlist_viewing].name)
 
 	def create_artist_pl(self, artist: str, replace: bool = False):
 		source_pl = self.pctl.active_playlist_viewing
@@ -11445,7 +11448,7 @@ class Tauon:
 						self.pctl.active_playlist_playing = source_pl
 						self.pctl.playlist_playing_position = self.pctl.multi_playlist[source_pl].playlist_ids.index(tr.index)
 
-			self.pctl.gen_codes[pctl.pl_to_id(this_pl)] = "s\"" + self.pctl.multi_playlist[source_pl].title + "\" a\"" + artist + "\""
+			self.pctl.gen_codes[self.pctl.pl_to_id(this_pl)] = "s\"" + self.pctl.multi_playlist[source_pl].title + "\" a\"" + artist + "\""
 		else:
 			self.pctl.multi_playlist.append(
 				self.pl_gen(
@@ -11633,7 +11636,7 @@ class Tauon:
 
 	def dismiss_dl(self) -> None:
 		self.dl_mon.ready.clear()
-		self.dl_mon.done.update(dl_mon.watching)
+		self.dl_mon.done.update(self.dl_mon.watching)
 		self.dl_mon.watching.clear()
 
 	def download_img(self, link: str, target_folder: str, track: TrackClass) -> None:
@@ -17465,7 +17468,7 @@ class Tauon:
 			self.pctl.radio_playlists.append(RadioPlaylist(uid=uid_gen(), name=_("New Radio List"), stations=[], scroll=0))
 			return None
 
-		title = gen_unique_pl_title(_("New Playlist"))
+		title = self.gen_unique_pl_title(_("New Playlist"))
 
 		self.top_panel.prime_side = 1
 		self.top_panel.prime_tab = len(self.pctl.multi_playlist)
@@ -31174,14 +31177,16 @@ class PlaylistBox:
 		if self.gui.scale == 1.25:
 			self.text_offset = 3
 
-	def __init__(self, tauon: Tauon):
+	def __init__(self, tauon: Tauon) -> None:
 		self.tauon       = tauon
 		bag              = tauon.bag
 		self.coll        = tauon.coll
 		self.colours     = tauon.colours
+		self.inp         = tauon.inp
 		self.gui         = tauon.gui
 		self.ddt         = tauon.ddt
 		self.pctl        = tauon.pctl
+		self.prefs       = tauon.prefs
 		self.window_size = tauon.window_size
 		self.scroll_on   = bag.prefs.old_playlist_box_position
 		self.drag = False
@@ -31391,7 +31396,7 @@ class PlaylistBox:
 			# Background is insivible by default (for hightlighting if selected)
 			bg = [0, 0, 0, 0]
 			if self.prefs.transparent_mode:
-				bg = rgb_add_hls(colours.playlist_box_background, 0, 0.09, 0)
+				bg = rgb_add_hls(self.colours.playlist_box_background, 0, 0.09, 0)
 				bg = (bg[0], bg[1], bg[2], 255)
 
 			# Highlight if playlist selected (viewing)
@@ -31399,11 +31404,11 @@ class PlaylistBox:
 				# bg = [255, 255, 255, 25]
 
 				# Adjust highlight for different background brightnesses
-				bg = rgb_add_hls(colours.playlist_box_background, 0, 0.06, 0)
+				bg = rgb_add_hls(self.colours.playlist_box_background, 0, 0.06, 0)
 				if light_mode:
 					bg = [0, 0, 0, 25]
 				if self.prefs.transparent_mode:
-					bg = rgb_add_hls(colours.playlist_box_background, 0, 0.03, 0)
+					bg = rgb_add_hls(self.colours.playlist_box_background, 0, 0.03, 0)
 					bg = (bg[0], bg[1], bg[2], 255)
 
 			# Highlight target playlist when tragging tracks over
@@ -31411,12 +31416,12 @@ class PlaylistBox:
 				(tab_start + 50 * gui.scale, yy - 1, tab_width - 50 * gui.scale, (self.tab_h + 1))) and self.inp.quick_drag and not (
 				pctl.gen_codes.get(pctl.pl_to_id(i)) and "self" not in pctl.gen_codes[pctl.pl_to_id(i)]):
 				# bg = [255, 255, 255, 15]
-				bg = rgb_add_hls(colours.playlist_box_background, 0, 0.04, 0)
+				bg = rgb_add_hls(self.colours.playlist_box_background, 0, 0.04, 0)
 				if light_mode:
 					bg = [0, 0, 0, 16]
 
 			# Get actual bg from blend for text bg
-			real_bg = alpha_blend(bg, colours.playlist_box_background)
+			real_bg = alpha_blend(bg, self.colours.playlist_box_background)
 
 			# Draw highlight
 			self.ddt.rect((tab_start, yy - round(1 * gui.scale), tab_width, self.tab_h), bg)
@@ -31451,10 +31456,9 @@ class PlaylistBox:
 
 			# if not self.prefs.tabs_on_top:
 			if i == pctl.active_playlist_playing:
-
-				indicator_colour = colours.title_playing
-				if colours.lm:
-					indicator_colour = colours.seek_bar_fill
+				indicator_colour = self.colours.title_playing
+				if self.colours.lm:
+					indicator_colour = self.colours.seek_bar_fill
 
 				ddt.rect((tab_start + 0 - 2 * gui.scale, yy - round(1 * gui.scale), indicate_w, self.tab_h), indicator_colour)
 
@@ -34222,14 +34226,14 @@ class ArtistInfoBox:
 
 class RadioThumbGen:
 	def __init__(self, tauon: Tauon) -> None:
-		self.gui = tauon.gui
-		self.ddt = tauon.ddt
+		self.gui            = tauon.gui
+		self.ddt            = tauon.ddt
+		self.thread_manager = tauon.thread_manager
 		self.cache = {}
 		self.requests = []
 		self.size = 100
 
 	def loader(self):
-
 		while self.requests:
 			item = self.requests[0]
 			del self.requests[0]
@@ -34317,7 +34321,7 @@ class RadioThumbGen:
 		if r is None:
 			if len(self.requests) < 3:
 				self.requests.append((station, w))
-				tauon.thread_manager.ready("radio-thumb")
+				self.thread_manager.ready("radio-thumb")
 			return 0
 		if r[0] == 2:
 			texture = sdl3.SDL_CreateTextureFromSurface(renderer, r[3])
@@ -34586,25 +34590,28 @@ class Showcase:
 		self.showcase_menu = tauon.showcase_menu
 		self.gui           = tauon.gui
 		self.ddt           = tauon.ddt
-		self.colours       = tauon.bag.colours
+		self.prefs         = tauon.prefs
+		self.colours       = tauon.colours
+		self.renderer      = tauon.renderer
+		self.window_size   = tauon.window_size
 		self.lastfm_artist = None
 		self.artist_mode = False
 
 	def render(self):
-		box = int(window_size[1] * 0.4 + 120 * self.gui.scale)
-		box = min(window_size[0] // 2, box)
+		box = int(self.window_size[1] * 0.4 + 120 * self.gui.scale)
+		box = min(self.window_size[0] // 2, box)
 
 		hide_art = False
-		if window_size[0] < 900 * self.gui.scale:
+		if self.window_size[0] < 900 * self.gui.scale:
 			hide_art = True
 
-		x = int(window_size[0] * 0.15)
-		y = int((window_size[1] / 2) - (box / 2)) - 10 * self.gui.scale
+		x = int(self.window_size[0] * 0.15)
+		y = int((self.window_size[1] / 2) - (box / 2)) - 10 * self.gui.scale
 
 		if hide_art:
 			box = 45 * self.gui.scale
-		elif window_size[1] / window_size[0] > 0.7:
-			x = int(window_size[0] * 0.07)
+		elif self.window_size[1] / self.window_size[0] > 0.7:
+			x = int(self.window_size[0] * 0.07)
 
 		bbg = rgb_add_hls(self.colours.playlist_panel_background, 0, 0.05, 0)  # [255, 255, 255, 18]
 		bfg = rgb_add_hls(self.colours.playlist_panel_background, 0, 0.09, 0)  # [255, 255, 255, 30]
@@ -34620,7 +34627,7 @@ class Showcase:
 			bfg = alpha_blend([255, 255, 255, 60], self.colours.vis_colour)
 			bft = self.colours.grey(250)
 			bbt = self.colours.grey(245)
-		elif prefs.art_bg and prefs.bg_showcase_only:
+		elif self.prefs.art_bg and self.prefs.bg_showcase_only:
 			bbg = [255, 255, 255, 18]
 			bfg = [255, 255, 255, 30]
 			bft = [255, 255, 255, 250]
@@ -34631,13 +34638,13 @@ class Showcase:
 			t1 = self.colours.grey(30)
 			self.gui.vis_4_colour = [40, 40, 40, 255]
 
-		self.ddt.rect((0, self.gui.panelY, window_size[0], window_size[1] - self.gui.panelY), self.colours.playlist_panel_background)
+		self.ddt.rect((0, self.gui.panelY, self.window_size[0], self.window_size[1] - self.gui.panelY), self.colours.playlist_panel_background)
 
-		if prefs.bg_showcase_only and prefs.art_bg:
+		if self.prefs.bg_showcase_only and self.prefs.art_bg:
 			tauon.style_overlay.display()
 
 			# Draw textured background
-			if not light_mode and not self.colours.lm and prefs.showcase_overlay_texture:
+			if not light_mode and not self.colours.lm and self.prefs.showcase_overlay_texture:
 				rect = sdl3.SDL_FRect()
 				rect.x = 0
 				rect.y = 0
@@ -34646,21 +34653,21 @@ class Showcase:
 
 				xx = 0
 				yy = 0
-				while yy < window_size[1]:
+				while yy < self.window_size[1]:
 					xx = 0
-					while xx < window_size[0]:
+					while xx < self.window_size[0]:
 						rect.x = xx
 						rect.y = yy
-						sdl3.SDL_RenderTexture(renderer, overlay_texture_texture, None, rect)
+						sdl3.SDL_RenderTexture(self.renderer, overlay_texture_texture, None, rect)
 						xx += 300
 					yy += 300
 
-		if prefs.bg_showcase_only and prefs.art_bg:
+		if self.prefs.bg_showcase_only and self.prefs.art_bg:
 			self.ddt.alpha_bg = True
 			self.ddt.force_gray = True
 
-		# if not prefs.shuffle_lock:
-		#     if draw.button(_("Return"), 25 * self.gui.scale, window_size[1] - self.gui.panelBY - 40 * self.gui.scale,
+		# if not self.prefs.shuffle_lock:
+		#     if draw.button(_("Return"), 25 * self.gui.scale, self.window_size[1] - self.gui.panelBY - 40 * self.gui.scale,
 		#                    text_highlight_colour=bft, text_colour=bbt, backgound_colour=bbg,
 		#                    background_highlight_colour=bfg):
 		#         self.gui.switch_showcase_off = True
@@ -34669,26 +34676,25 @@ class Showcase:
 
 		# self.ddt.force_gray = True
 
-		if pctl.playing_state == 3 and not radiobox.dummy_track.title:
-
-			if not pctl.tag_meta:
-				y = int(window_size[1] / 2) - 60 - self.gui.scale
-				self.ddt.text((window_size[0] // 2, y, 2), pctl.url, self.colours.side_bar_line2, 317)
+		if self.pctl.playing_state == 3 and not radiobox.dummy_track.title:
+			if not self.pctl.tag_meta:
+				y = int(self.window_size[1] / 2) - 60 - self.gui.scale
+				self.ddt.text((self.window_size[0] // 2, y, 2), self.pctl.url, self.colours.side_bar_line2, 317)
 			else:
-				w = window_size[0] - (x + box) - 30 * self.gui.scale
-				x = int((window_size[0]) / 2)
+				w = self.window_size[0] - (x + box) - 30 * self.gui.scale
+				x = int((self.window_size[0]) / 2)
 
-				y = int(window_size[1] / 2) - 60 - self.gui.scale
-				self.ddt.text((x, y, 2), pctl.tag_meta, self.colours.side_bar_line1, 216, w)
+				y = int(self.window_size[1] / 2) - 60 - self.gui.scale
+				self.ddt.text((x, y, 2), self.pctl.tag_meta, self.colours.side_bar_line1, 216, w)
 		else:
-			if len(pctl.track_queue) < 1:
+			if len(self.pctl.track_queue) < 1:
 				self.ddt.alpha_bg = False
 				return
 
 			# if draw.button("Return", 20, self.gui.panelY + 5, bg=colours.grey(30)):
 			#     pass
 
-			if prefs.bg_showcase_only and prefs.art_bg:
+			if self.prefs.bg_showcase_only and self.prefs.art_bg:
 				self.ddt.alpha_bg = True
 				self.ddt.force_gray = True
 
@@ -34701,13 +34707,13 @@ class Showcase:
 
 			if self.gui.force_showcase_index >= 0:
 				index = self.gui.force_showcase_index
-				track = pctl.master_library[index]
+				track = self.pctl.master_library[index]
 			else:
 				if self.pctl.playing_state == 3:
 					track = radiobox.dummy_track
 				else:
-					index = pctl.track_queue[pctl.queue_step]
-					track = pctl.master_library[index]
+					index = self.pctl.track_queue[self.pctl.queue_step]
+					track = self.pctl.master_library[index]
 
 			if not hide_art:
 				# Draw frame around art box
@@ -34735,57 +34741,56 @@ class Showcase:
 
 			self.gui.draw_vis4_top = False
 
-			if self.gui.panelY < inp.mouse_position[1] < window_size[1] - self.gui.panelBY:
+			if self.gui.panelY < inp.mouse_position[1] < self.window_size[1] - self.gui.panelBY:
 				if inp.mouse_wheel != 0:
 					lyrics_ren.lyrics_position += inp.mouse_wheel * 35 * self.gui.scale
 				if inp.right_click:
-					# track = pctl.playing_object()
+					# track = self.pctl.playing_object()
 					if track != None:
 						self.showcase_menu.activate(track)
 
-			gcx = x + box + int(window_size[0] * 0.15) + 10 * self.gui.scale
+			gcx = x + box + int(self.window_size[0] * 0.15) + 10 * self.gui.scale
 			gcx -= 100 * self.gui.scale
 
 			timed_ready = False
-			if True and prefs.show_lyrics_showcase:
+			if True and self.prefs.show_lyrics_showcase:
 				timed_ready = tauon.timed_lyrics_ren.generate(track)
 
 			if timed_ready and track.lyrics:
-
-				# if not prefs.guitar_chords or guitar_chords.test_ready_status(track) != 1:
+				# if not self.prefs.guitar_chords or guitar_chords.test_ready_status(track) != 1:
 				#
 				#     line = _("Prefer synced")
-				#     if prefs.prefer_synced_lyrics:
+				#     if self.prefs.prefer_synced_lyrics:
 				#         line = _("Prefer static")
-				#     if draw.button(line, 25 * self.gui.scale, window_size[1] - self.gui.panelBY - 70 * self.gui.scale,
+				#     if draw.button(line, 25 * self.gui.scale, self.window_size[1] - self.gui.panelBY - 70 * self.gui.scale,
 				#                    text_highlight_colour=bft, text_colour=bbt, background_colour=bbg,
 				#                    background_highlight_colour=bfg):
-				#         prefs.prefer_synced_lyrics ^= True
+				#         self.prefs.prefer_synced_lyrics ^= True
 
-				timed_ready = prefs.prefer_synced_lyrics
+				timed_ready = self.prefs.prefer_synced_lyrics
 
-			#if prefs.guitar_chords and track.title and prefs.show_lyrics_showcase and guitar_chords.render(track, gcx, y):
+			#if self.prefs.guitar_chords and track.title and self.prefs.show_lyrics_showcase and guitar_chords.render(track, gcx, y):
 			#	if not guitar_chords.auto_scroll:
 			#		if draw.button(
-			#			_("Auto-Scroll"), 25 * self.gui.scale, window_size[1] - self.gui.panelBY - 70 * self.gui.scale,
+			#			_("Auto-Scroll"), 25 * self.gui.scale, self.window_size[1] - self.gui.panelBY - 70 * self.gui.scale,
 			#			text_highlight_colour=bft, text_colour=bbt, background_colour=bbg,
 			#			background_highlight_colour=bfg):
 			#			guitar_chords.auto_scroll = True
 
-			if True and prefs.show_lyrics_showcase and timed_ready:
-				w = window_size[0] - (x + box) - round(30 * self.gui.scale)
+			if True and self.prefs.show_lyrics_showcase and timed_ready:
+				w = self.window_size[0] - (x + box) - round(30 * self.gui.scale)
 				tauon.timed_lyrics_ren.render(track.index, gcx, y, w=w)
-			elif track.lyrics == "" or not prefs.show_lyrics_showcase:
-				w = window_size[0] - (x + box) - round(30 * self.gui.scale)
-				x = int(x + box + (window_size[0] - x - box) / 2)
+			elif track.lyrics == "" or not self.prefs.show_lyrics_showcase:
+				w = self.window_size[0] - (x + box) - round(30 * self.gui.scale)
+				x = int(x + box + (self.window_size[0] - x - box) / 2)
 
 				if hide_art:
-					x = window_size[0] // 2
+					x = self.window_size[0] // 2
 
-				# x = int((window_size[0]) / 2)
-				y = int(window_size[1] / 2) - round(60 * self.gui.scale)
+				# x = int((self.window_size[0]) / 2)
+				y = int(self.window_size[1] / 2) - round(60 * self.gui.scale)
 
-				if prefs.showcase_vis and prefs.backend == 1:
+				if self.prefs.showcase_vis and self.prefs.backend == 1:
 					y -= round(30 * self.gui.scale)
 
 				if track.artist == "" and track.title == "":
@@ -34812,16 +34817,16 @@ class Showcase:
 				self.gui.spec4_rec.x = x - (self.gui.spec4_rec.w // 2)
 				self.gui.spec4_rec.y = y + round(50 * self.gui.scale)
 
-				if prefs.showcase_vis and window_size[1] > 369 and not tauon.search_over.active \
+				if self.prefs.showcase_vis and self.window_size[1] > 369 and not tauon.search_over.active \
 				and not (tauon.spot_ctl.coasting or tauon.spot_ctl.playing):
 					if self.gui.message_box or not is_level_zero(include_menus=True):
 						self.render_vis()
 					else:
 						self.gui.draw_vis4_top = True
 			else:
-				x += box + int(window_size[0] * 0.15) + 10 * self.gui.scale
+				x += box + int(self.window_size[0] * 0.15) + 10 * self.gui.scale
 				x -= 100 * self.gui.scale
-				w = window_size[0] - x - 30 * self.gui.scale
+				w = self.window_size[0] - x - 30 * self.gui.scale
 
 				if inp.key_up_press and not (inp.key_ctrl_down or inp.key_shift_down or inp.key_shiftr_down):
 					lyrics_ren.lyrics_position += 35 * self.gui.scale
@@ -34838,7 +34843,7 @@ class Showcase:
 					x,
 					y + lyrics_ren.lyrics_position,
 					w,
-					int(window_size[1] - 100 * self.gui.scale),
+					int(self.window_size[1] - 100 * self.gui.scale),
 					0)
 		self.ddt.alpha_bg = False
 		self.ddt.force_gray = False
@@ -34855,8 +34860,8 @@ class Showcase:
 			sdl3.SDL_SetRenderDrawColor(
 				renderer, self.gui.vis_4_colour[0], self.gui.vis_4_colour[1], self.gui.vis_4_colour[2], self.gui.vis_4_colour[3])
 
-		if (pctl.playing_time < 0.5 and (pctl.playing_state == 1 or pctl.playing_state == 3)) or (
-				pctl.playing_state == 0 and self.gui.spec4_array.count(0) != len(self.gui.spec4_array)):
+		if (self.pctl.playing_time < 0.5 and (self.pctl.playing_state == 1 or self.pctl.playing_state == 3)) or (
+				self.pctl.playing_state == 0 and self.gui.spec4_array.count(0) != len(self.gui.spec4_array)):
 			self.gui.update = 2
 			self.gui.level_update = True
 
@@ -34864,7 +34869,7 @@ class Showcase:
 				self.gui.spec4_array[i] -= 0.1
 				self.gui.spec4_array[i] = max(self.gui.spec4_array[i], 0)
 
-		if not top and (pctl.playing_state == 1 or pctl.playing_state == 3):
+		if not top and (self.pctl.playing_state == 1 or self.pctl.playing_state == 3):
 			self.gui.update = 2
 
 		slide = 0.7
@@ -35090,7 +35095,7 @@ class ViewBox:
 			if self.x_menu.active:
 				self.x_menu.close_next_frame = True
 
-		view_tracks(tauon=self.tauon)
+		self.tauon.view_tracks()
 
 	def side(self, hit: bool = False) -> bool | None:
 		if hit is False:
@@ -35103,7 +35108,7 @@ class ViewBox:
 			if self.x_menu.active:
 				self.x_menu.close_next_frame = True
 
-		view_standard_meta(tauon=self.tauon)
+		self.tauon.view_standard_meta()
 
 	def gallery1(self, hit: bool = False) -> bool | None:
 		if hit is False:
@@ -35434,9 +35439,9 @@ class DLMon:
 
 								# Check if folder not already imported
 								imported = False
-								for pl in pctl.multi_playlist:
+								for pl in self.pctl.multi_playlist:
 									for i in pl.playlist_ids:
-										if path.replace("\\", "/") == pctl.master_library[i].fullpath[:len(path)]:
+										if path.replace("\\", "/") == self.pctl.master_library[i].fullpath[:len(path)]:
 											imported = True
 										if imported:
 											break
@@ -35595,7 +35600,7 @@ class Undo:
 			uid = job[1]
 			li = job[2]
 
-			for i, playlist in enumerate(pctl.self.multi_playlist):
+			for i, playlist in enumerate(self.pctl.self.multi_playlist):
 				if playlist.uuid_int == uid:
 					pl = playlist.playlist_ids
 					self.pctl.switch_playlist(i)
@@ -35624,7 +35629,7 @@ class Undo:
 		self.gui.pl_update = 1
 
 	def bk_playlist(self, pl_index: int) -> None:
-		self.e.append(("playlist", pctl.multi_playlist[pl_index]))
+		self.e.append(("playlist", self.pctl.multi_playlist[pl_index]))
 
 	def bk_tracks(self, pl_index: int, indis) -> None:
 		uid = self.pctl.multi_playlist[pl_index].uuid_int
@@ -35657,7 +35662,8 @@ class GetSDLInput:
 			self.mouse_capture = False
 
 class WinTask:
-	def __init__(self):
+	def __init__(self, tauon: Tauon) -> None:
+		self.pctl = tauon.pctl
 		self.start = time.time()
 		self.updated_state = 0
 		self.window_id = gui.window_id
@@ -35671,17 +35677,17 @@ class WinTask:
 
 		self.d_timer = Timer()
 
-	def update(self, force=False):
+	def update(self, force: bool = False) -> None:
 		if self.d_timer.get() > 2 or force:
 			self.d_timer.set()
 
-			if pctl.playing_state == 1 and self.updated_state != 1:
+			if self.pctl.playing_state == 1 and self.updated_state != 1:
 				self.taskbar.SetProgressState(self.window_id, 0x2)
 
-			if pctl.playing_state == 1:
+			if self.pctl.playing_state == 1:
 				self.updated_state = 1
-				if pctl.playing_length > 2:
-					perc = int(pctl.playing_time * 100 / int(pctl.playing_length))
+				if self.pctl.playing_length > 2:
+					perc = int(self.pctl.playing_time * 100 / int(self.pctl.playing_length))
 					if perc < 2:
 						perc = 1
 					elif perc > 100:
@@ -35691,11 +35697,11 @@ class WinTask:
 
 				self.taskbar.SetProgressValue(self.window_id, perc, 100)
 
-			elif pctl.playing_state == 2 and self.updated_state != 2:
+			elif self.pctl.playing_state == 2 and self.updated_state != 2:
 				self.updated_state = 2
 				self.taskbar.SetProgressState(self.window_id, 0x8)
 
-			elif pctl.playing_state == 0 and self.updated_state != 0:
+			elif self.pctl.playing_state == 0 and self.updated_state != 0:
 				self.updated_state = 0
 				self.taskbar.SetProgressState(self.window_id, 0x2)
 				self.taskbar.SetProgressValue(self.window_id, 0, 100)
@@ -36869,8 +36875,8 @@ def close_all_menus() -> None:
 	Menu.active = False
 
 def paste_lyrics(track_object: TrackClass) -> None:
-	if SDL_HasClipboardText():
-		clip = SDL_GetClipboardText()
+	if sdl3.SDL_HasClipboardText():
+		clip = sdl3.SDL_GetClipboardText()
 		#logging.info(clip)
 		track_object.lyrics = clip.decode("utf-8")
 	else:
@@ -40334,7 +40340,7 @@ def main(holder: Holder) -> None:
 	if (system == "Windows" or msys) and pctl.taskbar_progress:
 		if (install_directory / "TaskbarLib.tlb").is_file():
 			logging.info("Taskbar progress enabled")
-			pctl.windows_progress = WinTask()
+			pctl.windows_progress = WinTask(tauon=tauon)
 		else:
 			pctl.taskbar_progress = False
 			logging.warning("Could not find TaskbarLib.tlb")
@@ -41308,8 +41314,6 @@ def main(holder: Holder) -> None:
 
 	showcase = Showcase(tauon=tauon)
 	cctest = ColourPulse2(tauon=tauon)
-	dl_mon = DLMon(tauon=tauon)
-	tauon.dl_mon = dl_mon
 	dl_menu.add(MenuItem("Dismiss", tauon.dismiss_dl))
 
 	fader = tauon.fader
@@ -42153,7 +42157,7 @@ def main(holder: Holder) -> None:
 		gui.new_playlist_cooldown = False
 
 		if prefs.auto_extract and prefs.monitor_downloads:
-			dl_mon.scan()
+			tauon.dl_mon.scan()
 
 		if inp.mouse_down and not tauon.coll((2, 2, window_size[0] - 4, window_size[1] - 4)):
 			#logging.info(sdl3.SDL_GetMouseState(None, None))
