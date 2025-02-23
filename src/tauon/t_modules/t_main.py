@@ -1980,7 +1980,6 @@ class PlayerCtl:
 		return None
 
 	def pl_to_id(self, pl: int) -> int:
-		logging.critical(pl)
 		return self.multi_playlist[pl].uuid_int
 
 	def notify_change(self) -> None:
@@ -5616,6 +5615,16 @@ class Tauon:
 		self.tau               = TauService(self)
 		self.album_star_store  = AlbumStarStore(self)
 		self.subsonic          = self.album_star_store.subsonic
+
+	def prep_gal(self) -> None:
+		global albums
+		albums = []
+		folder = ""
+
+		for index in self.pctl.default_playlist:
+			if folder != self.pctl.master_library[index].parent_folder_name:
+				albums.append([index, 0])
+				folder = self.pctl.master_library[index].parent_folder_name
 
 	def pl_gen(self,
 		title:        str = "Default",
@@ -13744,7 +13753,6 @@ class TransEditBox:
 					tr = self.pctl.get_track(self.pctl.default_playlist[s])
 					tr.album_artist = self.edit_album_artist.text
 			self.tauon.bg_save()
-
 
 		ww = self.ddt.get_text_w(_("WRITE TAGS"), 212) + round(48 * self.gui.scale)
 		if self.gui.write_tag_in_progress:
@@ -29588,18 +29596,6 @@ def transfer_tracks(index, mode, to):
 
 	pctl.multi_playlist[to].playlist_ids += todo
 
-def prep_gal():
-	global albums
-	albums = []
-
-	folder = ""
-
-	for index in pctl.default_playlist:
-
-		if folder != pctl.master_library[index].parent_folder_name:
-			albums.append([index, 0])
-			folder = pctl.master_library[index].parent_folder_name
-
 def add_stations(tauon: Tauon, stations: list[RadioStation], name: str) -> None:
 	if len(stations) == 1:
 		for i, playlist in enumerate(pctl.radio_playlists):
@@ -33990,7 +33986,7 @@ def lightning_paste():
 	# for file in os.listdir(artist_folder):
 
 	if prefs.album_mode:
-		prep_gal()
+		tauon.prep_gal()
 		tauon.reload_albums(True)
 
 	pctl.cargo.clear()
@@ -34313,7 +34309,7 @@ def delete_folder(index, force=False):
 			self.show_message(_("Hmm, its still there"), old, mode="error")
 
 		if prefs.album_mode:
-			prep_gal()
+			tauon.prep_gal()
 			tauon.reload_albums()
 
 	except Exception:
@@ -40134,9 +40130,12 @@ def main(holder: Holder) -> None:
 	radiobox = tauon.radiobox
 	star_store = tauon.star_store
 	pctl = tauon.pctl
-	if not multi_playlist:
-		multi_playlist = [tauon.pl_gen(notify=False)]
-		default_playlist = multi_playlist[0].playlist_ids
+	if multi_playlist:
+		pctl.multi_playlist = multi_playlist
+		pctl.default_playlist = default_playlist
+	else:
+		pctl.multi_playlist = [tauon.pl_gen(notify=False)]
+		pctl.default_playlist = pctl.multi_playlist[0].playlist_ids
 	pctl.default_playlist = default_playlist
 	deco = tauon.deco
 	deco.get_themes = get_themes
