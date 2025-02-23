@@ -978,22 +978,24 @@ class Input:
 		self.key_home_press:      bool = False
 		self.key_end_press:       bool = False
 
-		self.k_input:          bool = True
-		self.key_return_press: bool = False
-		self.key_tab_press:    bool = False
-		self.key_down_press:   bool = False
-		self.key_up_press:     bool = False
-		self.key_right_press:  bool = False
-		self.key_left_press:   bool = False
-		self.key_esc_press:    bool = False
+		self.k_input:             bool = True
+		self.key_return_press:    bool = False
+		self.key_tab_press:       bool = False
+		self.key_down_press:      bool = False
+		self.key_up_press:        bool = False
+		self.key_right_press:     bool = False
+		self.key_left_press:      bool = False
+		self.key_esc_press:       bool = False
 
-		self.key_shift_down:   bool = False
-		self.key_shiftr_down:  bool = False
-		self.key_ctrl_down:    bool = False
-		self.key_rctrl_down:   bool = False
-		self.key_meta:         bool = False
-		self.key_ralt:         bool = False
-		self.key_lalt:         bool = False
+		self.key_shift_down:      bool = False
+		self.key_shiftr_down:     bool = False
+		self.key_ctrl_down:       bool = False
+		self.key_rctrl_down:      bool = False
+		self.key_meta:            bool = False
+		self.key_ralt:            bool = False
+		self.key_lalt:            bool = False
+
+		self.global_clicked:      bool = False
 
 		self.media_key = ""
 		self.input_text = ""
@@ -1978,6 +1980,7 @@ class PlayerCtl:
 		return None
 
 	def pl_to_id(self, pl: int) -> int:
+		logging.critical(pl)
 		return self.multi_playlist[pl].uuid_int
 
 	def notify_change(self) -> None:
@@ -15861,9 +15864,9 @@ class Over:
 			alpha_blend([255, 255, 255, 14], colours.box_background))
 
 		# Check if box clicked
-		clicked = False
+		self.inp.global_clicked = False
 		if (self.click or click) and self.tauon.coll(hit_rect):
-			clicked = True
+			self.inp.global_clicked = True
 
 		# There are two mode, function type, and passthrough bool type
 		active = False
@@ -15872,7 +15875,7 @@ class Over:
 		else:
 			active = function(1)
 
-		if clicked:
+		if self.inp.global_clicked:
 			if type(function) is bool:
 				active ^= True
 			else:
@@ -19015,9 +19018,7 @@ class BottomBarType1:
 			# self.seek_bar_position[0] = 0
 			# self.seek_bar_size[0] = window_size[0]
 
-	def render(self):
-		global clicked
-
+	def render(self) -> None:
 		window_size = self.window_size
 		tauon       = self.tauon
 		ddt         = self.ddt
@@ -19092,7 +19093,7 @@ class BottomBarType1:
 			if inp.middle_click and pctl.playing_state > 0:
 				gui.seek_cur_show = True
 
-			clicked = True
+			inp.global_clicked = True
 			if inp.mouse_wheel != 0:
 				pctl.seek_time(pctl.playing_time + (inp.mouse_wheel * 3))
 
@@ -19230,7 +19231,6 @@ class BottomBarType1:
 					pctl.toggle_mute()
 
 			for bar in range(8):
-
 				h = min_h + bar * step
 				rect = (x, y - h, 3 * gui.scale, h)
 				h_rect = (x - 1 * gui.scale, y - 17 * gui.scale, 4 * gui.scale, 23 * gui.scale)
@@ -19286,7 +19286,7 @@ class BottomBarType1:
 					self.volume_bar_position[0] - right_offset, self.volume_bar_position[1], self.volume_bar_size[0],
 					self.volume_bar_size[1] + 4))) or \
 					self.volume_bar_being_dragged is True:
-				clicked = True
+				inp.global_clicked = True
 
 				if inp.mouse_click is True or self.volume_bar_being_dragged is True:
 					gui.update = 2
@@ -19861,9 +19861,7 @@ class BottomBarType_ao1:
 			# self.seek_bar_position[0] = 0
 			# self.seek_bar_size[0] = window_size[0]
 
-	def render(self):
-		global clicked
-
+	def render(self) -> None:
 		self.ddt.clear_rect((0, 0, self.window_size[0], self.gui.panelY))
 		self.ddt.rect_a((0, self.window_size[1] - self.gui.panelBY), (self.window_size[0], self.gui.panelBY), colours.bottom_panel_colour)
 
@@ -39176,34 +39174,23 @@ def main(holder: Holder) -> None:
 	# Variables now go in the GuiVar, PlayerCtl, Input, Prefs and Bag class instances.
 	# The following just haven't been moved yet:
 	console = DConsole()
-
 	spot_cache_saved_albums = []
-
 	resize_mode = False
-
 	side_panel_text_align = 0
-
 	spec_smoothing = True
 
 	# gui.offset_extra = 0
-
 	row_len = 5
-
 	time_last_save = 0
-
 	b_info_y = int(window_size[1] * 0.7)  # For future possible panel below playlist
 
 
 	# row_alt = False
 	# gui.rsp = True
 
-
 	scroll_opacity = 0
-
 	source = None
-
 	selected_in_playlist = -1
-
 	gen_codes: dict[int, str] = {}
 
 	# Player Variables----------------------------------------------------------------------------
@@ -41620,7 +41607,7 @@ def main(holder: Holder) -> None:
 
 		# f not inp.mouse_down:
 		inp.k_input = False
-		clicked = False
+		inp.global_clicked = False
 		focused = False
 		mouse_moved = False
 		gui.level_2_click = False
