@@ -5346,6 +5346,7 @@ class Tauon:
 		self.g_cache_directory            = bag.dirs.g_cache_directory
 		self.n_cache_directory            = bag.dirs.n_cache_directory
 		self.e_cache_directory            = bag.dirs.e_cache_directory
+		self.song_notification            = bag.song_notification
 		self.inp                          = gui.inp
 		self.n_version                    = holder.n_version
 		self.t_window                     = holder.t_window
@@ -5494,6 +5495,9 @@ class Tauon:
 		self.lyric_side_top_pulse                 = EdgePulse2(tauon=self)
 		self.lyric_side_bottom_pulse              = EdgePulse2(tauon=self)
 		self.radio_thumb_gen                      = RadioThumbGen(tauon=self)
+		if self.system == "Linux" and not self.macos and not self.msys:
+			self.gnome = Gnome(tauon=self)
+
 		self.text_plex_usr     = TextBox2(tauon=self)
 		self.text_plex_pas     = TextBox2(tauon=self)
 		self.text_plex_ser     = TextBox2(tauon=self)
@@ -5675,18 +5679,18 @@ class Tauon:
 	def get_artist_preview(self, artist: str, x, y) -> None:
 		# self.show_message(_("Loading artist image..."))
 
-		gui.preview_artist_loading = artist
-		tauon.artist_info_box.get_data(artist, force_dl=True)
-		path = tauon.artist_info_box.get_data(artist, get_img_path=True)
+		self.gui.preview_artist_loading = artist
+		self.artist_info_box.get_data(artist, force_dl=True)
+		path = self.artist_info_box.get_data(artist, get_img_path=True)
 		if not path:
 			self.show_message(_("No artist image found."))
-			if not prefs.enable_fanart_artist and not verify_discogs():
+			if not self.prefs.enable_fanart_artist and not verify_discogs():
 				self.show_message(_("No artist image found."), _("No providers are enabled in settings!"), mode="warning")
-			gui.preview_artist_loading = ""
+			self.gui.preview_artist_loading = ""
 			return
-		set_artist_preview(path, artist, x, y)
-		gui.message_box = False
-		gui.preview_artist_loading = ""
+		self.set_artist_preview(path, artist, x, y)
+		self.gui.message_box = False
+		self.gui.preview_artist_loading = ""
 
 	def update_set(self) -> None:
 		"""This is used to scale columns when windows is resized or items added/removed"""
@@ -5761,7 +5765,7 @@ class Tauon:
 		if vr > 0 and total > 50:
 			space = round(total / vr)
 
-			for item in gui.pl_st:
+			for item in self.gui.pl_st:
 				if not item[2]:
 					item[1] = space
 
@@ -5911,7 +5915,7 @@ class Tauon:
 
 		ok = False
 
-		prefix = launch_prefix
+		prefix = self.launch_prefix
 
 		if self.system == "Linux":
 			ok = whicher(self.prefs.tag_editor_target, self.flatpak_mode)
@@ -7610,14 +7614,14 @@ class Tauon:
 				top_line = (_("End of playlist"))
 				id = None
 
-			song_notification.update(top_line, bottom_line) #, i_path)
+			self.song_notification.update(top_line, bottom_line) #, i_path)
 			self.notify_image = self.thumb_tracks.pixbuf(track)
 			if self.notify_image:
-				song_notification.set_image_from_pixbuf(self.notify_image)
+				self.song_notification.set_image_from_pixbuf(self.notify_image)
 			else:
-				song_notification.update(top_line, bottom_line, None)
+				self.song_notification.update(top_line, bottom_line, None)
 
-			shoot_dl = threading.Thread(target=self.notify_song_fire, args=([self.bag.song_notification, delay, id]))
+			shoot_dl = threading.Thread(target=self.notify_song_fire, args=([self.song_notification, delay, id]))
 			shoot_dl.daemon = True
 			shoot_dl.start()
 
@@ -7837,7 +7841,7 @@ class Tauon:
 				sy = round(ry + (self.gui.playlist_row_height // 2) - round(7 * self.gui.scale))
 				sx -= round(68 * self.gui.scale)
 
-				draw_rating_widget(sx, sy, n_track)
+				self.draw_rating_widget(sx, sy, n_track)
 
 				star_x += round(70 * self.gui.scale)
 
@@ -8952,9 +8956,9 @@ class Tauon:
 		self.prefs.use_tray ^= True
 		if not self.prefs.use_tray:
 			self.prefs.min_to_tray = False
-			gnome.hide_indicator()
+			self.gnome.hide_indicator()
 		else:
-			gnome.show_indicator()
+			self.gnome.show_indicator()
 		return None
 
 	def toggle_text_tray(self, mode: int = 0) -> bool | None:
@@ -40188,8 +40192,6 @@ def main(holder: Holder) -> None:
 		prefs.backend = 4
 
 	if system == "Linux" and not macos and not msys:
-		gnome = Gnome(tauon)
-
 		try:
 			gnomeThread = threading.Thread(target=gnome.main)
 			gnomeThread.daemon = True
