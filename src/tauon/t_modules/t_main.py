@@ -349,7 +349,8 @@ class GuiVar:
 		self.window_control_hit_area_h = 30 * self.scale
 
 	def __init__(self, bag: Bag, tracklist_texture_rect: sdl3.SDL_Rect, tracklist_texture, console: DConsole, main_texture_overlay_temp, main_texture, max_window_tex):
-		self.inp = Input(gui=self)
+		self.inp     = Input(gui=self)
+		self.keymaps = KeyMap(bag=bag, inp=self.inp)
 
 		self.bag = bag
 		self.scale = self.bag.prefs.ui_scale
@@ -5348,6 +5349,8 @@ class Tauon:
 		self.n_cache_directory            = bag.dirs.n_cache_directory
 		self.e_cache_directory            = bag.dirs.e_cache_directory
 		self.song_notification            = bag.song_notification
+		self.tls_context                  = bag.tls_context
+		self.folder_image_offsets         = bag.folder_image_offsets
 		self.inp                          = gui.inp
 		self.n_version                    = holder.n_version
 		self.t_window                     = holder.t_window
@@ -5528,7 +5531,6 @@ class Tauon:
 		self.text_sat_playlist = TextBox2(tauon=self)
 
 		self.rename_folder     = TextBox2(tauon=self)
-		self.folder_image_offsets                 = bag.folder_image_offsets
 		self.transcode_list:      list[list[int]] = []
 		self.transcode_state:                 str = ""
 		# TODO(Martin): Rework this LC_* stuff, maybe use a simple object instead?
@@ -5611,8 +5613,6 @@ class Tauon:
 		self.tau               = TauService(self)
 		self.album_star_store  = AlbumStarStore(self)
 		self.subsonic          = self.album_star_store.subsonic
-
-		self.tls_context = bag.tls_context
 
 	def pl_gen(self,
 		title:        str = "Default",
@@ -11676,7 +11676,7 @@ class TextBox:
 
 	def draw(
 		self, x: int, y: int, colour: list[int], active: bool = True, secret: bool = False,
-		font: int = 13, width: int = 0, click: bool = False, selection_height: int = 18, big: bool = False):
+		font: int = 13, width: int = 0, click: bool = False, selection_height: float = 18, big: bool = False):
 		inp = self.inp
 		ddt = self.ddt
 		gui = self.gui
@@ -11998,14 +11998,16 @@ class AlbumArt:
 		self.inp                  = tauon.inp
 		self.gui                  = tauon.gui
 		self.prefs                = tauon.prefs
+		self.a_cache_directory    = tauon.bag.dirs.a_cache_directory
+		self.b_cache_directory    = tauon.bag.dirs.b_cache_directory
 		self.style_overlay        = style_overlay
-		self.colours              = tauon.bag.colours
-		self.ddt                  = tauon.bag.ddt
-		self.renderer             = tauon.bag.renderer
-		self.tls_context          = tauon.bag.tls_context
-		self.folder_image_offsets = tauon.bag.folder_image_offsets
+		self.colours              = tauon.colours
+		self.ddt                  = tauon.ddt
+		self.renderer             = tauon.renderer
+		self.tls_context          = tauon.tls_context
+		self.folder_image_offsets = tauon.folder_image_offsets
 		self.install_directory    = tauon.install_directory
-		self.window_size          = tauon.bag.window_size
+		self.window_size          = tauon.window_size
 		self.cache_directory      = tauon.cache_directory
 		self.image_types = {"jpg", "JPG", "jpeg", "JPEG", "PNG", "png", "BMP", "bmp", "GIF", "gif", "jxl", "JXL"}
 		self.art_folder_names = {
@@ -12297,25 +12299,21 @@ class AlbumArt:
 
 			if pic is not None and len(pic) < 30:
 				pic = None
-
 		elif track.file_ext == "FLAC":
 			with Flac(filepath) as tag:
 				tag.read(True)
 				if tag.has_picture and len(tag.picture) > 30:
 					pic = tag.picture
-
 		elif track.file_ext == "APE":
 			with Ape(filepath) as tag:
 				tag.read()
 				if tag.has_picture and len(tag.picture) > 30:
 					pic = tag.picture
-
 		elif track.file_ext == "M4A":
 			with M4a(filepath) as tag:
 				tag.read(True)
 				if tag.has_picture and len(tag.picture) > 30:
 					pic = tag.picture
-
 		elif track.file_ext == "OPUS" or track.file_ext == "OGG" or track.file_ext == "OGA":
 			with Opus(filepath) as tag:
 				tag.read()
@@ -12421,7 +12419,7 @@ class AlbumArt:
 			return None
 
 		# Check cache for existing image
-		path = os.path.join(b_cache_dir, artist)
+		path = os.path.join(self.b_cache_directory, artist)
 		if os.path.isfile(path):
 			logging.info("Load cached background")
 			return open(path, "rb")
@@ -12468,7 +12466,7 @@ class AlbumArt:
 			assert l > 1000
 
 			# Cache image for future use
-			path = os.path.join(a_cache_dir, artist + "-ftv-full.jpg")
+			path = os.path.join(self.a_cache_directory, artist + "-ftv-full.jpg")
 			with open(path, "wb") as f:
 				f.write(t.read())
 			t.seek(0)
@@ -13831,7 +13829,7 @@ class SubLyricsBox:
 		if not self.sub_lyrics_b.text:
 			self.sub_lyrics_b.text = self.target_track.title
 
-	def render(self):
+	def render(self) -> None:
 		if not self.active:
 			return
 
@@ -13852,8 +13850,8 @@ class SubLyricsBox:
 			self.active = False
 			self.gui.box_over = False
 
-			if sub_lyrics_a.text and sub_lyrics_a.text != self.target_track.artist:
-				self.prefs.lyrics_subs[self.target_track.artist] = sub_lyrics_a.text
+			if self.sub_lyrics_a.text and self.sub_lyrics_a.text != self.target_track.artist:
+				self.prefs.lyrics_subs[self.target_track.artist] = self.sub_lyrics_a.text
 			elif self.target_track.artist in self.prefs.lyrics_subs:
 				del self.prefs.lyrics_subs[self.target_track.artist]
 
@@ -14251,7 +14249,7 @@ class SearchOverlay:
 			w = self.window_size[0]
 			h = self.window_size[1]
 
-			if keymaps.test("add-to-queue"):
+			if gui.keymaps.test("add-to-queue"):
 				inp.input_text = ""
 
 			if inp.backspace_press:
@@ -14705,7 +14703,7 @@ class SearchOverlay:
 							self.tauon.spot_ctl.append_track(item[2])
 							self.tauon.reload_albums()
 
-				if n in (2,) and keymaps.test("add-to-queue") and fade == 1:
+				if n in (2,) and gui.keymaps.test("add-to-queue") and fade == 1:
 					queue_object = queue_item_gen(
 						item[2],
 						self.pctl.multi_playlist[self.pctl.id_to_pl(item[3])].playlist_ids.index(item[2]),
@@ -14769,7 +14767,7 @@ class MessageBox:
 		gui = self.gui
 		ddt = self.ddt
 		if inp.mouse_click or inp.key_return_press or inp.right_click or inp.key_esc_press or inp.backspace_press \
-				or keymaps.test("quick-find") or (inp.k_input and self.tauon.message_box_min_timer.get() > 1.2):
+				or gui.keymaps.test("quick-find") or (inp.k_input and self.tauon.message_box_min_timer.get() > 1.2):
 
 			if not inp.key_focused and self.tauon.message_box_min_timer.get() > 0.4:
 				gui.message_box = False
@@ -18622,7 +18620,6 @@ class TopPanel:
 						ddt.rect((x + tab_width - bar_highlight_size, y, bar_highlight_size, gui.panelY2), [80, 160, 200, 255])
 					else:
 						ddt.rect((x, y, bar_highlight_size, gui.panelY2), [80, 160, 200, 255])
-
 				elif (inp.quick_drag or gui.ext_drop_mode) is True and pl_is_mut(i):
 					ddt.rect((x, y + self.height - bar_highlight_size, tab_width, bar_highlight_size), [80, 200, 180, 255])
 			# Drag yellow line highlight if single track already in playlist
@@ -39481,7 +39478,7 @@ def main(holder: Holder) -> None:
 
 	# Functions for reading and setting play counts
 	inp = gui.inp
-	keymaps = KeyMap(bag=bag, inp=inp)
+	keymaps = gui.keymaps
 
 
 	# STATE LOADING
