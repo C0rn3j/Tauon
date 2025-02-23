@@ -5495,6 +5495,7 @@ class Tauon:
 		self.edge_playlist2                       = EdgePulse2(tauon=self)
 		self.lyric_side_top_pulse                 = EdgePulse2(tauon=self)
 		self.lyric_side_bottom_pulse              = EdgePulse2(tauon=self)
+		self.tab_pulse                            = EdgePulse(tauon=self)
 		self.radio_thumb_gen                      = RadioThumbGen(tauon=self)
 		if self.system == "Linux" and not self.macos and not self.msys:
 			self.gnome = Gnome(tauon=self)
@@ -9341,7 +9342,7 @@ class Tauon:
 
 				if x < i_x < x + wid:
 					self.gui.drop_playlist_target = tab
-					tab_pulse.pulse()
+					self.tab_pulse.pulse()
 					self.gui.update += 1
 					self.gui.pl_pulse = True
 					logging.info("Direct drop")
@@ -9364,7 +9365,7 @@ class Tauon:
 			for i, pl in enumerate(self.pctl.multi_playlist):
 				if i_y < y:
 					self.gui.drop_playlist_target = i
-					tab_pulse.pulse()
+					self.tab_pulse.pulse()
 					self.gui.update += 1
 					self.gui.pl_pulse = True
 					logging.info("Direct drop")
@@ -18608,7 +18609,7 @@ class TopPanel:
 			# Drop pulse
 
 			if gui.pl_pulse and gui.drop_playlist_target == i:
-				if tab_pulse.render(
+				if self.tauon.tab_pulse.render(
 				x, y + self.height - bar_highlight_size, tab_width, bar_highlight_size, r=200,g=130) is False:
 					gui.pl_pulse = False
 
@@ -41375,7 +41376,6 @@ def main(holder: Holder) -> None:
 	fader = tauon.fader
 	bottom_playlist2 = EdgePulse2(tauon=tauon)
 	gallery_pulse_top = EdgePulse2(tauon=tauon)
-	tab_pulse = EdgePulse(tauon=tauon)
 
 	c_hit_callback = sdl3.SDL_HitTest(partial(hit_callback, tauon=tauon))
 	sdl3.SDL_SetWindowHitTest(t_window, c_hit_callback, 0)
