@@ -137,6 +137,8 @@ if str(install_directory).startswith("/usr/") and Path("/usr/share/TauonMusicBox
 
 if str(install_directory).startswith("/app/"):
 	# Its Flatpak
+	t_id = "com.github.taiko2k.tauonmb"
+
 
 if (install_directory / "portable").is_file():
 	install_mode = False
