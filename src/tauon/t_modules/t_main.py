@@ -996,6 +996,7 @@ class Input:
 
 		self.media_key = ""
 		self.input_text = ""
+		self.key_focused = 0
 
 	def test_shift(self, _) -> bool:
 		return self.key_shift_down or self.key_shiftr_down
@@ -2180,7 +2181,7 @@ class PlayerCtl:
 		"""Get track object by track_index"""
 		return self.master_library[track_index]
 
-	def get_track_in_playlist(self, track_index: int, playlist_index: int) -> TrackClass:
+	def get_track_in_playlist(self, track_index: int, playlist_index: int) -> TrackClass | None:
 		"""Get track object by playlist_index and track_index"""
 		if playlist_index == -1:
 			playlist_index = self.active_playlist_viewing
@@ -2193,7 +2194,7 @@ class PlayerCtl:
 			logging.exception("Unknown error getting track object by playlist_index and track_index!")
 		return None
 
-	def show_object(self) -> None:
+	def show_object(self) -> TrackClass | None:
 		"""The track to show in the metadata side panel"""
 		target_track = None
 
@@ -5036,7 +5037,7 @@ class GallClass:
 		offset = self.album_art_gen.get_offset(track_object.fullpath, sources)
 		return sources[offset], offset
 
-	def worker_render(self) -> None:
+	def worker_render(self) -> bool:
 		self.lock.acquire()
 		# time.sleep(0.1)
 
@@ -5302,7 +5303,7 @@ class ThumbTracks:
 			logging.exception("Error create pixbuf of album art")
 			return None
 
-	def path(self, track: TrackClass) -> str:
+	def path(self, track: TrackClass) -> str | None:
 		source, offset = self.tauon.gall_ren.get_file_source(track)
 
 		if source is False:  # No art
@@ -6000,14 +6001,14 @@ class Tauon:
 		self.gui.update = 1
 		self.pctl.notify_change()
 
-	def launch_editor(self, index: int) -> bool:
+	def launch_editor(self, index: int) -> bool | None:
 		if self.snap_mode:
 			self.show_message(_("Sorry, this feature isn't (yet) available with Snap."))
-			return
+			return None
 
 		if self.launch_editor_disable_test(index):
 			self.show_message(_("Cannot edit tags of a network track."))
-			return
+			return None
 
 		mini_t = threading.Thread(target=self.editor, args=[index])
 		mini_t.daemon = True
@@ -8537,25 +8538,25 @@ class Tauon:
 		else:
 			target.sort(key=self.key_filepath)
 
-	def toggle_gimage(self, mode: int = 0) -> bool:
+	def toggle_gimage(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.prefs.show_gimage
 		self.prefs.show_gimage ^= True
 		return None
 
-	def toggle_transcode(self, mode: int = 0) -> bool:
+	def toggle_transcode(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.prefs.enable_transcode
 		self.prefs.enable_transcode ^= True
 		return None
 
-	def toggle_chromecast(self, mode: int = 0) -> bool:
+	def toggle_chromecast(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.prefs.show_chromecast
 		self.prefs.show_chromecast ^= True
 		return None
 
-	def toggle_transfer(self, mode: int = 0) -> bool:
+	def toggle_transfer(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.prefs.show_transfer
 		self.prefs.show_transfer ^= True
@@ -8567,19 +8568,19 @@ class Tauon:
 				mode="info")
 		return None
 
-	def toggle_rym(self, mode: int = 0) -> bool:
+	def toggle_rym(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.prefs.show_rym
 		self.prefs.show_rym ^= True
 		return None
 
-	def toggle_band(self, mode: int = 0) -> bool:
+	def toggle_band(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.prefs.show_band
 		self.prefs.show_band ^= True
 		return None
 
-	def toggle_wiki(self, mode: int = 0) -> bool:
+	def toggle_wiki(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.prefs.show_wiki
 		self.prefs.show_wiki ^= True
@@ -8592,50 +8593,55 @@ class Tauon:
 	# 	self.show_message(_("Warning: pypresence package not installed"))
 	# 	self.prefs.discord_show ^= True
 
-	def toggle_gen(self, mode: int = 0) -> bool:
+	def toggle_gen(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.prefs.show_gen
 		self.prefs.show_gen ^= True
 		return None
 
-	def toggle_dim_albums(self, mode: int = 0) -> bool:
+	def toggle_dim_albums(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.prefs.dim_art
 
 		self.prefs.dim_art ^= True
 		self.gui.pl_update = 1
 		self.gui.update += 1
+		return None
 
-	def toggle_gallery_combine(self, mode: int = 0) -> bool:
+	def toggle_gallery_combine(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.prefs.gallery_combine_disc
 
 		self.prefs.gallery_combine_disc ^= True
 		self.reload_albums()
+		return None
 
-	def toggle_gallery_click(self, mode: int = 0) -> bool:
+	def toggle_gallery_click(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.prefs.gallery_single_click
 
 		self.prefs.gallery_single_click ^= True
+		return None
 
-	def toggle_gallery_thin(self, mode: int = 0) -> bool:
+	def toggle_gallery_thin(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.prefs.thin_gallery_borders
 
 		self.prefs.thin_gallery_borders ^= True
 		self.gui.update += 1
 		update_layout_do(tauon=self)
+		return None
 
-	def toggle_gallery_row_space(self, mode: int = 0) -> bool:
+	def toggle_gallery_row_space(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.prefs.increase_gallery_row_spacing
 
 		self.prefs.increase_gallery_row_spacing ^= True
 		self.gui.update += 1
 		update_layout_do(tauon=self)
+		return None
 
-	def toggle_galler_text(self, mode: int = 0) -> bool:
+	def toggle_galler_text(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.gui.gallery_show_text
 
@@ -8647,15 +8653,17 @@ class Tauon:
 		if self.prefs.album_mode and self.gui.first_in_grid is not None:
 			if self.gui.first_in_grid < len(self.pctl.default_playlist):
 				self.goto_album(self.gui.first_in_grid, force=True)
+		return None
 
-	def toggle_card_style(self, mode: int = 0) -> bool:
+	def toggle_card_style(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.prefs.use_card_style
 
 		self.prefs.use_card_style ^= True
 		self.gui.update += 1
+		return None
 
-	def toggle_side_panel(self, mode: int = 0) -> bool:
+	def toggle_side_panel(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.prefs.prefer_side
 
@@ -8669,8 +8677,9 @@ class Tauon:
 
 		if self.prefs.prefer_side:
 			self.gui.rspw = self.gui.pref_rspw
+		return None
 
-	def toggle_auto_theme(self, mode: int = 0) -> None:
+	def toggle_auto_theme(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.prefs.colour_from_image
 
@@ -8680,6 +8689,7 @@ class Tauon:
 
 		# if self.prefs.colour_from_image and self.prefs.art_bg and not self.inp.key_shift_down:
 		# 	toggle_auto_bg()
+		return None
 
 	def toggle_transparent_accent(self, mode: int= 0) -> bool | None:
 		if mode == 1:
@@ -8693,7 +8703,6 @@ class Tauon:
 		self.gui.reload_theme = True
 		self.gui.update += 1
 		self.gui.pl_update += 1
-
 		return None
 
 	def toggle_auto_bg(self, mode: int= 0) -> bool | None:
@@ -11221,7 +11230,7 @@ class TextBox2:
 				self.text = self.text[0: len(self.text) - self.cursor_position] + self.text[len(self.text) - self.selection:]
 				self.cursor_position = self.selection
 
-	def get_selection(self, p: int = 1) -> str:
+	def get_selection(self, p: int = 1) -> str | None:
 		if self.selection != self.cursor_position:
 			if p == 1:
 				if self.selection > self.cursor_position:
@@ -11232,6 +11241,7 @@ class TextBox2:
 				return self.text[0: len(self.text) - max(self.cursor_position, self.selection)]
 			if p == 2:
 				return self.text[len(self.text) - min(self.cursor_position, self.selection):]
+			return None
 		else:
 			return ""
 
@@ -12026,7 +12036,7 @@ class AlbumArt:
 		self.download_in_progress = False
 		self.gui.update += 1
 
-	def get_info(self, track_object: TrackClass) -> list[tuple[str, int, int, int, str]]:
+	def get_info(self, track_object: TrackClass) -> list[tuple[str, int, int, int, str]] | None:
 		sources = self.get_sources(track_object)
 		if len(sources) == 0:
 			return None
@@ -14760,7 +14770,7 @@ class MessageBox:
 		if inp.mouse_click or inp.key_return_press or inp.right_click or inp.key_esc_press or inp.backspace_press \
 				or keymaps.test("quick-find") or (inp.k_input and self.tauon.message_box_min_timer.get() > 1.2):
 
-			if not key_focused and self.tauon.message_box_min_timer.get() > 0.4:
+			if not inp.key_focused and self.tauon.message_box_min_timer.get() > 0.4:
 				gui.message_box = False
 				gui.update += 1
 				inp.key_return_press = False
@@ -17371,7 +17381,7 @@ class Over:
 		x = x0 + 260 * self.gui.scale
 		y = y0 + 180 * self.gui.scale
 
-		dex = tauon.reload_albums(quiet=True, return_playlist=self.pctl.active_playlist_viewing)
+		dex = self.tauon.reload_albums(quiet=True, return_playlist=self.pctl.active_playlist_viewing)
 
 		x = x0 + round(110 * self.gui.scale)
 		y = y0 + 240 * self.gui.scale
@@ -22008,7 +22018,7 @@ class ArtBox:
 		# Input for album art
 		if target_track:
 			# Cycle images on click
-			if tauon.coll(gui.main_art_box) and inp.mouse_click is True and key_focused == 0:
+			if tauon.coll(gui.main_art_box) and inp.mouse_click is True and inp.key_focused == 0:
 				tauon.album_art_gen.cycle_offset(target_track)
 
 				if self.pctl.mpris:
@@ -40193,7 +40203,7 @@ def main(holder: Holder) -> None:
 
 	if system == "Linux" and not macos and not msys:
 		try:
-			gnomeThread = threading.Thread(target=gnome.main)
+			gnomeThread = threading.Thread(target=tauon.gnome.main)
 			gnomeThread.daemon = True
 			gnomeThread.start()
 		except Exception:
@@ -41485,8 +41495,6 @@ def main(holder: Holder) -> None:
 
 	pctl.notify_update()
 
-	key_focused = 0
-
 	if pctl.pl_to_id(pctl.active_playlist_viewing) in gui.gallery_positions:
 		gui.album_scroll_px = gui.gallery_positions[pctl.pl_to_id(pctl.active_playlist_viewing)]
 
@@ -41610,8 +41618,8 @@ def main(holder: Holder) -> None:
 
 			mouse_enter_window = False
 			gui.mouse_in_window = True
-			if key_focused:
-				key_focused -= 1
+			if inp.key_focused:
+				inp.key_focused -= 1
 
 		# f not inp.mouse_down:
 		inp.k_input = False
@@ -41869,8 +41877,7 @@ def main(holder: Holder) -> None:
 
 					inp.mouse_down = False
 					gui.update += 1
-			elif event.type == sdl3.SDL_EVENT_KEY_DOWN and key_focused == 0:
-
+			elif event.type == sdl3.SDL_EVENT_KEY_DOWN and inp.key_focused == 0:
 				inp.k_input = True
 				power += 5
 				gui.update += 2
@@ -41941,7 +41948,7 @@ def main(holder: Holder) -> None:
 						inp.key_ctrl_down = True
 					else:
 						inp.key_meta = True
-						key_focused = 1
+						inp.key_focused = 1
 
 			elif event.type == sdl3.SDL_EVENT_KEY_UP:
 				inp.k_input = True
@@ -41966,7 +41973,7 @@ def main(holder: Holder) -> None:
 						inp.key_ctrl_down = False
 					else:
 						inp.key_meta = False
-						key_focused = 1
+						inp.key_focused = 1
 
 			elif event.type == sdl3.SDL_EVENT_TEXT_INPUT:
 				inp.k_input = True
@@ -41990,13 +41997,13 @@ def main(holder: Holder) -> None:
 					#logging.info("sdl3.SDL_WINDOWEVENT_FOCUS_GAINED")
 
 					if system == "Linux" and not macos and not msys:
-						gnome.focus()
+						tauon.gnome.focus()
 					inp.k_input = True
 
 					mouse_enter_window = True
 					focused = True
 					gui.lowered = False
-					key_focused = 1
+					inp.key_focused = 1
 					inp.mouse_down = False
 					gui.album_tab_mode = False
 					gui.pl_update = 1
@@ -42004,7 +42011,7 @@ def main(holder: Holder) -> None:
 
 				elif event.type == sdl3.SDL_EVENT_WINDOW_FOCUS_LOST:
 					close_all_menus()
-					key_focused = 1
+					inp.key_focused = 1
 					gui.update += 1
 
 				elif event.type == sdl3.SDL_EVENT_WINDOW_DISPLAY_CHANGED:
@@ -42234,7 +42241,7 @@ def main(holder: Holder) -> None:
 			#	last_click_location = copy.deepcopy(inp.click_location)
 			#	click_location = copy.deepcopy(inp.inp.mouse_position)
 
-			if key_focused != 0:
+			if inp.key_focused != 0:
 				keymaps.hits.clear()
 
 				# inp.d_mouse_click = False
@@ -42301,7 +42308,7 @@ def main(holder: Holder) -> None:
 				gui.delay_frame(0.02)
 				inp.k_input = True
 
-		if inp.k_input and key_focused == 0:
+		if inp.k_input and inp.key_focused == 0:
 			if keymaps.hits:
 				n = 1
 				while n < 10:
@@ -43069,7 +43076,7 @@ def main(holder: Holder) -> None:
 				gui.click_time = n_click_time
 
 				# Don't register bottom level click when closing message box
-				if gui.message_box and pref_box.enabled and not key_focused and not tauon.coll(tauon.message_box.get_rect()):
+				if gui.message_box and pref_box.enabled and not inp.key_focused and not tauon.coll(tauon.message_box.get_rect()):
 					inp.mouse_click = False
 					gui.message_box = False
 
