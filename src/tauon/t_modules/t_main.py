@@ -13701,7 +13701,7 @@ class Tauon:
 		return self.prefs.spot_mode
 
 	def jellyfin_show_test(self, _: int) -> bool:
-		return self.prefs.jelly_password and self.prefs.jelly_username
+		return bool(self.prefs.jelly_password and self.prefs.jelly_username)
 
 	def upload_jellyfin_playlist(self, pl: TauonPlaylist) -> None:
 		if self.jellyfin.scanning:
