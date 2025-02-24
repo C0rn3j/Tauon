@@ -35525,12 +35525,13 @@ class ViewBox:
 
 		self.tauon.toggle_library_mode()
 
-	def artist_info(self, hit: bool = False) -> bool:
+	def artist_info(self, hit: bool = False) -> bool | None:
 		if hit is False:
 			return self.gui.artist_info_panel
 
 		self.gui.artist_info_panel ^= True
 		self.gui.update_layout = True
+		return None
 
 	def render(self) -> None:
 		gui     = self.gui
@@ -37839,6 +37840,7 @@ def worker2(tauon: Tauon) -> None:
 
 def worker1(tauon: Tauon) -> None:
 	bag   = tauon.bag
+	gme   = tauon.gme
 	gui   = tauon.gui
 	pctl  = tauon.pctl
 	prefs = tauon.prefs
@@ -38709,7 +38711,7 @@ def worker1(tauon: Tauon) -> None:
 						if not gui.message_box:
 							tauon.show_message(_("Encoding complete."), line, mode="done")
 						if tauon.system == "Linux" and tauon.de_notify_support:
-							g_tc_notify.show()
+							tauon.g_tc_notify.show()
 
 		if tauon.to_scan:
 			while tauon.to_scan:
