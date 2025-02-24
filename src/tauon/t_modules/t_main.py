@@ -5375,6 +5375,8 @@ class Tauon:
 		self.window_size                  = bag.window_size
 		self.draw_border:            bool = holder.draw_border
 		self.desktop:          str | None = bag.desktop
+		# List of encodings to check for with the fix mojibake function
+		self.encodings                    = ["cp932", "utf-8", "big5hkscs", "gbk"]  # These seem to be the most common for Japanese
 		self.device                       = socket.gethostname()
 		self.search_string_cache          = {}
 		self.search_dia_string_cache      = {}
@@ -10047,7 +10049,7 @@ class Tauon:
 		detect = None
 
 		if track.artist not in track.parent_folder_path:
-			for enc in encodings:
+			for enc in self.encodings:
 				try:
 					q_artist = l_artist.decode(enc)
 					if q_artist.strip(" ") in track.parent_folder_path.strip(" "):
@@ -10058,7 +10060,7 @@ class Tauon:
 					continue
 
 		if detect is None and track.album not in track.parent_folder_path:
-			for enc in encodings:
+			for enc in self.encodings:
 				try:
 					q_album = l_album.decode(enc)
 					if q_album in track.parent_folder_path:
@@ -10072,7 +10074,7 @@ class Tauon:
 			t_track = self.pctl.master_library[item]
 
 			if detect is None:
-				for enc in encodings:
+				for enc in self.encodings:
 					test = recode(t_track.artist, enc)
 					for cha in test:
 						if cha in j_chars:
@@ -10083,7 +10085,7 @@ class Tauon:
 							break
 
 			if detect is None:
-				for enc in encodings:
+				for enc in self.encodings:
 					test = recode(t_track.title, enc)
 					for cha in test:
 						if cha in j_chars:
@@ -13554,7 +13556,7 @@ class Tauon:
 		path = self.artist_info_box.get_data(artist, get_img_path=True)
 		if not path:
 			self.show_message(_("No artist image found."))
-			if not self.prefs.enable_fanart_artist and not verify_discogs():
+			if not self.prefs.enable_fanart_artist and not self.verify_discogs():
 				self.show_message(_("No artist image found."), _("No providers are enabled in settings!"), mode="warning")
 			self.gui.preview_artist_loading = ""
 			return
@@ -13940,7 +13942,7 @@ class Tauon:
 		rect = (x - round(5 * self.gui.scale), y - round(4 * self.gui.scale), round(80 * self.gui.scale), round(16 * self.gui.scale))
 		self.gui.heart_fields.append(rect)
 
-		if self.coll(rect) and (self.inp.mouse_click or (is_level_zero() and not self.inp.quick_drag)):
+		if self.coll(rect) and (self.inp.mouse_click or (self.is_level_zero() and not self.inp.quick_drag)):
 			self.gui.pl_update = 2
 			pp = self.inp.mouse_position[0] - x
 
@@ -14549,7 +14551,7 @@ class Tauon:
 		else:
 			self.prefs.album_mode = True
 			if self.gui.combo_mode:
-				exit_combo()
+				self.exit_combo()
 
 			self.gui.rsp = True
 			self.gui.rspw = self.gui.pref_gallery_w
@@ -14847,7 +14849,7 @@ class Tauon:
 		self.gui.generating_chart = False
 
 		if path:
-			open_file(path)
+			self.open_file(path)
 		else:
 			self.show_message(_("There was an error generating the chart"), _("Sorry!"), mode="error")
 			return
@@ -15501,7 +15503,7 @@ class Tauon:
 
 		if self.prefs.auto_lyrics and not track_object.lyrics and track_object.index not in self.prefs.auto_lyrics_checked:
 			if self.lyrics_check_timer.get() > 5 and self.pctl.playing_time > 1:
-				result = get_lyric_wiki_silent(track_object)
+				result = self.get_lyric_wiki_silent(track_object)
 				if result == "later":
 					pass
 				else:
@@ -15510,7 +15512,7 @@ class Tauon:
 
 	def hit_discord(self) -> None:
 		if self.prefs.discord_enable and self.prefs.discord_allow and not self.prefs.discord_active:
-			discord_t = threading.Thread(target=discord_loop)
+			discord_t = threading.Thread(target=self.discord_loop)
 			discord_t.daemon = True
 			discord_t.start()
 
@@ -15784,12 +15786,12 @@ class Tauon:
 				if self.love(False, index):
 					count = 1
 					x = width + start_x - 52 * self.gui.scale - offset_font_extra - xxx
-					self.f_store.store(display_you_heart, (x, yy))
+					self.f_store.store(self.display_you_heart, (x, yy))
 					star_x += 18 * self.gui.scale
 
 				if "spotify-liked" in self.pctl.master_library[index].misc:
 					x = width + start_x - 52 * self.gui.scale - offset_font_extra - (self.gui.heart_row_icon.w + spacing) * count - xxx
-					self.f_store.store(display_spot_heart, (x, yy))
+					self.f_store.store(self.display_spot_heart, (x, yy))
 					star_x += self.gui.heart_row_icon.w + spacing + 2
 
 				for name in self.pctl.master_library[index].lfm_friend_likes:
@@ -15801,7 +15803,7 @@ class Tauon:
 						break
 
 					x = width + start_x - 52 * self.gui.scale - offset_font_extra - (self.gui.heart_row_icon.w + spacing) * count - xxx
-					self.f_store.store(display_friend_heart, (x, yy, name))
+					self.f_store.store(self.display_friend_heart, (x, yy, name))
 					count += 1
 					star_x += self.gui.heart_row_icon.w + spacing + 2
 
@@ -16776,7 +16778,7 @@ class Tauon:
 		sdl3.SDL_SetWindowTitle(self.t_window, line)
 		self.prefs.update_title ^= True
 		if self.prefs.update_title:
-			update_title_do()
+			self.update_title_do()
 		return None
 
 	def toggle_meta_persists_stop(self, mode: int = 0) -> bool | None:
@@ -17298,7 +17300,7 @@ class Tauon:
 
 	def s_cut(self) -> None:
 		self.s_copy()
-		del_selected()
+		self.del_selected()
 
 	def s_append(self, index: int) -> None:
 		self.paste(playlist_no=index)
@@ -17377,11 +17379,11 @@ class Tauon:
 		if not found:
 			if playlist_no is None:
 				if track_id is None:
-					transfer(self, 0, (2, 3))
+					self.transfer(0, (2, 3))
 				else:
-					transfer(self, track_id, (2, 2))
+					self.transfer(track_id, (2, 2))
 			else:
-				append_playlist(self, playlist_no)
+				self.append_playlist(playlist_no)
 
 		self.gui.pl_update += 1
 
@@ -18196,6 +18198,7 @@ class SubsonicService:
 class KoelService:
 
 	def __init__(self, tauon: Tauon) -> None:
+		self.tauon        = tauon
 		self.pctl         = tauon.pctl
 		self.prefs        = tauon.prefs
 		self.gui          = tauon.gui
@@ -18393,7 +18396,7 @@ class KoelService:
 
 		self.pctl.multi_playlist.append(self.tauon.pl_gen(title=_("Koel Collection"), playlist_ids=playlist))
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "koel path tn"
-		standard_sort(len(self.pctl.multi_playlist) - 1)
+		self.tauon.standard_sort(len(self.pctl.multi_playlist) - 1)
 		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 
 class TauService:
@@ -19006,7 +19009,7 @@ class TimedLyricsRen:
 			spacing = round(23 * self.gui.scale)
 
 		bg = (bg[0], bg[1], bg[2], 255)
-		test_time = get_real_time()
+		test_time = self.tauon.get_real_time()
 
 		if self.pctl.track_queue[self.pctl.queue_step] == index:
 			for i, line in enumerate(self.data):
@@ -19119,7 +19122,6 @@ class TextBox2:
 		# A little bit messy
 		# For now, this is set up so where 'width' is set > 0, the cursor position becomes editable,
 		# otherwise it is fixed to end
-
 		sdl3.SDL_SetRenderTarget(self.renderer, self.tauon.text_box_canvas)
 		sdl3.SDL_SetRenderDrawBlendMode(self.renderer, sdl3.SDL_BLENDMODE_NONE)
 		sdl3.SDL_SetRenderDrawColor(self.renderer, 0, 0, 0, 0)
@@ -19436,6 +19438,7 @@ class TextBox2:
 				ex = self.ddt.text((space + round(4 * self.gui.scale), 0), self.gui.editline, [240, 230, 230, 255], font)
 				self.ddt.rect((space + round(4 * self.gui.scale), th + round(2 * self.gui.scale), ex, round(1 * self.gui.scale)), [245, 245, 245, 255])
 
+			pixel_to_logical = self.tauon.pixel_to_logical
 			rect = sdl3.SDL_Rect(pixel_to_logical(x), pixel_to_logical(y), pixel_to_logical(tw), pixel_to_logical(th))
 			sdl3.SDL_SetTextInputArea(self.t_window, rect, pixel_to_logical(space))
 
@@ -19836,6 +19839,7 @@ class TextBox:
 				ddt.rect((x + space + round(4 * gui.scale), (y + th) - round(4 * gui.scale), ex, round(1 * gui.scale)),
 					[245, 245, 245, 255])
 
+			pixel_to_logical = self.tauon.pixel_to_logical
 			rect = sdl3.SDL_Rect(pixel_to_logical(x), pixel_to_logical(y), pixel_to_logical(tw), pixel_to_logical(th))
 			sdl3.SDL_SetTextInputArea(self.t_window, rect, pixel_to_logical(space))
 
@@ -21974,7 +21978,7 @@ class SearchOverlay:
 			hide_title=False))
 
 		if self.gui.combo_mode:
-			exit_combo()
+			self.tauon.exit_combo()
 
 		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 		self.inp.key_return_press = False
@@ -21996,7 +22000,7 @@ class SearchOverlay:
 			hide_title=False))
 
 		if self.gui.combo_mode:
-			exit_combo()
+			self.tauon.exit_combo()
 
 		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 
@@ -22024,7 +22028,7 @@ class SearchOverlay:
 			hide_title=False))
 
 		if self.gui.combo_mode:
-			exit_combo()
+			self.tauon.exit_combo()
 
 		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 
@@ -22067,7 +22071,7 @@ class SearchOverlay:
 			hide_title=False))
 
 		if self.gui.combo_mode:
-			exit_combo()
+			self.tauon.exit_combo()
 
 		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 
@@ -22081,7 +22085,7 @@ class SearchOverlay:
 	def click_album(self, index) -> None:
 		self.pctl.jump(index)
 		if self.gui.combo_mode:
-			exit_combo()
+			self.tauon.exit_combo()
 
 		self.pctl.show_current()
 		self.inp.key_return_press = False
@@ -22106,7 +22110,7 @@ class SearchOverlay:
 					self.tauon.artist_list_box.locate_artist_letter(inp.input_text)
 					return
 
-				activate_search_overlay()
+				self.tauon.activate_search_overlay()
 				self.old_mouse = copy.deepcopy(inp.mouse_position)
 
 		if self.active:
@@ -22508,7 +22512,7 @@ class SearchOverlay:
 							for k, pl in enumerate(self.pctl.multi_playlist):
 								if item[2] in pl.playlist_ids:
 									self.pctl.default_playlist.extend(
-										get_album_from_first_track(pl.playlist_ids.index(item[2]), item[2], k))
+										self.tauon.get_album_from_first_track(pl.playlist_ids.index(item[2]), item[2], k))
 									break
 						case 2:
 							self.pctl.default_playlist.append(item[2])
@@ -22532,7 +22536,7 @@ class SearchOverlay:
 						case 0 | 1 | 2 | 3 | 5 | 6 | 7 | 10:
 							self.pctl.show_current(index=item[2], playing=False)
 							if prefs.album_mode:
-								show_in_gal(0)
+								self.tauon.show_in_gal(0)
 						case 8:
 							pl = self.pctl.id_to_pl(item[3])
 							if pl:
@@ -23040,12 +23044,12 @@ class Over:
 		self.ddt.text((x, y), _("ReplayGain"), self.colours.box_text_label, 14)
 		y += round(25 * self.gui.scale)
 
-		self.toggle_square(x, y, switch_rg_off, _("Off"))
-		self.toggle_square(x + round(80 * self.gui.scale), y, switch_rg_auto, _("Auto"))
+		self.toggle_square(x, y, self.tauon.switch_rg_off, _("Off"))
+		self.toggle_square(x + round(80 * self.gui.scale), y, self.tauon.switch_rg_auto, _("Auto"))
 		y += round(22 * self.gui.scale)
-		self.toggle_square(x, y, switch_rg_album, _("Preserve album dynamics"))
+		self.toggle_square(x, y, self.tauon.switch_rg_album, _("Preserve album dynamics"))
 		y += round(22 * self.gui.scale)
-		self.toggle_square(x, y, switch_rg_track, _("Tracks equal loudness"))
+		self.toggle_square(x, y, self.tauon.switch_rg_track, _("Tracks equal loudness"))
 
 		y += round(25 * self.gui.scale)
 		self.ddt.text((x, y), _("Will only have effect if ReplayGain metadata is present."), self.colours.box_text_label, 12)
@@ -24492,7 +24496,7 @@ class Over:
 			y += 25 * gui.scale
 
 			self.toggle_square(
-				x, y, toggle_scrobble_mark,
+				x, y, self.tauon.toggle_scrobble_mark,
 				_("Show threshold marker"))
 
 		if self.account_view == 2:
@@ -25413,7 +25417,6 @@ class Over:
 							self.ext_ratio[value.file_ext] = 1
 
 				for key, value in self.ext_ratio.items():
-
 					colour = [200, 200, 200, 255]
 					if key in format_colours:
 						colour = format_colours[key]
@@ -25437,7 +25440,7 @@ class Over:
 						ddt.text((xx, y0 + h0 - 35 * gui.scale, 2), key, colours.grey_blend_bg(220), 13)
 
 						if self.click:
-							gen_codec_pl(key)
+							self.tauon.gen_codec_pl(key)
 			except Exception:
 				logging.exception("Error draw ext bar")
 
@@ -25643,7 +25646,7 @@ class Over:
 		self.enabled = False
 		self.tauon.fader.fall()
 		if self.gui.opened_config_file:
-			reload_config_file()
+			self.tauon.reload_config_file()
 
 	def render(self) -> None:
 		tauon   = self.tauon
@@ -26002,14 +26005,14 @@ class TopPanel:
 				gui.update += 1
 
 			if inp.middle_click:
-				toggle_left_last()
+				self.tauon.toggle_left_last()
 				gui.update_layout = True
 				gui.update += 1
 
 			if inp.right_click:
 				# prefs.artist_list ^= True
 				lsp_menu.activate(position=(5 * gui.scale, gui.panelY))
-				update_layout_do(tauon=tauon)
+				self.tauon.update_layout_do()
 
 		colour = colours.corner_button  # [230, 230, 230, 255]
 
@@ -26322,7 +26325,7 @@ class TopPanel:
 				# Delete playlist on wheel click
 				elif tauon.tab_menu.active is False and inp.middle_click:
 					# delete_playlist(i)
-					delete_playlist_ask(i)
+					self.pctl.delete_playlist_ask(i)
 					break
 
 				# Activate menu on right click
@@ -39219,10 +39222,6 @@ def main(holder: Holder) -> None:
 	# Player variables
 
 	# pl_follow = False
-
-	# List of encodings to check for with the fix mojibake function
-	encodings = ["cp932", "utf-8", "big5hkscs", "gbk"]  # These seem to be the most common for Japanese
-
 
 	track_queue: list[int] = []
 
