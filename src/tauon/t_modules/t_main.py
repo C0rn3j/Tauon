@@ -33908,7 +33908,7 @@ class MetaBox:
 
 		self.fields.add(border_rect)
 		if self.coll(border_rect) and self.tauon.is_level_zero(True):
-			showc = self.tauon.album_art_gen.get_info(target_track)
+			showc = self.tauon.album_art_gen.get_info(track)
 			self.tauon.art_metadata_overlay(
 				art_rect[0] + art_rect[2] + 2 * self.gui.scale, art_rect[1] + art_rect[3] + 12 * self.gui.scale, showc)
 
