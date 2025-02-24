@@ -681,6 +681,7 @@ class GuiVar:
 		self.add_icon           = MenuIcon(asset_loader(self.bag, self.bag.loaded_asset_dc, "new.png", True))
 
 		self.last_fm_icon       = asset_loader(self.bag, self.bag.loaded_asset_dc, "as.png", True)
+		self.mac_circle         = asset_loader(self.bag, self.bag.loaded_asset_dc, "macstyle.png", True)
 
 		self.restore_showcase_view = False
 		self.restore_radio_view = False
@@ -5341,6 +5342,9 @@ class Tauon:
 		self.gme                          = bag.gme
 		self.ddt                          = bag.ddt
 		self.macos                        = bag.macos
+		self.mac_close                    = bag.mac_close
+		self.mac_maximize                 = bag.mac_maximize
+		self.mac_minimize                 = bag.mac_minimize
 		self.system                       = bag.system
 		self.colours                      = bag.colours
 		self.old_window_position          = bag.old_window_position
@@ -5626,10 +5630,10 @@ class Tauon:
 	def draw_window_tools(self) -> None:
 		bag         = self.bag
 		gui         = self.gui
-		inp         = self.gui.inp
-		colours     = self.bag.colours
-		window_size = self.bag.window_size
-		ddt         = self.bag.ddt
+		inp         = self.inp
+		colours     = self.colours
+		window_size = self.window_size
+		ddt         = self.ddt
 		prefs       = self.prefs
 
 		# rect = (window_size[0] - 55 * gui.scale, window_size[1] - 35 * gui.scale, 53 * gui.scale, 33 * gui.scale)
@@ -5671,10 +5675,10 @@ class Tauon:
 				xx = round(4 * gui.scale)
 			rect = (xx + 5, y - 1, 14 * gui.scale, 14 * gui.scale)
 			self.fields.add(rect)
-			colour = mac_close
+			colour = self.mac_close
 			if not focused:
 				colour = (86, 85, 86, 255)
-			mac_circle.render(xx + 6 * gui.scale, y, colour)
+			self.gui.mac_circle.render(xx + 6 * gui.scale, y, colour)
 			if self.coll(rect) and not gui.mouse_unknown:
 				if coll_point(inp.last_click_location, rect):
 					self.do_exit_button()
@@ -5704,7 +5708,7 @@ class Tauon:
 				colour = (160, 55, 225, 255)
 				if not focused:
 					colour = (86, 85, 86, 255)
-				mac_circle.render(xx + 6 * gui.scale, y, colour)
+				self.gui.mac_circle.render(xx + 6 * gui.scale, y, colour)
 				if self.coll(rect) and not gui.mouse_unknown:
 					if (inp.mouse_up or inp.ab_click) and coll_point(inp.last_click_location, rect):
 						self.restore_full_mode()
@@ -5721,10 +5725,10 @@ class Tauon:
 				rect = (xx + 5, y - 1, 14 * gui.scale, 14 * gui.scale)
 
 				self.fields.add(rect)
-				colour = mac_maximize
+				colour = self.mac_maximize
 				if not focused:
 					colour = (86, 85, 86, 255)
-				mac_circle.render(xx + 6 * gui.scale, y, colour)
+				self.gui.mac_circle.render(xx + 6 * gui.scale, y, colour)
 				if self.coll(rect) and not gui.mouse_unknown:
 					if (inp.mouse_up or inp.ab_click) and coll_point(inp.last_click_location, rect):
 						self.do_minimize_button()
@@ -5760,10 +5764,10 @@ class Tauon:
 				rect = (xx + 5, y - 1, 14 * gui.scale, 14 * gui.scale)
 
 				self.fields.add(rect)
-				colour = mac_minimize
+				colour = self.mac_minimize
 				if not focused:
 					colour = (86, 85, 86, 255)
-				mac_circle.render(xx + 6 * gui.scale, y, colour)
+				self.gui.mac_circle.render(xx + 6 * gui.scale, y, colour)
 				if self.coll(rect) and not gui.mouse_unknown:
 					if (inp.mouse_up or inp.ab_click) and coll_point(inp.last_click_location, rect):
 						self.do_maximize_button()
@@ -8546,7 +8550,7 @@ class Tauon:
 
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "s\"" + self.pctl.multi_playlist[pl].title + "\" a pa>"
 
-	def gen_folder_top_rating(self, pl: int, get_sets: bool = False, custom_list=None):
+	def gen_folder_top_rating(self, pl: int, get_sets: bool = False, custom_list: list[int] | None = None):
 		source = custom_list
 		if source is None:
 			source = self.pctl.multi_playlist[pl].playlist_ids
@@ -14816,7 +14820,7 @@ class Tauon:
 			source_tracks = self.pctl.multi_playlist[self.pctl.active_playlist_viewing].playlist_ids
 
 			if self.prefs.topchart_sorts_played:
-				source_tracks = gen_folder_top(0, custom_list=source_tracks)
+				source_tracks = self.gen_folder_top(0, custom_list=source_tracks)
 				dex = self.reload_albums(quiet=True, custom_list=source_tracks)
 			else:
 				dex = self.reload_albums(quiet=True, return_playlist=self.pctl.active_playlist_viewing)
@@ -35780,6 +35784,9 @@ class Bag:
 	selected_in_playlist:   int
 	latest_db_version:      int
 	volume:                 float
+	mac_close:              tuple[int, int, int, int]
+	mac_maximize:           tuple[int, int, int, int]
+	mac_minimize:           tuple[int, int, int, int]
 	track_queue:            list[int]
 	logical_size:           list[int] # X Y
 	window_size:            list[int] # X Y
@@ -39371,6 +39378,9 @@ def main(holder: Holder) -> None:
 		draw_max_button=draw_max_button,
 		smtc=smtc,
 		macos=macos,
+		mac_close=mac_close,
+		mac_maximize=mac_maximize,
+		mac_minimize=mac_minimize,
 		msys=msys,
 		phone=phone,
 		use_natsort=use_natsort,
@@ -40175,7 +40185,6 @@ def main(holder: Holder) -> None:
 			keyboard.hook_key(-178, key_callback)
 			keyboard.hook_key(-177, key_callback)
 			keyboard.hook_key(-176, key_callback)
-	mac_circle = asset_loader(bag, loaded_asset_dc, "macstyle.png", True)
 	if not maximized and gui.maximized:
 		sdl3.SDL_MaximizeWindow(t_window)
 
