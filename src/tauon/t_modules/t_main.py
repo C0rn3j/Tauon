@@ -183,6 +183,7 @@ if TYPE_CHECKING:
 	from PIL.ImageFile import ImageFile
 	from tauon.t_modules.t_bootstrap import Holder
 	from websocket import WebSocketApp
+	from lynxtray import SysTrayIcon
 
 class LoadImageAsset:
 	assets: list[LoadImageAsset] = []
@@ -5337,7 +5338,7 @@ class ThumbTracks:
 
 class Tauon:
 	"""Root class for everything Tauon"""
-	def __init__(self, holder: Holder, bag: Bag, gui: GuiVar):
+	def __init__(self, holder: Holder, bag: Bag, gui: GuiVar) -> None:
 		self.bag                          = bag
 		self.mpt                          = bag.mpt
 		self.gme                          = bag.gme
@@ -5355,6 +5356,9 @@ class Tauon:
 		self.wayland                      = bag.wayland
 		self.dirs                         = bag.dirs
 		self.colours                      = bag.colours
+		self.download_directories         = bag.download_directories
+		self.launch_prefix                = bag.launch_prefix
+		self.overlay_texture_texture      = bag.overlay_texture_texture
 		self.de_notify_support            = bag.de_notify_support
 		self.old_window_position          = bag.old_window_position
 		self.cache_directory              = bag.dirs.cache_directory
@@ -5444,6 +5448,7 @@ class Tauon:
 		self.dl_use: int                          = 0
 		self.latest_db_version                    = bag.latest_db_version
 		# Setting various timers
+		self.spot_search_rate_timer       = Timer()
 		self.track_box_path_tool_timer    = Timer()
 		self.message_box_min_timer        = Timer()
 		self.cursor_blink_timer           = Timer()
@@ -5628,7 +5633,6 @@ class Tauon:
 		self.loaderCommandReady:             bool = False
 		self.cm_clean_db:                    bool = False
 		self.worker_save_state:              bool = False
-		self.launch_prefix:                   str = bag.launch_prefix
 		self.whicher                              = whicher
 		self.load_orders:         list[LoadClass] = bag.load_orders
 		self.switch_playlist                      = None
@@ -13364,7 +13368,7 @@ class Tauon:
 					value = int(value)
 					for i in reversed(range(len(playlist))):
 						t_time = self.star_store.get(playlist[i])
-						tr = pself.ctl.get_track(playlist[i])
+						tr = self.pctl.get_track(playlist[i])
 						if tr.length > 0:
 							if not value < t_time / tr.length:
 								del playlist[i]
@@ -18776,7 +18780,7 @@ class STray:
 		self.t_window = tauon.t_window
 		self.active = False
 
-	def up(self, systray: SysTrayIcon):
+	def up(self, systray: SysTrayIcon) -> None:
 		sdl3.SDL_ShowWindow(self.t_window)
 		sdl3.SDL_RaiseWindow(self.t_window)
 		sdl3.SDL_RestoreWindow(self.t_window)
@@ -25841,7 +25845,7 @@ class Over:
 		self.prefs.playlist_font_size = 15
 		self.gui.update_layout = True
 
-	def slide_control(self, x: int, y: int, label: str, units: str, value: int, lower_limit: int, upper_limit: int, step: int = 1, callback=None, width: int = 58) -> int:
+	def slide_control(self, x: float, y: float, label: str, units: str, value: int, lower_limit: int, upper_limit: int, step: int = 1, callback=None, width: int = 58) -> int:
 		width = round(width * self.gui.scale)
 
 		if label is not None:
@@ -34646,7 +34650,7 @@ class RadioThumbGen:
 			except Exception:
 				logging.exception("malform get radio thumb")
 				self.cache[key] = [0]
-				if station.icon and station.icon not in pself.refs.radio_thumb_bans:
+				if station.icon and station.icon not in self.prefs.radio_thumb_bans:
 					self.prefs.radio_thumb_bans.append(station.icon)
 				continue
 			if src is not None:
@@ -35008,7 +35012,7 @@ class Showcase:
 					while xx < self.window_size[0]:
 						rect.x = xx
 						rect.y = yy
-						sdl3.SDL_RenderTexture(self.renderer, overlay_texture_texture, None, rect)
+						sdl3.SDL_RenderTexture(self.renderer, self.tauon.overlay_texture_texture, None, rect)
 						xx += 300
 					yy += 300
 
@@ -35711,7 +35715,7 @@ class DLMon:
 
 		self.ticker.set()
 
-		for downloads in download_directories:
+		for downloads in self.tauon.download_directories:
 			for item in os.listdir(downloads):
 				path = os.path.join(downloads, item)
 
@@ -36098,67 +36102,69 @@ class Directories:
 @dataclass
 class Bag:
 	"""Holder object for all configs"""
-	mpt:                    CDLL | None
-	gme:                    CDLL | None
-	cf:                     Config
-	colours:                ColoursClass
-	console:                DConsole
-	dirs:                   Directories
-	prefs:                  Prefs
-	formats:                Formats
-	renderer:               sdl3.LP_SDL_Renderer
-	ddt:                    TDraw
-	fonts:                  Fonts
-	tls_context:            ssl.SSLContext
-	#sdl_syswminfo:          SDL_SysWMinfo
-	macos:                  bool
-	msys:                   bool
-	phone:                  bool
-	pump:                   bool
-	snap_mode:              bool
-	flatpak_mode:           bool
-	smtc:                   bool
-	draw_min_button:        bool
-	draw_max_button:        bool
-	last_fm_enable:         bool
-	de_notify_support:      bool
-	wayland:                bool
-	use_natsort:            bool
-	should_save_state:      bool
-	desktop:                str | None
-	system:                 str
-	launch_prefix:          str
-	platform_system:        str
-	album_mode_art_size:    int
-	xdpi:                   int
-	master_count:           int
-	playing_in_queue:       int
-	playlist_active:        int
-	playlist_playing:       int
-	playlist_view_position: int
-	radio_playlist_viewing: int
-	selected_in_playlist:   int
-	latest_db_version:      int
-	volume:                 float
-	mac_close:              tuple[int, int, int, int]
-	mac_maximize:           tuple[int, int, int, int]
-	mac_minimize:           tuple[int, int, int, int]
-	track_queue:            list[int]
-	logical_size:           list[int] # X Y
-	window_size:            list[int] # X Y
-	old_window_position:    tuple[int, int] # X Y res
-	cue_list:               list[str]
-	load_orders:            list[LoadClass]
-	multi_playlist:         list[TauonPlaylist]
-	radio_playlists:        list[RadioPlaylist]
-	primary_stations:       list[RadioStation]
-	p_force_queue:          list[TauonQueueItem]
-	folder_image_offsets:   dict[str, int]
-	gen_codes:              dict[int, str]
-	master_library:         dict[int, TrackClass]
-	loaded_asset_dc:        dict[str, WhiteModImageAsset | LoadImageAsset]
-	sm:                     CDLL | None = None
-	song_notification:      None = None
+	mpt:                     CDLL | None
+	gme:                     CDLL | None
+	cf:                      Config
+	colours:                 ColoursClass
+	console:                 DConsole
+	dirs:                    Directories
+	prefs:                   Prefs
+	formats:                 Formats
+	renderer:                sdl3.LP_SDL_Renderer
+	overlay_texture_texture: sdl3.LP_SDL_Texture
+	ddt:                     TDraw
+	fonts:                   Fonts
+	tls_context:             ssl.SSLContext
+	#sdl_syswminfo:           SDL_SysWMinfo
+	macos:                   bool
+	msys:                    bool
+	phone:                   bool
+	pump:                    bool
+	snap_mode:               bool
+	flatpak_mode:            bool
+	smtc:                    bool
+	draw_min_button:         bool
+	draw_max_button:         bool
+	last_fm_enable:          bool
+	de_notify_support:       bool
+	wayland:                 bool
+	use_natsort:             bool
+	should_save_state:       bool
+	desktop:                 str | None
+	system:                  str
+	launch_prefix:           str
+	platform_system:         str
+	album_mode_art_size:     int
+	xdpi:                    int
+	master_count:            int
+	playing_in_queue:        int
+	playlist_active:         int
+	playlist_playing:        int
+	playlist_view_position:  int
+	radio_playlist_viewing:  int
+	selected_in_playlist:    int
+	latest_db_version:       int
+	volume:                  float
+	mac_close:               tuple[int, int, int, int]
+	mac_maximize:            tuple[int, int, int, int]
+	mac_minimize:            tuple[int, int, int, int]
+	track_queue:             list[int]
+	logical_size:            list[int] # X Y
+	window_size:             list[int] # X Y
+	old_window_position:     tuple[int, int] # X Y res
+	cue_list:                list[str]
+	download_directories:    list[str]
+	load_orders:             list[LoadClass]
+	multi_playlist:          list[TauonPlaylist]
+	radio_playlists:         list[RadioPlaylist]
+	primary_stations:        list[RadioStation]
+	p_force_queue:           list[TauonQueueItem]
+	folder_image_offsets:    dict[str, int]
+	gen_codes:               dict[int, str]
+	master_library:          dict[int, TrackClass]
+	loaded_asset_dc:         dict[str, WhiteModImageAsset | LoadImageAsset]
+	sm:                      CDLL | None = None
+	song_notification:       None = None
 
 @dataclass
 class Formats:
@@ -36764,9 +36770,9 @@ def load_prefs(bag: Bag) -> None:
 	prefs.download_dir1 = cf.sync_add(
 		"string", "add_download_directory", prefs.download_dir1,
 		"Add another folder to monitor in addition to home downloads and music.")
-	if prefs.download_dir1 and prefs.download_dir1 not in download_directories:
+	if prefs.download_dir1 and prefs.download_dir1 not in bag.download_directories:
 		if os.path.isdir(prefs.download_dir1):
-			download_directories.append(prefs.download_dir1)
+			bag.download_directories.append(prefs.download_dir1)
 		else:
 			logging.warning("Invalid download directory in config")
 
@@ -37461,10 +37467,10 @@ def worker2(tauon: Tauon) -> None:
 		tauon.worker2_lock.acquire()
 		if search_over.search_text.text and not (len(search_over.search_text.text) == 1 and ord(search_over.search_text.text[0]) < 128):
 			if search_over.spotify_mode:
-				t = spot_search_rate_timer.get()
+				t = tauon.spot_search_rate_timer.get()
 				if t < 1:
 					time.sleep(1 - t)
-					spot_search_rate_timer.set()
+					tauon.spot_search_rate_timer.set()
 				logging.info("Spotify search")
 				search_over.results.clear()
 				results = tauon.spot_ctl.search(search_over.search_text.text)
@@ -39530,6 +39536,7 @@ def main(holder: Holder) -> None:
 		de_notify_support=False,
 		draw_min_button=draw_min_button,
 		draw_max_button=draw_max_button,
+		download_directories=[],
 		smtc=smtc,
 		macos=macos,
 		mac_close=mac_close,
@@ -40106,16 +40113,14 @@ def main(holder: Holder) -> None:
 
 	# Loading Config -----------------
 
-	download_directories: list[str] = []
-
 	load_prefs(bag=bag)
 	save_prefs(bag=bag)
 
 	if download_directory.is_dir():
-		download_directories.append(str(download_directory))
+		bag.download_directories.append(str(download_directory))
 
 	if music_directory is not None and music_directory.is_dir():
-		download_directories.append(str(music_directory))
+		bag.download_directories.append(str(music_directory))
 
 	# Temporary
 	if 0 < db_version <= 34:
@@ -41371,8 +41376,6 @@ def main(holder: Holder) -> None:
 	x_menu.add(MenuItem(_("Disengage Quick Add"), tauon.stop_quick_add, show_test=tauon.show_stop_quick_add))
 
 	nagbox = NagBox(tauon=tauon)
-
-	spot_search_rate_timer = Timer()
 
 	power_tag_colours = ColourGenCache(0.5, 0.8)
 
