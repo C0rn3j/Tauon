@@ -184,6 +184,7 @@ if TYPE_CHECKING:
 	from tauon.t_modules.t_bootstrap import Holder
 	from websocket import WebSocketApp
 	from lynxtray import SysTrayIcon
+	from mutagen.id3 import ID3
 
 class LoadImageAsset:
 	assets: list[LoadImageAsset] = []
@@ -1588,7 +1589,7 @@ class PlayerCtl:
 
 		self.gst_devices = []  # Display names
 		self.gst_outputs = {}  # Display name : (sink, device)
-		#TODO(Martin) : Fix this by moving the class to root of the module
+		#TODO(Martin): Fix this by moving the class to root of the module
 		self.mpris: Gnome.main.MPRIS | None = None
 		self.tray_update = None
 		self.eq = [0] * 2  # not used
@@ -5518,7 +5519,6 @@ class Tauon:
 		self.extra_tab_menu        = Menu(self, 155, show_icons=True)
 
 		self.lb                                   = ListenBrainz(tauon=self)
-		self.thread_manager: ThreadManager | None = None # Avoid NameError
 		self.thread_manager:        ThreadManager = ThreadManager(tauon=self)
 		self.album_mode_art_size                  = bag.album_mode_art_size
 		self.artist_picture_render                = PictureRender(tauon=self)
@@ -39378,7 +39378,7 @@ def main(holder: Holder) -> None:
 			"mp3", "wav", "opus", "flac", "ape", "aiff",
 			"m4a", "ogg", "oga", "aac", "tta", "wv", "wma",
 		} | MOD_Formats | GME_Formats,
-		Archive_Formats = Archive_Formats
+		Archive_Formats = Archive_Formats,
 	)
 
 
