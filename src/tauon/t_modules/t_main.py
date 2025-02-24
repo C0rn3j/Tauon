@@ -5688,6 +5688,54 @@ class Tauon:
 		self.album_star_store  = AlbumStarStore(self)
 		self.subsonic          = self.album_star_store.subsonic
 
+	def scan_ffprobe(self, nt: TrackClass):
+		startupinfo = None
+		if system == "Windows" or msys:
+			startupinfo = subprocess.STARTUPINFO()
+			startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+		try:
+			result = subprocess.run(
+				[self.get_ffprobe(), "-v", "error", "-show_entries", "format=duration", "-of",
+				"default=noprint_wrappers=1:nokey=1", nt.fullpath], stdout=subprocess.PIPE, startupinfo=startupinfo, check=True)
+			nt.length = float(result.stdout.decode())
+		except Exception:
+			logging.exception("FFPROBE couldn't supply a duration")
+		try:
+			result = subprocess.run(
+				[self.get_ffprobe(), "-v", "error", "-show_entries", "format_tags=title", "-of",
+				"default=noprint_wrappers=1:nokey=1", nt.fullpath], stdout=subprocess.PIPE, startupinfo=startupinfo, check=True)
+			nt.title = str(result.stdout.decode())
+		except Exception:
+			logging.exception("FFPROBE couldn't supply a title")
+		try:
+			result = subprocess.run(
+				[self.get_ffprobe(), "-v", "error", "-show_entries", "format_tags=artist", "-of",
+				"default=noprint_wrappers=1:nokey=1", nt.fullpath], stdout=subprocess.PIPE, startupinfo=startupinfo, check=True)
+			nt.artist = str(result.stdout.decode())
+		except Exception:
+			logging.exception("FFPROBE couldn't supply a artist")
+		try:
+			result = subprocess.run(
+				[self.get_ffprobe(), "-v", "error", "-show_entries", "format_tags=album", "-of",
+				"default=noprint_wrappers=1:nokey=1", nt.fullpath], stdout=subprocess.PIPE, startupinfo=startupinfo, check=True)
+			nt.album = str(result.stdout.decode())
+		except Exception:
+			logging.exception("FFPROBE couldn't supply a album")
+		try:
+			result = subprocess.run(
+				[self.get_ffprobe(), "-v", "error", "-show_entries", "format_tags=date", "-of",
+				"default=noprint_wrappers=1:nokey=1", nt.fullpath], stdout=subprocess.PIPE, startupinfo=startupinfo, check=True)
+			nt.date = str(result.stdout.decode())
+		except Exception:
+			logging.exception("FFPROBE couldn't supply a date")
+		try:
+			result = subprocess.run(
+				[self.get_ffprobe(), "-v", "error", "-show_entries", "format_tags=track", "-of",
+				"default=noprint_wrappers=1:nokey=1", nt.fullpath], stdout=subprocess.PIPE, startupinfo=startupinfo, check=True)
+			nt.track_number = str(result.stdout.decode())
+		except Exception:
+			logging.exception("FFPROBE couldn't supply a track")
+
 	def hit_callback(self, win, point, data):
 		gui          = self.gui
 		inp          = self.inp
@@ -15527,14 +15575,14 @@ class Tauon:
 				# Use MUTAGEN
 				try:
 					if nt.file_ext.lower() in self.bag.formats.VID_Formats:
-						scan_ffprobe(nt)
+						self.scan_ffprobe(nt)
 						return nt
 
 					try:
 						audio = mutagen.File(nt.fullpath)
 					except Exception:
 						logging.exception("Mutagen scan failed, falling back to FFPROBE")
-						scan_ffprobe(nt)
+						self.scan_ffprobe(nt)
 						return nt
 
 					nt.samplerate = audio.info.sample_rate
@@ -23004,6 +23052,7 @@ class Over:
 		self.formats             = tauon.formats
 		self.colours             = tauon.colours
 		self.window_size         = tauon.window_size
+		self.show_message        = tauon.show_message
 		self.album_mode_art_size = tauon.album_mode_art_size
 		self.platform_system     = tauon.platform_system
 		self.user_directory      = tauon.user_directory
@@ -28196,7 +28245,7 @@ class BottomBarType_ao1:
 						else:
 							self.pctl.play()
 						self.inp.mouse_click = False
-					tauon.tool_tip2.test(33 * self.gui.scale, y - 35 * self.gui.scale, _("Play, RC: Go to playing"))
+					self.tauon.tool_tip2.test(33 * self.gui.scale, y - 35 * self.gui.scale, _("Play, RC: Go to playing"))
 
 					if self.inp.right_click:
 						self.pctl.show_current(highlight=True)
@@ -28221,7 +28270,7 @@ class BottomBarType_ao1:
 						self.pctl.pause()
 					if self.inp.right_click:
 						self.pctl.show_current(highlight=True)
-					tauon.tool_tip2.test(x, y - 35 * self.gui.scale, _("Pause"))
+					self.tauon.tool_tip2.test(x, y - 35 * self.gui.scale, _("Pause"))
 
 				# self.ddt.rect_r(rect,[255,0,0,255], True)
 				self.ddt.rect_a((x, y + 0), (4 * self.gui.scale, 13 * self.gui.scale), pause_colour)
@@ -28247,7 +28296,7 @@ class BottomBarType_ao1:
 					if not self.pctl.random_mode:
 						# . Shuffle set to off
 						self.gui.mode_toast_text = _("Shuffle Off")
-					tauon.toast_mode_timer.set()
+					self.tauon.toast_mode_timer.set()
 					self.gui.delay_frame(1)
 				if self.inp.middle_click:
 					self.pctl.advance(rr=True)
@@ -28339,7 +28388,7 @@ class MiniMode:
 		self.ddt.rect((0, 0, w, w), (0, 0, 0, 45))
 		if track is not None:
 			# Render album art
-			tauon.album_art_gen.display(track, (0, 0), (w, w))
+			self.album_art_gen.display(track, (0, 0), (w, w))
 
 			line1c = colours.mini_mode_text_1
 			line2c = colours.mini_mode_text_2
@@ -28355,11 +28404,11 @@ class MiniMode:
 
 			if self.coll(text_hit_area):
 				if self.inp.mouse_click:
-					if tauon.d_click_timer.get() < 0.3:
+					if self.tauon.d_click_timer.get() < 0.3:
 						self.tauon.restore_full_mode()
 						self.gui.update += 1
 						return
-					tauon.d_click_timer.set()
+					self.tauon.d_click_timer.set()
 
 			# Draw title texts
 			line1 = track.artist
@@ -28566,17 +28615,17 @@ class MiniMode2:
 
 		if track is not None:
 			# Render album art
-			tauon.album_art_gen.display(track, (0, 0), (h, h))
+			self.album_art_gen.display(track, (0, 0), (h, h))
 
 			text_hit_area = (x1, 0, w, h)
 
 			if self.coll(text_hit_area):
 				if self.inp.mouse_click:
-					if tauon.d_click_timer.get() < 0.3:
+					if self.tauon.d_click_timer.get() < 0.3:
 						self.tauon.restore_full_mode()
 						self.gui.update += 1
 						return
-					tauon.d_click_timer.set()
+					self.tauon.d_click_timer.set()
 
 			# Draw title texts
 			line1 = track.artist
@@ -28687,11 +28736,11 @@ class MiniMode3:
 
 		self.ddt.rect((0, 0, w, h), bg)
 
-		tauon.style_overlay.display()
+		self.tauon.style_overlay.display()
 
 		transit = False
 		#self.ddt.text_background_colour = list(gui.center_blur_pixel) + [255,] #bg
-		if tauon.style_overlay.fade_on_timer.get() < 0.4 or tauon.style_overlay.stage != 2:
+		if self.tauon.style_overlay.fade_on_timer.get() < 0.4 or self.tauon.style_overlay.stage != 2:
 			self.ddt.alpha_bg = True
 			transit = True
 
@@ -28749,11 +28798,11 @@ class MiniMode3:
 
 			if self.coll(text_hit_area):
 				if self.inp.mouse_click:
-					if tauon.d_click_timer.get() < 0.3:
+					if self.tauon.d_click_timer.get() < 0.3:
 						restore_full_mode()
 						self.gui.update += 1
 						return
-					tauon.d_click_timer.set()
+					self.tauon.d_click_timer.set()
 
 			# Draw title texts
 			line1 = track.artist
@@ -28761,19 +28810,19 @@ class MiniMode3:
 			key = None
 			if not line1 and not line2:
 				if not self.ddt.alpha_bg:
-					key = (track.filename, 214, tauon.style_overlay.current_track_id)
+					key = (track.filename, 214, self.tauon.style_overlay.current_track_id)
 				self.ddt.text(
 					(w // 2, y1 + 18 * self.gui.scale, 2), track.filename, line1c, 214,
 					window_size[0] - 30 * self.gui.scale, real_bg=not transit, key=key)
 			else:
 
 				if not self.ddt.alpha_bg:
-					key = (line1, 515, tauon.style_overlay.current_track_id)
+					key = (line1, 515, self.tauon.style_overlay.current_track_id)
 				self.ddt.text(
 					(w // 2, y1 + 5 * self.gui.scale, 2), line1, line2c, 515,
 					window_size[0] - 30 * self.gui.scale, real_bg=not transit, key=key)
 				if not self.ddt.alpha_bg:
-					key = (line2, 415, tauon.style_overlay.current_track_id)
+					key = (line2, 415, self.tauon.style_overlay.current_track_id)
 				self.ddt.text(
 					(w // 2, y1 + 31 * self.gui.scale, 2), line2, line1c, 415,
 					window_size[0] - 30 * self.gui.scale, real_bg=not transit, key=key)
@@ -28926,7 +28975,7 @@ class MiniMode3:
 			if self.coll(right_area):
 				self.pctl.advance()
 
-		tauon.search_over.render()
+		self.tauon.search_over.render()
 
 
 		# Show exit/min buttons when mosue over
@@ -28935,7 +28984,7 @@ class MiniMode3:
 			tool_rect[0] = 0
 		self.fields.add(tool_rect)
 		if self.coll(tool_rect):
-			draw_window_tools(tauon)
+			self.tauon.draw_window_tools()
 
 		# if w != h:
 		#     self.ddt.rect_s((1, 1, w - 2, h - 2), colours.mini_mode_border, 1 * self.gui.scale)
@@ -30262,7 +30311,7 @@ class ScrollBox:
 						pass
 					else:
 
-						tt = tauon.scroll_timer.hit()
+						tt = self.tauon.scroll_timer.hit()
 						if tt > 0.1:
 							tt = 0
 
@@ -30883,10 +30932,10 @@ class RadioBox:
 		elif self.pctl.playing_state == 3:
 
 			text = ""
-			if tauon.stream_proxy.s_format:
-				text = str(tauon.stream_proxy.s_format)
-			if tauon.stream_proxy.s_bitrate and tauon.stream_proxy.s_bitrate.isnumeric():
-				text += " " + tauon.stream_proxy.s_bitrate + _("kbps")
+			if self.tauon.stream_proxy.s_format:
+				text = str(self.tauon.stream_proxy.s_format)
+			if self.tauon.stream_proxy.s_bitrate and self.tauon.stream_proxy.s_bitrate.isnumeric():
+				text += " " + self.tauon.stream_proxy.s_bitrate + _("kbps")
 
 			self.ddt.text((x + 495 * self.gui.scale, yy + 8 * self.gui.scale, 1), text, self.colours.box_title_text, 311)
 			# if tauon.stream_proxy.s_format:
@@ -31021,8 +31070,8 @@ class RadioBox:
 				text_colour = self.colours.tab_text_active
 				self.ddt.rect(rect, bg)
 
-			if tauon.radio_view.drag:
-				if station == tauon.radio_view.drag:
+			if self.tauon.radio_view.drag:
+				if station == self.tauon.radio_view.drag:
 					text_colour = self.colours.box_sub_text
 					bg = [255, 255, 255, 10]
 					self.ddt.rect(rect, bg)
@@ -31036,13 +31085,13 @@ class RadioBox:
 				if self.gui.level_2_click:
 					# self.drag = p
 					# self.click_point = copy.copy(self.inp.mouse_position)
-					tauon.radio_view.drag = station
-					tauon.radio_view.click_point = copy.copy(self.inp.mouse_position)
+					self.tauon.radio_view.drag = station
+					self.tauon.radio_view.click_point = copy.copy(self.inp.mouse_position)
 				if self.inp.mouse_up:  # self.gui.level_2_click:
 					self.gui.update += 1
 					# if self.drag is not None and p != self.drag:
 					#     swap = p
-					if point_proximity_test(tauon.radio_view.click_point, self.inp.mouse_position, round(4 * self.gui.scale)):
+					if point_proximity_test(self.tauon.radio_view.click_point, self.inp.mouse_position, round(4 * self.gui.scale)):
 						self.start(station)
 				if self.inp.middle_click:
 					to_delete = p
@@ -31122,20 +31171,20 @@ class RadioBox:
 		yy = y + round(328 * self.gui.scale)
 		if self.pctl.playing_state == 3 and not self.prefs.auto_rec:
 			old = self.prefs.auto_rec
-			if not old and tauon.pref_box.toggle_square(
+			if not old and self.tauon.pref_box.toggle_square(
 				x, yy, self.prefs.auto_rec, _("Record and auto split songs"),
 				click=self.gui.level_2_click):
 				self.show_message(_("Please stop playback first before toggling this setting"))
 		elif self.pctl.playing_state == 3:
 			old = self.prefs.auto_rec
-			if old and not tauon.pref_box.toggle_square(
+			if old and not self.tauon.pref_box.toggle_square(
 				x, yy, self.prefs.auto_rec, _("Record and auto split songs"),
 				click=self.gui.level_2_click):
 				self.show_message(_("Please stop playback first to end current recording"))
 
 		else:
 			old = self.prefs.auto_rec
-			self.prefs.auto_rec = tauon.pref_box.toggle_square(
+			self.prefs.auto_rec = self.tauon.pref_box.toggle_square(
 				x, yy, self.prefs.auto_rec, _("Record and auto split songs"),
 				click=self.gui.level_2_click)
 			if self.prefs.auto_rec != old and self.prefs.auto_rec:
@@ -31185,8 +31234,8 @@ class RenamePlaylistBox:
 			self.rename_text_area.set_text(text)
 			self.rename_text_area.highlight_none()
 
-			self.gui.regen_single = tauon.rename_playlist_box.playlist_index
-			tauon.thread_manager.ready("worker")
+			self.gui.regen_single = self.tauon.rename_playlist_box.playlist_index
+			self.thread_manager.ready("worker")
 		else:
 			self.rename_text_area.set_text(self.pctl.multi_playlist[self.playlist_index].title)
 			self.rename_text_area.highlight_none()
@@ -31227,10 +31276,10 @@ class RenamePlaylistBox:
 			self.pctl.gen_codes[id] = self.rename_text_area.text
 
 			if self.inp.input_text or self.inp.key_backspace_press:
-				self.gui.regen_single = tauon.rename_playlist_box.playlist_index
-				tauon.thread_manager.ready("worker")
+				self.gui.regen_single = self.tauon.rename_playlist_box.playlist_index
+				self.thread_manager.ready("worker")
 
-				# self.regenerate_playlist(tauon.rename_playlist_box.playlist_index)
+				# self.regenerate_playlist(self.tauon.rename_playlist_box.playlist_index)
 			# if self.gui.gen_code_errors:
 			#     del_icon.render(rect[0] + rect[2] - 21 * self.gui.scale, rect[1] + 10 * self.gui.scale, (255, 70, 70, 255))
 			self.ddt.text_background_colour = [4, 4, 4, 255]
@@ -31817,6 +31866,7 @@ class ArtistList:
 		self.lastfm                = pctl.lastfm
 		self.star_store            = pctl.star_store
 		self.artist_info_box       = pctl.artist_info_box
+		self.thread_manager        = tauon.thread_manager
 		self.artist_list_menu      = tauon.artist_list_menu
 		self.artist_list_scroll    = tauon.artist_list_scroll
 		self.artist_preview_render = tauon.artist_preview_render
@@ -31898,13 +31948,13 @@ class ArtistList:
 		elif not self.to_fetch:
 			if self.prefs.auto_dl_artist_data:
 				self.to_fetch = artist
-				tauon.thread_manager.ready("worker")
+				self.thread_manager.ready("worker")
 			else:
 				self.thumb_cache[artist] = None
 
 	def worker(self):
 		if self.load:
-			if tauon.after_scan:
+			if self.tauon.after_scan:
 				return
 
 			self.prep()
@@ -31912,7 +31962,7 @@ class ArtistList:
 			return
 
 		if self.to_fetch:
-			if tauon.get_lfm_wait_timer.get() < 2:
+			if self.tauon.get_lfm_wait_timer.get() < 2:
 				return
 
 			artist = self.to_fetch
@@ -31930,7 +31980,7 @@ class ArtistList:
 				# Lookup artist info on last.fm
 				logging.info("lastfm lookup artist: " + artist)
 				mbid = self.lastfm.artist_mbid(artist)
-				tauon.get_lfm_wait_timer.set()
+				self.tauon.get_lfm_wait_timer.set()
 				# if data[0] is not False:
 				#     #cover_link = data[2]
 				#     text = data[1]
@@ -32157,7 +32207,7 @@ class ArtistList:
 
 			for r in subtract_rect(tab_rect, rect):
 				r = sdl3.SDL_FRect(r[0], r[1], r[2], r[3])
-				tauon.style_overlay.hole_punches.append(r)
+				self.tauon.style_overlay.hole_punches.append(r)
 
 			self.ddt.rect(tab_rect, back_colour_2)
 			bg = back_colour_2
@@ -32181,7 +32231,7 @@ class ArtistList:
 					self.gui.delay_frame(hover_delay)
 				elif self.hover_timer.get() > hover_delay and not self.gui.preview_artist_loading:
 					self.gui.preview_artist = ""
-					path = tauon.artist_info_box.get_data(artist, get_img_path=True)
+					path = self.artist_info_box.get_data(artist, get_img_path=True)
 					if not path:
 						self.gui.preview_artist_loading = artist
 						shoot = threading.Thread(
@@ -32210,11 +32260,11 @@ class ArtistList:
 					if (rect.y + rect.h) > window_size[1] - self.gui.panelBY:
 						diff = (rect.y + rect.h) - (window_size[1] - self.gui.panelBY)
 						rect.h -= round(diff)
-					tauon.style_overlay.hole_punches.append(rect)
+					self.tauon.style_overlay.hole_punches.append(rect)
 		if not drawn:
 			track = self.sample_tracks.get(artist)
 			if track:
-				tauon.gall_ren.render(track, (round(thumb_x), round(y)), self.thumb_size)
+				self.tauon.gall_ren.render(track, (round(thumb_x), round(y)), self.thumb_size)
 
 		if thin_mode:
 			text = artist[:2].title()
@@ -32532,7 +32582,7 @@ class ArtistList:
 				self.current_album_counts = []
 				self.current_artist_track_counts = {}
 				self.load = True
-				tauon.thread_manager.ready("worker")
+				self.thread_manager.ready("worker")
 
 		area = (x, y, w, h)
 		area2 = (x + 1, y, w - 3, h)
@@ -32561,7 +32611,7 @@ class ArtistList:
 		scroll_x = x + w - 18 * self.gui.scale
 		if colours.lm:
 			scroll_x = x + w - 22 * self.gui.scale
-		if (self.coll(area2) or self.tauon.artist_list_scroll.held) and not tauon.pref_box.enabled:
+		if (self.coll(area2) or self.tauon.artist_list_scroll.held) and not self.tauon.pref_box.enabled:
 			scroll_width = 15 * self.gui.scale
 			inset = 0
 			if self.gui.compact_artist_list:
@@ -32581,7 +32631,7 @@ class ArtistList:
 				text = _("Artist threshold not met")
 			if self.load:
 				text = _("Loading Artist List...")
-				if self.pctl.loading_in_progress or tauon.transcode_list or tauon.after_scan:
+				if self.pctl.loading_in_progress or self.tauon.transcode_list or self.tauon.after_scan:
 					text = _("Busy...")
 
 			self.ddt.text(
@@ -33398,7 +33448,7 @@ class QueueBox:
 			text_colour1 = [0, 0, 0, 130]
 			text_colour2 = [0, 0, 0, 230]
 
-		tauon.gall_ren.render(track, (rect[0] + 4 * self.gui.scale, rect[1] + 4 * self.gui.scale), round(28 * self.gui.scale))
+		self.tauon.gall_ren.render(track, (rect[0] + 4 * self.gui.scale, rect[1] + 4 * self.gui.scale), round(28 * self.gui.scale))
 
 		self.ddt.rect((rect[0] + 4 * self.gui.scale, rect[1] + 4 * self.gui.scale, 26, 26), [0, 0, 0, 6])
 
@@ -33603,7 +33653,7 @@ class QueueBox:
 				self.drag_start_y = self.inp.mouse_position[1]
 				self.drag_start_top = yy
 
-				if tauon.d_click_timer.get() < 1:
+				if self.tauon.d_click_timer.get() < 1:
 					if self.d_click_ref == fq[i].uuid_int:
 						pl = self.pctl.id_to_pl(fq[i].uuid_int)
 						if pl is not None:
@@ -33614,7 +33664,7 @@ class QueueBox:
 				# else:
 				self.d_click_ref = fq[i].uuid_int
 
-				tauon.d_click_timer.set()
+				self.tauon.d_click_timer.set()
 
 			if self.dragging and self.coll(h_rect):
 				yy += self.tab_h
@@ -33821,7 +33871,7 @@ class MetaBox:
 		if (self.inp.mouse_click or self.inp.right_click) and is_level_zero(False):
 			if self.coll(border_rect):
 				if self.inp.mouse_click:
-					tauon.album_art_gen.cycle_offset(target_track)
+					self.tauon.album_art_gen.cycle_offset(target_track)
 				if self.inp.right_click:
 					self.tauon.picture_menu.activate(in_reference=target_track)
 			elif self.coll(rect):
@@ -33832,11 +33882,11 @@ class MetaBox:
 
 		ddt.rect(border_rect, border_colour)
 		ddt.rect(art_rect, colours.gallery_background)
-		tauon.album_art_gen.display(track, (art_rect[0], art_rect[1]), (art_rect[2], art_rect[3]))
+		self.tauon.album_art_gen.display(track, (art_rect[0], art_rect[1]), (art_rect[2], art_rect[3]))
 
 		self.fields.add(border_rect)
 		if self.coll(border_rect) and is_level_zero(True):
-			showc = tauon.album_art_gen.get_info(target_track)
+			showc = self.tauon.album_art_gen.get_info(target_track)
 			art_metadata_overlay(
 				art_rect[0] + art_rect[2] + 2 * self.gui.scale, art_rect[1] + art_rect[3] + 12 * self.gui.scale, showc)
 
@@ -34116,7 +34166,7 @@ class PictureRender:
 			self.srect.x = round(x)
 			self.srect.y = round(y)
 			sdl3.SDL_RenderTexture(self.renderer, self.texture, None, self.srect)
-			tauon.style_overlay.hole_punches.append(self.srect)
+			self.tauon.style_overlay.hole_punches.append(self.srect)
 
 class ArtistInfoBox:
 
@@ -34452,9 +34502,9 @@ class ArtistInfoBox:
 					logging.exception("Failed to scrape art")
 
 			# Trigger reload of thumbnail in artist list box
-			for key, value in list(tauon.artist_list_box.thumb_cache.items()):
+			for key, value in list(self.tauon.artist_list_box.thumb_cache.items()):
 				if key is None and key == artist:
-					del tauon.artist_list_box.thumb_cache[artist]
+					del self.tauon.artist_list_box.thumb_cache[artist]
 					break
 
 			self.status = "Ready"
@@ -34920,7 +34970,7 @@ class Showcase:
 		self.ddt.rect((0, self.gui.panelY, self.window_size[0], self.window_size[1] - self.gui.panelY), self.colours.playlist_panel_background)
 
 		if self.prefs.bg_showcase_only and self.prefs.art_bg:
-			tauon.style_overlay.display()
+			self.tauon.style_overlay.display()
 
 			# Draw textured background
 			if not light_mode and not self.colours.lm and self.prefs.showcase_overlay_texture:
@@ -35002,21 +35052,21 @@ class Showcase:
 					box + round(4 * self.gui.scale)), [60, 60, 60, 135])
 				self.ddt.rect((x, y, box, box), self.colours.playlist_panel_background)
 				rect = sdl3.SDL_FRect(round(x), round(y), round(box), round(box))
-				tauon.style_overlay.hole_punches.append(rect)
+				self.tauon.style_overlay.hole_punches.append(rect)
 
 				# Draw album art in box
-				tauon.album_art_gen.display(track, (x, y), (box, box))
+				self.tauon.album_art_gen.display(track, (x, y), (box, box))
 
 				# Click art to cycle
 				if self.coll((x, y, box, box)):
 					if self.inp.mouse_click is True:
-						tauon.album_art_gen.cycle_offset(track)
+						self.tauon.album_art_gen.cycle_offset(track)
 					if self.inp.right_click:
 						self.tauon.picture_menu.activate(in_reference=track)
 						self.inp.right_click = False
 
 			# Check for lyrics if auto setting
-			tauon.test_auto_lyrics(track)
+			self.tauon.test_auto_lyrics(track)
 
 			self.gui.draw_vis4_top = False
 
@@ -35033,7 +35083,7 @@ class Showcase:
 
 			timed_ready = False
 			if True and self.prefs.show_lyrics_showcase:
-				timed_ready = tauon.timed_lyrics_ren.generate(track)
+				timed_ready = self.tauon.timed_lyrics_ren.generate(track)
 
 			if timed_ready and track.lyrics:
 				# if not self.prefs.guitar_chords or guitar_chords.test_ready_status(track) != 1:
@@ -35058,7 +35108,7 @@ class Showcase:
 
 			if True and self.prefs.show_lyrics_showcase and timed_ready:
 				w = self.window_size[0] - (x + box) - round(30 * self.gui.scale)
-				tauon.timed_lyrics_ren.render(track.index, gcx, y, w=w)
+				self.tauon.timed_lyrics_ren.render(track.index, gcx, y, w=w)
 			elif track.lyrics == "" or not self.prefs.show_lyrics_showcase:
 				w = self.window_size[0] - (x + box) - round(30 * self.gui.scale)
 				x = int(x + box + (self.window_size[0] - x - box) / 2)
@@ -35096,8 +35146,8 @@ class Showcase:
 				self.gui.spec4_rec.x = x - (self.gui.spec4_rec.w // 2)
 				self.gui.spec4_rec.y = y + round(50 * self.gui.scale)
 
-				if self.prefs.showcase_vis and self.window_size[1] > 369 and not tauon.search_over.active \
-				and not (tauon.spot_ctl.coasting or tauon.spot_ctl.playing):
+				if self.prefs.showcase_vis and self.window_size[1] > 369 and not self.tauon.search_over.active \
+				and not (self.tauon.spot_ctl.coasting or self.tauon.spot_ctl.playing):
 					if self.gui.message_box or not is_level_zero(include_menus=True):
 						self.render_vis()
 					else:
@@ -35701,7 +35751,7 @@ class DLMon:
 						#logging.info("add.")
 				elif min_age < 60 \
 				and os.path.isdir(path) \
-				and path not in tauon.quick_import_done \
+				and path not in self.tauon.quick_import_done \
 				and "encode-output" not in path:
 					try:
 						size = get_folder_size(path)
@@ -35744,7 +35794,7 @@ class DLMon:
 			#logging.info(tauon.quick_import_done)
 			#logging.info(self.ready)
 			for item in self.ready:
-				if item not in tauon.quick_import_done:
+				if item not in self.tauon.quick_import_done:
 					if os.path.exists(path):
 						temp.add(item)
 				# else:
@@ -37051,54 +37101,6 @@ def use_id3(tags: ID3, nt: TrackClass) -> None:
 
 			if item.desc == "FMPS_RATING":
 				nt.misc["FMPS_Rating"] = float(item.text[0])
-
-def scan_ffprobe(nt: TrackClass):
-	startupinfo = None
-	if system == "Windows" or msys:
-		startupinfo = subprocess.STARTUPINFO()
-		startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-	try:
-		result = subprocess.run(
-			[tauon.get_ffprobe(), "-v", "error", "-show_entries", "format=duration", "-of",
-			"default=noprint_wrappers=1:nokey=1", nt.fullpath], stdout=subprocess.PIPE, startupinfo=startupinfo, check=True)
-		nt.length = float(result.stdout.decode())
-	except Exception:
-		logging.exception("FFPROBE couldn't supply a duration")
-	try:
-		result = subprocess.run(
-			[tauon.get_ffprobe(), "-v", "error", "-show_entries", "format_tags=title", "-of",
-			"default=noprint_wrappers=1:nokey=1", nt.fullpath], stdout=subprocess.PIPE, startupinfo=startupinfo, check=True)
-		nt.title = str(result.stdout.decode())
-	except Exception:
-		logging.exception("FFPROBE couldn't supply a title")
-	try:
-		result = subprocess.run(
-			[tauon.get_ffprobe(), "-v", "error", "-show_entries", "format_tags=artist", "-of",
-			"default=noprint_wrappers=1:nokey=1", nt.fullpath], stdout=subprocess.PIPE, startupinfo=startupinfo, check=True)
-		nt.artist = str(result.stdout.decode())
-	except Exception:
-		logging.exception("FFPROBE couldn't supply a artist")
-	try:
-		result = subprocess.run(
-			[tauon.get_ffprobe(), "-v", "error", "-show_entries", "format_tags=album", "-of",
-			"default=noprint_wrappers=1:nokey=1", nt.fullpath], stdout=subprocess.PIPE, startupinfo=startupinfo, check=True)
-		nt.album = str(result.stdout.decode())
-	except Exception:
-		logging.exception("FFPROBE couldn't supply a album")
-	try:
-		result = subprocess.run(
-			[tauon.get_ffprobe(), "-v", "error", "-show_entries", "format_tags=date", "-of",
-			"default=noprint_wrappers=1:nokey=1", nt.fullpath], stdout=subprocess.PIPE, startupinfo=startupinfo, check=True)
-		nt.date = str(result.stdout.decode())
-	except Exception:
-		logging.exception("FFPROBE couldn't supply a date")
-	try:
-		result = subprocess.run(
-			[tauon.get_ffprobe(), "-v", "error", "-show_entries", "format_tags=track", "-of",
-			"default=noprint_wrappers=1:nokey=1", nt.fullpath], stdout=subprocess.PIPE, startupinfo=startupinfo, check=True)
-		nt.track_number = str(result.stdout.decode())
-	except Exception:
-		logging.exception("FFPROBE couldn't supply a track")
 
 def encode_track_name(track_object: TrackClass) -> str:
 	if track_object.is_cue or not track_object.filename:
