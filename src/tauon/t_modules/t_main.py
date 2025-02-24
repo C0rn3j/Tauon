@@ -12047,7 +12047,7 @@ class Tauon:
 				gui.art_unlock_ratio = False
 				gui.art_max_ratio_lock = 1
 
-			if gui.side_drag and inp.key_shift_down:
+			if gui.side_drag and self.inp.key_shift_down:
 				gui.art_unlock_ratio = True
 				gui.art_max_ratio_lock = 5
 
@@ -12060,9 +12060,7 @@ class Tauon:
 				if prefs.album_mode:
 					pass
 				else:
-
 					if not gui.art_unlock_ratio:
-
 						if gui.rsp_full_lock and not gui.side_drag:
 							gui.rspw = window_size[0]
 
@@ -12080,10 +12078,8 @@ class Tauon:
 
 			# Shrink side panel if playlist gets too small
 			if window_size[0] > 100 and not gui.hide_tracklist_in_gallery:
-
 				if gui.plw < 300:
 					if gui.rsp:
-
 						l = 0
 						if gui.lsp:
 							l = gui.lspw
@@ -12386,7 +12382,7 @@ class Tauon:
 			line = r"explorer " + self.prefs.encoder_output.replace("/", "\\")
 			subprocess.Popen(line)
 		else:
-			if macos:
+			if self.macos:
 				subprocess.Popen(["open", self.prefs.encoder_output])
 			else:
 				subprocess.Popen(["xdg-open", self.prefs.encoder_output])
@@ -12819,15 +12815,15 @@ class Tauon:
 						cm_found = True
 
 						if cm[-1] == ">":
-							sort_ass(0, invert=False, custom_list=playlist, custom_name=col)
+							self.sort_ass(0, invert=False, custom_list=playlist, custom_name=col)
 						elif cm[-1] == "<":
-							sort_ass(0, invert=True, custom_list=playlist, custom_name=col)
+							self.sort_ass(0, invert=True, custom_list=playlist, custom_name=col)
 						break
 				if cm_found:
 					continue
 
 			elif cm == "self":
-				selections.append(pctl.multi_playlist[pl].playlist_ids)
+				selections.append(self.pctl.multi_playlist[pl].playlist_ids)
 
 			elif cm == "auto":
 				pass
@@ -12870,7 +12866,7 @@ class Tauon:
 
 			elif cm == "koel":
 				if not self.koel.scanning:
-					playlist.extend(koel.get_albums(return_list=True))
+					playlist.extend(self.koel.get_albums(return_list=True))
 
 			elif cm == "tau":
 				if not self.tau.processing:
@@ -12933,41 +12929,41 @@ class Tauon:
 					playlist += list(OrderedDict.fromkeys(temp))
 
 			elif cm == "ypa":
-				playlist = year_sort(0, playlist)
+				playlist = self.year_sort(0, playlist)
 
 			elif cm == "tn":
 				self.sort_track_2(0, playlist)
 
 			elif cm == "ia>":
-				playlist = gen_last_imported_folders(0, playlist)
+				playlist = self.gen_last_imported_folders(0, playlist)
 
 			elif cm == "ia<":
-				playlist = gen_last_imported_folders(0, playlist, reverse=True)
+				playlist = self.gen_last_imported_folders(0, playlist, reverse=True)
 
 			elif cm == "m>":
-				playlist = gen_last_modified(0, playlist)
+				playlist = self.gen_last_modified(0, playlist)
 
 			elif cm == "m<":
-				playlist = gen_last_modified(0, playlist, reverse=False)
+				playlist = self.gen_last_modified(0, playlist, reverse=False)
 
 			elif cm == "ly" or cm == "lyrics":
-				playlist = gen_lyrics(0, playlist)
+				playlist = self.gen_lyrics(0, playlist)
 
 			elif cm == "l" or cm == "love" or cm == "loved":
-				playlist = gen_love(0, playlist)
+				playlist = self.gen_love(0, playlist)
 
 			elif cm == "clr":
 				selections.clear()
 
 			elif cm == "rv" or cm == "reverse":
-				playlist = gen_reverse(0, playlist)
+				playlist = self.gen_reverse(0, playlist)
 
 			elif cm == "rva":
-				playlist = gen_folder_reverse(0, playlist)
+				playlist = self.gen_folder_reverse(0, playlist)
 
 			elif cm == "rata>":
 
-				playlist = gen_folder_top_rating(0, custom_list=playlist)
+				playlist = self.gen_folder_top_rating(0, custom_list=playlist)
 
 			elif cm == "rat>":
 				def rat_key(track_id: int):
@@ -13036,10 +13032,10 @@ class Tauon:
 				playlist = temp
 
 			elif cm == "d>":
-				playlist = gen_sort_len(0, custom_list=playlist)
+				playlist = self.gen_sort_len(0, custom_list=playlist)
 
 			elif cm == "d<":
-				playlist = gen_sort_len(0, custom_list=playlist)
+				playlist = self.gen_sort_len(0, custom_list=playlist)
 				playlist = list(reversed(playlist))
 
 			elif cm[:2] == "d<":
@@ -13064,17 +13060,17 @@ class Tauon:
 				self.sort_path_pl(0, custom_list=playlist)
 
 			elif cm == "pa>":
-				playlist = gen_folder_top(0, custom_list=playlist)
+				playlist = self.gen_folder_top(0, custom_list=playlist)
 
 			elif cm == "pa<":
-				playlist = gen_folder_top(0, custom_list=playlist)
-				playlist = gen_folder_reverse(0, playlist)
+				playlist = self.gen_folder_top(0, custom_list=playlist)
+				playlist = self.gen_folder_reverse(0, playlist)
 
 			elif cm == "pt>" or cm == "pc>":
-				playlist = gen_top_100(0, custom_list=playlist)
+				playlist = self.gen_top_100(0, custom_list=playlist)
 
 			elif cm == "pt<" or cm == "pc<":
-				playlist = gen_top_100(0, custom_list=playlist)
+				playlist = self.gen_top_100(0, custom_list=playlist)
 				playlist = list(reversed(playlist))
 
 			elif cm[:3] == "pt>":
@@ -13118,10 +13114,10 @@ class Tauon:
 								del playlist[i]
 
 			elif cm == "y<":
-				playlist = gen_sort_date(0, False, playlist)
+				playlist = self.gen_sort_date(0, False, playlist)
 
 			elif cm == "y>":
-				playlist = gen_sort_date(0, True, playlist)
+				playlist = self.gen_sort_date(0, True, playlist)
 
 			elif cm[:2] == "y=":
 				value = cm[2:]
@@ -13178,7 +13174,7 @@ class Tauon:
 				random.shuffle(playlist)
 
 			elif cm == "sf" or cm == "rf" or cm == "ra" or cm == "sa":
-				playlist = gen_folder_shuffle(0, custom_list=playlist)
+				playlist = self.gen_folder_shuffle(0, custom_list=playlist)
 
 			elif cm.startswith("n"):
 				value = cm[1:]
@@ -13418,7 +13414,7 @@ class Tauon:
 		self.tree_view_box.clear_target_pl(0, id)
 		self.pctl.regen_in_progress = False
 		self.gui.pl_update = 1
-		reload()
+		self.reload()
 		self.pctl.notify_change()
 
 		#logging.info(cmds)
@@ -13908,7 +13904,7 @@ class Tauon:
 
 	def show_lyrics_menu(self, index: int) -> None:
 		self.gui.track_box = False
-		enter_showcase_view(track_id=self.pctl.r_menu_index)
+		self.enter_showcase_view(track_id=self.pctl.r_menu_index)
 		self.inp.mouse_click = False
 
 	def show_message(self, line1: str, line2: str ="", line3: str = "", mode: str = "info") -> None:
@@ -14573,19 +14569,19 @@ class Tauon:
 				self.goto_album(self.pctl.selected_in_playlist)
 
 	def toggle_gallery_keycontrol(self, always_exit: bool = False) -> None:
-		if is_level_zero():
+		if self.is_level_zero():
 			if not self.prefs.album_mode:
 				self.toggle_album_mode()
 				self.gui.gall_tab_enter = True
 				self.gui.album_tab_mode = True
-				show_in_gal(self.pctl.selected_in_playlist, silent=True)
+				self.show_in_gal(self.pctl.selected_in_playlist, silent=True)
 			elif self.gui.gall_tab_enter or always_exit:
 				# Exit gallery and tab mode
 				self.toggle_album_mode()
 			else:
 				self.gui.album_tab_mode ^= True
 				if self.gui.album_tab_mode:
-					show_in_gal(self.pctl.selected_in_playlist, silent=True)
+					self.show_in_gal(self.pctl.selected_in_playlist, silent=True)
 
 	def check_auto_update_okay(self, code, pl=None):
 		try:
@@ -18499,7 +18495,7 @@ class TauService:
 
 		self.pctl.multi_playlist.append(self.tauon.pl_gen(title=name, playlist_ids=playlist))
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "tau path tn"
-		standard_sort(len(self.pctl.multi_playlist) - 1)
+		self.tauon.standard_sort(len(self.pctl.multi_playlist) - 1)
 		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 		self.processing = False
 
@@ -21882,9 +21878,9 @@ class ExportPlaylistBox:
 			return
 		target = ""
 		if current["type"] == "xspf":
-			target = export_xspf(self.pctl.id_to_pl(id), direc=path, relative=current["relative"], show=False)
+			target = self.tauon.export_xspf(self.pctl.id_to_pl(id), direc=path, relative=current["relative"], show=False)
 		if current["type"] == "m3u":
-			target = export_m3u(self.pctl.id_to_pl(id), direc=path, relative=current["relative"], show=False)
+			target = self.tauon.export_m3u(self.pctl.id_to_pl(id), direc=path, relative=current["relative"], show=False)
 
 		if warnings and target != 1:
 			self.show_message(_("Playlist exported"), target, mode="done")
@@ -21951,7 +21947,7 @@ class SearchOverlay:
 			hide_title=False))
 
 		if self.gui.combo_mode:
-			exit_combo()
+			self.tauon.exit_combo()
 		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "a\"" + name + "\""
 
@@ -26496,7 +26492,7 @@ class TopPanel:
 						break
 			# Drag red line highlight if playlist is generator playlist
 			if inp.quick_drag and not point_proximity_test(gui.drag_source_position, inp.mouse_position, 15 * gui.scale):
-				if not pl_is_mut(i):
+				if not self.tauon.pl_is_mut(i):
 					ddt.rect((x, y + self.height - bar_highlight_size, tab_width, bar_highlight_size), [200, 70, 50, 255])
 
 			if not gui.radio_view:
@@ -40094,14 +40090,14 @@ def main(holder: Holder) -> None:
 				tauon.g_open_encode_out,
 				None,
 			)
-			bag.de_notify_support = True
+			tauon.de_notify_support = True
 		except Exception:
 			logging.exception("Failed init notifications")
 
-		if bag.de_notify_support:
-			bag.song_notification = Notify.Notification.new("Next track notification")
+		if tauon.de_notify_support:
+			tauon.song_notification = Notify.Notification.new("Next track notification")
 			value = GLib.Variant("s", t_id)
-			bag.song_notification.set_hint("desktop-entry", value)
+			tauon.song_notification.set_hint("desktop-entry", value)
 
 	star_path1 = user_directory / "star.p"
 	star_path2 = user_directory / "star.p.backup"
@@ -43984,7 +43980,7 @@ def main(holder: Holder) -> None:
 							gui.pl_update += 2
 							if order.notify and gui.message_box and len(tauon.load_orders) == 1:
 								tauon.show_message(_("Rescan folders complete."), mode="done")
-							reload(tauon=tauon)
+							tauon.reload()
 							tauon.tree_view_box.clear_target_pl(target_pl)
 
 							if order.play and order.tracks:
@@ -46480,10 +46476,10 @@ def main(holder: Holder) -> None:
 	if system == "Windows" or msys:
 		tray.stop()
 		if smtc:
-			bag.sm.unload()
-	elif bag.de_notify_support:
+			tauon.sm.unload()
+	elif tauon.de_notify_support:
 		try:
-			bag.song_notification.close()
+			tauon.song_notification.close()
 			g_tc_notify.close()
 			Notify.uninit()
 		except Exception:
