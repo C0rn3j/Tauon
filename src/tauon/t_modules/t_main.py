@@ -5350,6 +5350,7 @@ class Tauon:
 		self.mac_minimize                 = bag.mac_minimize
 		self.system                       = bag.system
 		self.platform_system              = bag.platform_system
+		self.primary_stations             = bag.primary_stations
 		self.wayland                      = bag.wayland
 		self.dirs                         = bag.dirs
 		self.colours                      = bag.colours
@@ -26631,7 +26632,7 @@ class TopPanel:
 
 				if inp.mouse_up and tauon.radio_view.drag:
 					pctl.radio_playlists[i].stations.append(tauon.radio_view.drag)
-					toast(_("Added station to: ") + pctl.radio_playlists[i].name)
+					self.tauon.toast(_("Added station to: ") + pctl.radio_playlists[i].name)
 
 					tauon.radio_view.drag = None
 
@@ -30820,7 +30821,7 @@ class RadioBox:
 						stream_url="http://shirayuki.org:9200/",
 						website_url="https://yggdrasilradio.net/"))
 
-				for station in primary_stations:
+				for station in self.tauon.primary_stations:
 					self.temp_list.append(station)
 
 	def search_radio_browser(self, param):
@@ -32493,11 +32494,11 @@ class ArtistList:
 						if len(block) > 1:
 							if c < block[0] or c >= block[-1]:
 								select = block[0]
-								toast(_("First of artist's albums ({N} albums)")
+								self.tauon.toast(_("First of artist's albums ({N} albums)")
 									.format(N=len(block)))
 							else:
 								select = block[-1]
-								toast(_("Last of artist's albums ({N} albums)")
+								self.tauon.toast(_("Last of artist's albums ({N} albums)")
 									.format(N=len(block)))
 					else:
 						select = None
@@ -32509,20 +32510,20 @@ class ArtistList:
 								if i == 0:
 									select = al
 									if len(block) > 1:
-										toast(_("Start of location {N} of {T} ({Nb} albums)")
+										self.tauon.toast(_("Start of location {N} of {T} ({Nb} albums)")
 											.format(N=bb + 1, T=len(blocks), Nb=len(block)))
 									else:
-										toast(_("Location {N} of {T}")
+										self.tauon.toast(_("Location {N} of {T}")
 											.format(N=bb + 1, T=len(blocks)))
 									break
 
 							if next and not select:
 								select = block[-1]
 								if len(block) > 1:
-									toast(_("End of location {N} of {T} ({Nb} albums)")
+									self.tauon.toast(_("End of location {N} of {T} ({Nb} albums)")
 										.format(N=bb + 1, T=len(blocks), Nb=len(block)))
 								else:
-									toast(_("Location {N} of {T}")
+									self.tauon.toast(_("Location {N} of {T}")
 										.format(N=bb, T=len(blocks)))
 								break
 							if select:
@@ -32531,13 +32532,13 @@ class ArtistList:
 						select = blocks[0][0]
 						if len(blocks[0]) > 1:
 							if len(blocks) > 1:
-								toast(_("Start of location 1 of {N} ({Nb} albums)")
+								self.tauon.toast(_("Start of location 1 of {N} ({Nb} albums)")
 									.format(N=len(blocks), Nb=len(blocks[0])))
 							else:
-								toast(_("Location 1 of {N} ({Nb} albums)")
+								self.tauon.toast(_("Location 1 of {N} ({Nb} albums)")
 									.format(N=len(blocks), Nb=len(blocks[0])))
 						else:
-							toast(_("Location 1 of {N}")
+							self.tauon.toast(_("Location 1 of {N}")
 								.format(N=len(blocks)))
 
 					self.pctl.playlist_view_position = select
@@ -34771,7 +34772,7 @@ class RadioView:
 				colour = b_colour
 				if self.inp.mouse_click:
 					radios.append(radiobox.loaded_station)
-					toast(_("Added station to: ") + pctl.radio_playlists[pctl.radio_playlist_viewing].name)
+					self.tauon.toast(_("Added station to: ") + pctl.radio_playlists[pctl.radio_playlist_viewing].name)
 
 			self.save_icon.render(rect[0] + round(3 * gui.scale), rect[1] + round(4 * gui.scale), colour)
 
@@ -34924,7 +34925,7 @@ class RadioView:
 			if self.drag in radios:
 				radios.remove(self.drag)
 			else:
-				toast(_("Added station to: ") + pctl.radio_playlists[pctl.radio_playlist_viewing]["name"])
+				self.tauon.toast(_("Added station to: ") + pctl.radio_playlists[pctl.radio_playlist_viewing]["name"])
 
 			radios[radios.index("New")] = self.drag
 			self.drag = None
@@ -36149,6 +36150,7 @@ class Bag:
 	load_orders:            list[LoadClass]
 	multi_playlist:         list[TauonPlaylist]
 	radio_playlists:        list[RadioPlaylist]
+	primary_stations:       list[RadioStation]
 	p_force_queue:          list[TauonQueueItem]
 	folder_image_offsets:   dict[str, int]
 	gen_codes:              dict[int, str]
@@ -39556,6 +39558,7 @@ def main(holder: Holder) -> None:
 		playlist_view_position=playlist_view_position,
 		selected_in_playlist=selected_in_playlist,
 		album_mode_art_size=int(200 * scale),
+		primary_stations=[],
 		tls_context=tls_context,
 		track_queue=track_queue,
 		volume=volume,
@@ -39596,37 +39599,35 @@ def main(holder: Holder) -> None:
 	perf_timer = Timer()
 	perf_timer.set()
 
-	primary_stations: list[RadioStation] = []
-
-	primary_stations.append(RadioStation(
+	bag.primary_stations.append(RadioStation(
 		title="SomaFM Groove Salad",
 		stream_url="https://ice3.somafm.com/groovesalad-128-mp3",
 		country="USA",
 		website_url="https://somafm.com/groovesalad",
 		icon="https://somafm.com/logos/120/groovesalad120.png"))
 
-	primary_stations.append(RadioStation(
+	bag.primary_stations.append(RadioStation(
 		title="SomaFM PopTron",
 		stream_url="https://ice3.somafm.com/poptron-128-mp3",
 		country="USA",
 		website_url="https://somafm.com/poptron/",
 		icon="https://somafm.com/logos/120/poptron120.jpg"))
 
-	primary_stations.append(RadioStation(
+	bag.primary_stations.append(RadioStation(
 		title="SomaFM Vaporwaves",
 		stream_url="https://ice4.somafm.com/vaporwaves-128-mp3",
 		country="USA",
 		website_url="https://somafm.com/vaporwaves",
 		icon="https://somafm.com/img3/vaporwaves400.png"))
 
-	primary_stations.append(RadioStation(
+	bag.primary_stations.append(RadioStation(
 		title="DKFM Shoegaze Radio",
 		stream_url="https://kathy.torontocast.com:2005/stream",
 		country="Canada",
 		website_url="https://decayfm.com",
 		icon="https://cdn-profiles.tunein.com/s193842/images/logod.png"))
 
-	for station in primary_stations:
+	for station in bag.primary_stations:
 		radio_playlists[0].stations.append(station)
 
 	after_scan: list[TrackClass] = []
@@ -41746,12 +41747,12 @@ def main(holder: Holder) -> None:
 				#print(event.gbutton.button)
 			if event.gbutton.button == sdl3.SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER:
 				if rt:
-					toggle_random()
+					tauon.toggle_random()
 				else:
 					pctl.advance()
 			if event.gbutton.button == sdl3.SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:
 				if rt:
-					toggle_repeat()
+					tauon.toggle_repeat()
 				else:
 					pctl.back()
 			if event.gbutton.button == sdl3.SDL_GAMEPAD_BUTTON_SOUTH:
