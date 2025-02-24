@@ -5575,10 +5575,10 @@ class Tauon:
 		self.text_air_pas      = TextBox2(tauon=self)
 		self.text_air_ser      = TextBox2(tauon=self)
 
-#		self.spot_client       = TextBox2(tauon=self) # TODO(Martin): These are not used, only strings in Prefs with the same name??
-#		self.spot_secret       = TextBox2(tauon=self)
-#		self.spot_username     = TextBox2(tauon=self)
-#		self.spot_password     = TextBox2(tauon=self)
+		self.text_spot_client       = TextBox2(tauon=self)
+		self.text_spot_secret       = TextBox2(tauon=self)
+#		self.text_spot_username     = TextBox2(tauon=self)
+#		self.text_spot_password     = TextBox2(tauon=self)
 
 		self.text_maloja_url   = TextBox2(tauon=self)
 		self.text_maloja_key   = TextBox2(tauon=self)
@@ -16509,7 +16509,7 @@ class Tauon:
 	# def toggle_show_discord(self, mode: int = 0) -> bool:
 	# 	if mode == 1:
 	# 	return self.prefs.discord_show
-	# 	if self.prefs.discord_show is False and discord_allow is False:
+	# 	if self.prefs.discord_show is False and self.prefs.discord_allow is False:
 	# 	self.show_message(_("Warning: pypresence package not installed"))
 	# 	self.prefs.discord_show ^= True
 
@@ -23577,7 +23577,7 @@ class Over:
 
 			y += 38 * gui.scale
 			if not self.msys:
-				self.toggle_square(x, y, toggle_use_tray, _("Show icon in system tray"))
+				self.toggle_square(x, y, tauon.toggle_use_tray, _("Show icon in system tray"))
 
 				y += 25 * gui.scale
 				self.toggle_square(x + round(10 * gui.scale), y, tauon.toggle_min_tray, _("Close to tray"))
@@ -23661,7 +23661,7 @@ class Over:
 				if self.snap_mode:
 					self.show_message(_("Sorry, this feature is unavailable with snap"), mode="error")
 					prefs.discord_enable = False
-				elif not discord_allow:
+				elif not self.prefs.discord_allow:
 					self.show_message(_("Missing dependency python-pypresence"))
 					prefs.discord_enable = False
 				else:
@@ -24062,11 +24062,11 @@ class Over:
 			if tauon.coll(rect1) and (self.click or inp.level_2_right_click):
 				self.account_text_field = 0
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
-			text_spot_client.text = prefs.spot_client
-			text_spot_client.draw(
+			self.tauon.text_spot_client.text = prefs.spot_client
+			self.tauon.text_spot_client.draw(
 				x + round(4 * gui.scale), y, colours.box_input_text, self.account_text_field == 0,
 				width=rect1[2] - 8 * gui.scale, click=self.click)
-			prefs.spot_client = text_spot_client.text.strip()
+			prefs.spot_client = self.tauon.text_spot_client.text.strip()
 
 			y += round(19 * gui.scale)
 			ddt.text(
@@ -24078,11 +24078,11 @@ class Over:
 			if tauon.coll(rect1) and (self.click or inp.level_2_right_click):
 				self.account_text_field = 1
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
-			text_spot_secret.text = prefs.spot_secret
-			text_spot_secret.draw(
+			self.tauon.text_spot_secret.text = prefs.spot_secret
+			self.tauon.text_spot_secret.draw(
 				x + round(4 * gui.scale), y, colours.box_input_text, self.account_text_field == 1,
 				width=rect1[2] - 8 * gui.scale, click=self.click)
-			prefs.spot_secret = text_spot_secret.text.strip()
+			prefs.spot_secret = self.tauon.text_spot_secret.text.strip()
 
 			y += round(27 * gui.scale)
 
