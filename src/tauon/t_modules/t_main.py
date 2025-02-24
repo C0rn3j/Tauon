@@ -7212,7 +7212,7 @@ class Tauon:
 				with open(target, "wb") as w:
 					w.write(pic)
 
-			open_folder(track_object.index)
+			self.open_folder(track_object.index)
 
 		except Exception:
 			logging.exception("Unknown error trying to save an image")
@@ -11696,7 +11696,7 @@ class Tauon:
 	def display_spot_heart(self, x: int, yy: int, just: int = 0) -> None:
 		rect = [x - 1 * self.gui.scale, yy - 4 * self.gui.scale, 15 * self.gui.scale, 17 * self.gui.scale]
 		self.gui.heart_fields.append(rect)
-		self.fields.add(rect, update_playlist_call)
+		self.fields.add(rect, self.update_playlist_call)
 		if self.coll(rect) and not self.gui.track_box:
 			self.gui.pl_update += 1
 			w = self.ddt.get_text_w(_("Liked on Spotify"), 13)
@@ -11736,7 +11736,7 @@ class Tauon:
 			tx = xx
 			if ty < self.gui.panelY + 5 * self.gui.scale:
 				ty = self.gui.panelY + 5 * self.gui.scale
-				tx -= 20 * gui.scale
+				tx -= 20 * self.gui.scale
 
 			self.ddt.rect((tx - 5 * self.gui.scale, ty, w + 20 * self.gui.scale, 24 * self.gui.scale), [15, 15, 15, 255])
 			self.ddt.rect((tx - 5 * self.gui.scale, ty, w + 20 * self.gui.scale, 24 * self.gui.scale), [35, 35, 35, 255])
@@ -11752,7 +11752,7 @@ class Tauon:
 		self.prime_fonts()
 		self.ddt.clear_text_cache()
 		scale_assets(bag=self.bag, scale_want=scale, force=True)
-		img_slide_update_gall(self.album_mode_art_size)
+		self.img_slide_update_gall(self.album_mode_art_size)
 
 		for item in WhiteModImageAsset.assets:
 			item.reload()
@@ -11782,7 +11782,7 @@ class Tauon:
 		if gui.switch_showcase_off:
 			ddt.force_gray = False
 			gui.switch_showcase_off = False
-			exit_combo(restore=True)
+			self.exit_combo(restore=True)
 
 		if self.draw_max_button and prefs.force_hide_max_button:
 			self.draw_max_button = False
@@ -12289,7 +12289,7 @@ class Tauon:
 							self.radiobox.dummy_track.art_url_key = "ok"
 				self.pctl.update_tag_history()
 
-		elif "radio.plaza.one" in radiobox.loaded_url:
+		elif "radio.plaza.one" in self.radiobox.loaded_url:
 			time.sleep(3)
 			logging.info("Fetching plaza art")
 			response = requests.get("https://api.plaza.one/status", timeout=10)
@@ -12302,11 +12302,11 @@ class Tauon:
 					self.pctl.radio_poll_timer.force_set(tr * -1)
 
 					if "artist" in d["song"]:
-						radiobox.dummy_track.artist = d["song"]["artist"]
+						self.radiobox.dummy_track.artist = d["song"]["artist"]
 					if "title" in d["song"]:
-						radiobox.dummy_track.title = d["song"]["title"]
+						self.radiobox.dummy_track.title = d["song"]["title"]
 					if "album" in d["song"]:
-						radiobox.dummy_track.album = d["song"]["album"]
+						self.radiobox.dummy_track.album = d["song"]["album"]
 					if "artwork_src" in d["song"]:
 						art_url = d["song"]["artwork_src"]
 						art_response = requests.get(art_url, timeout=10)
@@ -12462,7 +12462,7 @@ class Tauon:
 		self.prefs.album_mode = False
 		self.gui.rsp = True
 		self.window_size = window_default_size
-		SDL_SetWindowSize(self.t_window, self.logical_size[0], self.logical_size[1])
+		sdl3.SDL_SetWindowSize(self.t_window, self.logical_size[0], self.logical_size[1])
 
 		self.gui.rspw = 80 + int(self.window_size[0] * 0.18)
 		self.gui.update_layout = True
@@ -12551,13 +12551,13 @@ class Tauon:
 
 	def import_music(self) -> None:
 		pl = self.pl_gen(_("Music"))
-		pl.last_folder = [str(music_directory)]
+		pl.last_folder = [str(self.music_directory)]
 		self.pctl.multi_playlist.append(pl)
 		load_order = LoadClass()
-		load_order.target = str(music_directory)
+		load_order.target = str(self.music_directory)
 		load_order.playlist = pl.uuid_int
 		self.load_orders.append(load_order)
-		self.pctl.switch_playlist(len(pctl.multi_playlist) - 1)
+		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 		self.gui.add_music_folder_ready = False
 
 	def clip_aar_al(self, index: int) -> None:
@@ -12606,7 +12606,7 @@ class Tauon:
 		webbrowser.open(line, new=2, autoraise=True)
 
 	def clip_ar_tr(self, index: int) -> None:
-		line = self.pctl.master_library[index].artist + " - " + self, pctl.master_library[index].title
+		line = self.pctl.master_library[index].artist + " - " + self.pctl.master_library[index].title
 		sdl3.SDL_SetClipboardText(line.encode("utf-8"))
 
 	def tidal_copy_album(self, index: int) -> None:
@@ -12642,7 +12642,7 @@ class Tauon:
 		return [line_colour, self.colours.menu_background, None]
 
 	def get_spot_artist_track(self, index: int) -> None:
-		get_artist_spot(self.pctl.get_track(index))
+		self.get_artist_spot(self.pctl.get_track(index))
 
 	def get_album_spot_active(self, tr: TrackClass | None = None) -> None:
 		if tr is None:
@@ -12657,7 +12657,7 @@ class Tauon:
 		if len(l) < 2:
 			self.show_message(_("Looks like that's the only track in the album"))
 			return
-		pctl.multi_playlist.append(
+		self.pctl.multi_playlist.append(
 			self.pl_gen(
 				title=f"{self.pctl.get_track(l[0]).artist} - {self.pctl.get_track(l[0]).album}",
 				playlist_ids=l,
