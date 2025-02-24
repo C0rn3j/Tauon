@@ -370,7 +370,7 @@ class GuiVar:
 		self.ext_drop_mode     = False
 		self.quick_search_mode = False
 		self.b_info_bar        = False
-	self.editline = ""
+		self.editline = ""
 		self.rename_index:        int = 0
 		self.last_row:            int = 0
 		self.album_v_gap:         int = 66
