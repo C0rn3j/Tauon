@@ -33844,11 +33844,12 @@ class MetaBox:
 		self.pctl            = tauon.pctl
 		self.fonts           = tauon.fonts
 		self.prefs           = tauon.prefs
+		self.fields          = tauon.fields
 		self.colours         = tauon.colours
 		self.showcase_menu   = tauon.showcase_menu
 		self.lyrics_ren_mini = tauon.lyrics_ren_mini
 
-	def l_panel(self, x, y, w, h, track, top_border: bool = True):
+	def l_panel(self, x: int, y: int, w: int, h: int, track: TrackClass, top_border: bool = True) -> None:
 		colours = self.colours
 		ddt = self.ddt
 
@@ -33892,9 +33893,9 @@ class MetaBox:
 		if (self.inp.mouse_click or self.inp.right_click) and self.tauon.is_level_zero(False):
 			if self.coll(border_rect):
 				if self.inp.mouse_click:
-					self.tauon.album_art_gen.cycle_offset(target_track)
+					self.tauon.album_art_gen.cycle_offset(track)
 				if self.inp.right_click:
-					self.tauon.picture_menu.activate(in_reference=target_track)
+					self.tauon.picture_menu.activate(in_reference=track)
 			elif self.coll(rect):
 				if self.inp.mouse_click:
 					self.pctl.show_current()
@@ -39539,6 +39540,7 @@ def main(holder: Holder) -> None:
 		draw_min_button=draw_min_button,
 		draw_max_button=draw_max_button,
 		download_directories=[],
+		overlay_texture_texture=overlay_texture_texture,
 		smtc=smtc,
 		macos=macos,
 		mac_close=mac_close,
