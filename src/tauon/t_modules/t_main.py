@@ -5587,6 +5587,14 @@ class Tauon:
 		self.text_sat_playlist = TextBox2(tauon=self)
 
 		self.rename_folder     = TextBox2(tauon=self)
+		self.mini_lyrics_scroll    = ScrollBox(tauon=self)
+		self.playlist_panel_scroll = ScrollBox(tauon=self)
+		self.artist_info_scroll    = ScrollBox(tauon=self)
+		self.device_scroll         = ScrollBox(tauon=self)
+		self.artist_list_scroll    = ScrollBox(tauon=self)
+		self.gallery_scroll        = ScrollBox(tauon=self)
+		self.tree_view_scroll      = ScrollBox(tauon=self)
+		self.radio_view_scroll     = ScrollBox(tauon=self)
 		self.transcode_list:      list[list[int]] = []
 		self.transcode_state:                 str = ""
 		# TODO(Martin): Rework this LC_* stuff, maybe use a simple object instead?
@@ -17630,11 +17638,11 @@ class Tauon:
 			f.seek(0)
 			z = zipfile.ZipFile(f, mode="r")
 			exe = z.open("ffmpeg-5.0.1-essentials_build/bin/ffmpeg.exe")
-			with (user_directory / "ffmpeg.exe").open("wb") as file:
+			with (self.user_directory / "ffmpeg.exe").open("wb") as file:
 				file.write(exe.read())
 
 			exe = z.open("ffmpeg-5.0.1-essentials_build/bin/ffprobe.exe")
-			with (user_directory / "ffprobe.exe").open("wb") as file:
+			with (self.user_directory / "ffprobe.exe").open("wb") as file:
 				file.write(exe.read())
 
 			exe.close()
@@ -23303,7 +23311,7 @@ class Over:
 				self.device_scroll_bar_position = len(self.prefs.phazor_devices) - 11
 
 			if len(self.prefs.phazor_devices) > 13:
-				self.device_scroll_bar_position = device_scroll.draw(
+				self.device_scroll_bar_position = self.tauon.device_scroll.draw(
 					x + 250 * self.gui.scale, y, 11, 180,
 					self.device_scroll_bar_position,
 					len(self.prefs.phazor_devices) - 11, click=self.click)
@@ -31314,7 +31322,7 @@ class PlaylistBox:
 
 		# Draw scroll bar
 		if show_scroll:
-			self.scroll_on = playlist_panel_scroll.draw(
+			self.scroll_on = self.tauon.playlist_panel_scroll.draw(
 				x + 2, y + 1, 15 * self.gui.scale, h, self.scroll_on, len(pctl.multi_playlist) - max_tabs + 1)
 
 		draw_pin_indicator = False  # self.prefs.tabs_on_top
@@ -31602,10 +31610,12 @@ class ArtistList:
 		self.tauon                 = tauon
 		self.ddt                   = tauon.ddt
 		self.gui                   = tauon.gui
+		self.coll                  = tauon.coll
 		self.prefs                 = tauon.prefs
 		self.lastfm                = pctl.lastfm
 		self.artist_info_box       = pctl.artist_info_box
 		self.artist_list_menu      = tauon.artist_list_menu
+		self.artist_list_scroll    = tauon.artist_list_scroll
 		self.artist_preview_render = tauon.artist_preview_render
 		self.tab_h = round(60 * self.gui.scale)
 		self.thumb_size = round(55 * self.gui.scale)
@@ -32348,7 +32358,7 @@ class ArtistList:
 		scroll_x = x + w - 18 * self.gui.scale
 		if colours.lm:
 			scroll_x = x + w - 22 * self.gui.scale
-		if (tauon.coll(area2) or artist_list_scroll.held) and not tauon.pref_box.enabled:
+		if (self.coll(area2) or self.tauon.artist_list_scroll.held) and not tauon.pref_box.enabled:
 			scroll_width = 15 * self.gui.scale
 			inset = 0
 			if self.gui.compact_artist_list:
@@ -32356,7 +32366,7 @@ class ArtistList:
 				# scroll_width = round(6 * self.gui.scale)
 				# scroll_x += round(9 * self.gui.scale)
 			else:
-				self.scroll_position = artist_list_scroll.draw(
+				self.scroll_position = self.tauon.artist_list_scroll.draw(
 					scroll_x, y + 1, scroll_width, h, self.scroll_position,
 					len(self.current_artists) - range, r_click=self.inp.right_click,
 					jump_distance=35, extend_field=6 * self.gui.scale)
@@ -32419,10 +32429,13 @@ class ArtistList:
 class TreeView:
 
 	def __init__(self, tauon: Tauon, pctl: PlayerCtl) -> None:
-		self.gui                   = tauon.gui
+		self.tauon                 = tauon
 		self.pctl                  = pctl
+		self.gui                   = tauon.gui
+		self.coll                  = tauon.coll
 		self.msys                  = tauon.msys
 		self.prefs                 = tauon.prefs
+		self.tree_view_scroll      = tauon.tree_view_scroll
 		self.folder_tree_menu      = tauon.folder_tree_menu
 		self.folder_tree_stem_menu = tauon.folder_tree_stem_menu
 		self.trees = {}  # Per playlist tree
@@ -32618,8 +32631,8 @@ class TreeView:
 		focused = is_level_zero()
 
 		# Draw scroll bar
-		if mouse_in or tree_view_scroll.held:
-			scroll_position = tree_view_scroll.draw(
+		if mouse_in or self.tree_view_scroll.held:
+			scroll_position = self.tree_view_scroll.draw(
 				x + w - round(12 * self.gui.scale), y + 1, round(11 * self.gui.scale), h,
 				scroll_position,
 				max_scroll, r_click=inp.right_click, jump_distance=40)
@@ -32692,10 +32705,10 @@ class TreeView:
 			if inp.right_click:
 				mouse_in = tauon.coll(rect) and is_level_zero(False)
 			else:
-				mouse_in = tauon.coll(rect) and focused and not (
+				mouse_in = self.coll(rect) and focused and not (
 					inp.quick_drag and not point_proximity_test(self.gui.drag_source_position, inp.mouse_position, 15))
 
-			if mouse_in and not tree_view_scroll.held:
+			if mouse_in and not self.tree_view_scroll.held:
 				if inp.middle_click:
 					stem_to_new_playlist(full_folder_path)
 				elif inp.right_click:
@@ -32828,7 +32841,7 @@ class TreeView:
 				self.ddt.rect(rect, box_colour)
 
 			elif True:
-				if not mouse_in or tree_view_scroll.held:
+				if not mouse_in or self.tree_view_scroll.held:
 					# text_colour = [255, 255, 255, 50]
 					text_colour = rgb_add_hls(colours.side_panel_background, 0, 0.2, -0.10)
 					if semilight_mode:
@@ -33674,7 +33687,7 @@ class MetaBox:
 		if self.gui.maximized:
 			scroll_w = 17 * self.gui.scale
 
-		lyrics_ren_mini.lyrics_position = mini_lyrics_scroll.draw(
+		lyrics_ren_mini.lyrics_position = self.tauon.mini_lyrics_scroll.draw(
 			x + w - 17 * self.gui.scale, y, scroll_w, h,
 			lyrics_ren_mini.lyrics_position * -1, th,
 			jump_distance=160 * self.gui.scale) * -1
@@ -33901,6 +33914,7 @@ class ArtistInfoBox:
 
 	def __init__(self, tauon: Tauon, pctl: PlayerCtl) -> None:
 		bag                        = tauon.bag
+		self.tauon                 = tauon
 		self.ddt                   = tauon.ddt
 		self.inp                   = tauon.inp
 		self.coll                  = tauon.coll
@@ -34062,7 +34076,7 @@ class ArtistInfoBox:
 			right = x + w - 25 * self.gui.scale
 
 			if self.th > h - 26:
-				self.scroll_y = artist_info_scroll.draw(
+				self.scroll_y = self.tauon.artist_info_scroll.draw(
 					x + w - 20, y + 5, 15, h - 5,
 					self.scroll_y, scroll_max, True, jump_distance=250 * self.gui.scale)
 				right -= 15
@@ -34507,7 +34521,7 @@ class RadioView:
 		scroll = min(scroll, len(radios) - mm + 1)
 		scroll = max(scroll, 0)
 		if len(radios) > mm:
-			scroll = radio_view_scroll.draw(
+			scroll = self.tauon.radio_view_scroll.draw(
 				round(7 * gui.scale), yy, round(15 * gui.scale), (mm * (h + gap)) - gap, scroll, len(radios) - mm + 1)
 		else:
 			scroll = 0
@@ -41320,14 +41334,7 @@ def main(holder: Holder) -> None:
 
 	playlist_render = StandardPlaylist(tauon=tauon, pl_bg=pl_bg)
 	art_box = ArtBox(tauon=tauon)
-	mini_lyrics_scroll    = ScrollBox(tauon=tauon)
-	playlist_panel_scroll = ScrollBox(tauon=tauon)
-	artist_info_scroll    = ScrollBox(tauon=tauon)
-	device_scroll         = ScrollBox(tauon=tauon)
-	artist_list_scroll    = ScrollBox(tauon=tauon)
-	gallery_scroll        = ScrollBox(tauon=tauon)
-	tree_view_scroll      = ScrollBox(tauon=tauon)
-	radio_view_scroll     = ScrollBox(tauon=tauon)
+	artist_info_scroll    = tauon.artist_info_scroll
 
 	meta_box = MetaBox(tauon=tauon)
 
@@ -43289,8 +43296,8 @@ def main(holder: Holder) -> None:
 						tauon.fields.add(rect)
 
 						# Show scroll area
-						if tauon.coll(rect) or gallery_scroll.held or tauon.scroll_gallery_hide_timer.get() < 0.9 or gui.album_tab_mode:
-							if gallery_scroll.held:
+						if tauon.coll(rect) or tauon.gallery_scroll.held or tauon.scroll_gallery_hide_timer.get() < 0.9 or gui.album_tab_mode:
+							if tauon.gallery_scroll.held:
 								while len(tauon.gall_ren.queue) > 2:
 									tauon.gall_ren.queue.pop()
 
@@ -43302,7 +43309,7 @@ def main(holder: Holder) -> None:
 								colour = [255, 255, 255, 35]
 								if colours.lm:
 									colour = [0, 0, 0, 30]
-								if tauon.coll(rect) and not gallery_scroll.held:
+								if tauon.coll(rect) and not tauon.gallery_scroll.held:
 									colour = [255, 220, 100, 245]
 									if colours.lm:
 										colour = [250, 100, 0, 255]
@@ -43313,7 +43320,7 @@ def main(holder: Holder) -> None:
 
 							# Draw scroll bar
 							if gui.pt == 0:
-								gui.album_scroll_px = gallery_scroll.draw(
+								gui.album_scroll_px = tauon.gallery_scroll.draw(
 									window_size[0] - 16 * gui.scale, gui.panelY,
 									15 * gui.scale,
 									window_size[1] - (gui.panelY + gui.panelBY),
