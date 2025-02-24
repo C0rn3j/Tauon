@@ -30936,11 +30936,9 @@ class RadioBox:
 			if self.load_failed_timer.get() > 3:
 				self.gui.delay_frame(0.2)
 				self.load_failed = False
-
 		elif self.searching:
 			self.ddt.text((x + 495 * self.gui.scale, yy + 8 * self.gui.scale, 1), _("Searching..."), self.colours.box_title_text, 311)
 		elif self.pctl.playing_state == 3:
-
 			text = ""
 			if self.tauon.stream_proxy.s_format:
 				text = str(self.tauon.stream_proxy.s_format)
@@ -31057,7 +31055,6 @@ class RadioBox:
 		swap = None
 
 		while True:
-
 			if p > len(radio_list) - 1:
 				break
 
@@ -35965,7 +35962,6 @@ class Undo:
 				return
 
 			for i, ref in reversed(li):
-
 				if i > len(pl):
 					logging.error("restore track error - playlist not correct length")
 					continue
@@ -35975,7 +35971,7 @@ class Undo:
 					self.pctl.playlist_view_position = i
 					logging.debug("Position changed by undo")
 		elif job[0] == "ptt":
-			j, fr, fr_s, fr_scr, so, to_s, to_scr = job
+			j, fr, fr_s, fr_scr, to, to_s, to_scr = job
 			self.star_store.insert(fr.index, fr_s)
 			self.star_store.insert(to.index, to_s)
 			to.lfm_scrobbles = to_scr
