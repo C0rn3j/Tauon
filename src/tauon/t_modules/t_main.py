@@ -749,9 +749,10 @@ class GuiVar:
 
 class StarStore:
 	def __init__(self, tauon: Tauon, pctl: PlayerCtl) -> None:
-		self.tauon = tauon
+		self.tauon      = tauon
+		self.pctl       = pctl
+		self.prefs      = tauon.prefs
 		self.after_scan = tauon.after_scan
-		self.pctl = pctl
 		self.db = {}
 
 	def key(self, track_id: int) -> tuple[str, str, str]:
@@ -804,7 +805,7 @@ class StarStore:
 			self.db[key][2] = math.ceil(value / 2) * 2
 			shooter(self.tauon.subsonic.set_rating, (tr, value))
 
-		if self.bag.prefs.write_ratings and write:
+		if self.prefs.write_ratings and write:
 			logging.info("Writing rating..")
 			assert value <= 10
 			assert value >= 0
@@ -4871,7 +4872,7 @@ class Menu:
 						if tauon.view_box.active:
 							sub_pos[0] -= tauon.view_box.w
 
-					fx = self.deco(tauon=self.tauon)
+					fx = self.deco()
 
 					minY = self.window_size[1] - self.h * len(self.subs[self.sub_active]) - 15 * gui.scale
 					sub_pos[1] = min(sub_pos[1], minY)
@@ -4891,9 +4892,9 @@ class Menu:
 						# Get item colours
 						if self.subs[self.sub_active][w].render_func is not None:
 							if self.subs[self.sub_active][w].pass_ref_deco:
-								fx = self.subs[self.sub_active][w].render_func(self.reference, tauon=self.tauon)
+								fx = self.subs[self.sub_active][w].render_func(self.reference)
 							else:
-								fx = self.subs[self.sub_active][w].render_func(tauon=self.tauon)
+								fx = self.subs[self.sub_active][w].render_func()
 
 						# Item background
 						ddt.rect_a((sub_pos[0], sub_pos[1] + w * self.h), (sub_w, self.h), fx[1])
@@ -23047,6 +23048,7 @@ class PowerTag:
 class Over:
 	def __init__(self, tauon: Tauon) -> None:
 		self.tauon               = tauon
+		self.bag                 = tauon.bag
 		self.gui                 = tauon.gui
 		self.inp                 = tauon.inp
 		self.ddt                 = tauon.ddt
@@ -24466,7 +24468,6 @@ class Over:
 				self.tauon.jellyfin.test()
 
 		if self.account_view == 6:
-
 			ddt.text((x, y), _("koel network streaming"), colours.box_sub_text, 213)
 
 			if inp.key_tab_press:
@@ -24523,7 +24524,6 @@ class Over:
 			self.button(x, y, _("Import music to playlist"), tauon.koel_get_album_thread)
 
 		if self.account_view == 5:
-
 			ddt.text((x, y), _("PLEX network streaming"), colours.box_sub_text, 213)
 
 			if inp.key_tab_press:
@@ -25127,7 +25127,7 @@ class Over:
 		if mode == 1:
 			return self.prefs.x_scale
 		self.prefs.x_scale ^= True
-		auto_scale(bag)
+		auto_scale(self.bag)
 		self.gui.update_layout = True
 
 	def about(self, x0: int, y0: int, w0: int, h0: int) -> None:
@@ -30649,7 +30649,7 @@ class RadioBox:
 								self.pctl.radio_image_bin = None
 							self.pctl.radio_image_bin = io.BytesIO(art_response.content)
 							self.pctl.radio_image_bin.seek(0)
-							radiobox.dummy_track.art_url_key = "ok"
+							self.dummy_track.art_url_key = "ok"
 							logging.info("Got new art")
 
 					except Exception:
@@ -30693,7 +30693,7 @@ class RadioBox:
 				del self.prefs.radio_urls[i]
 
 	def delete_radio_entry_after(self, station) -> None:
-		p = radiobox.right_clicked_station_p
+		p = self.right_clicked_station_p
 		del self.prefs.radio_urls[p + 1:]
 
 	def edit_entry(self, station: RadioStation) -> None:
@@ -31494,13 +31494,14 @@ class PlaylistBox:
 	def __init__(self, tauon: Tauon) -> None:
 		self.tauon       = tauon
 		bag              = tauon.bag
-		self.coll        = tauon.coll
-		self.colours     = tauon.colours
 		self.inp         = tauon.inp
 		self.gui         = tauon.gui
 		self.ddt         = tauon.ddt
+		self.coll        = tauon.coll
 		self.pctl        = tauon.pctl
 		self.prefs       = tauon.prefs
+		self.fields      = tauon.fields
+		self.colours     = tauon.colours
 		self.window_size = tauon.window_size
 		self.scroll_on   = bag.prefs.old_playlist_box_position
 		self.drag = False
@@ -31877,9 +31878,10 @@ class ArtistList:
 		self.lastfm                = pctl.lastfm
 		self.star_store            = pctl.star_store
 		self.window_size           = tauon.window_size
-		self.artist_info_box       = pctl.artist_info_box
 		self.thread_manager        = tauon.thread_manager
+		self.artist_info_box       = pctl.artist_info_box
 		self.artist_list_menu      = tauon.artist_list_menu
+		self.a_cache_directory     = tauon.a_cache_directory
 		self.artist_list_scroll    = tauon.artist_list_scroll
 		self.artist_preview_render = tauon.artist_preview_render
 		self.tab_h = round(60 * self.gui.scale)
@@ -31983,10 +31985,10 @@ class ArtistList:
 			filename2 = f_artist + "-lfm.txt"
 			filename3 = f_artist + "-ftv.jpg"
 			filename4 = f_artist + "-dcg.jpg"
-			filepath = os.path.join(a_cache_dir, filename)
-			filepath2 = os.path.join(a_cache_dir, filename2)
-			filepath3 = os.path.join(a_cache_dir, filename3)
-			filepath4 = os.path.join(a_cache_dir, filename4)
+			filepath = os.path.join(self.a_cache_directory, filename)
+			filepath2 = os.path.join(self.a_cache_directory, filename2)
+			filepath3 = os.path.join(self.a_cache_directory, filename3)
+			filepath4 = os.path.join(self.a_cache_directory, filename4)
 			got_image = False
 			try:
 				# Lookup artist info on last.fm
@@ -34112,7 +34114,7 @@ class MetaBox:
 						if ext == "SPTY":
 							ext = "Spotify"
 						if ext == "RADIO":
-							ext = radiobox.playing_title
+							ext = self.tauon.radiobox.playing_title
 						sp = self.ddt.text(
 							(margin, block_y + 40 * self.gui.scale), ext, self.colours.side_bar_line2,
 							self.fonts.side_panel_line2, max_w=text_width)
@@ -34261,14 +34263,14 @@ class ArtistInfoBox:
 				return
 
 			if self.min_rq_timer.get() < 10:  # Limit rate
-				if os.path.isfile(os.path.join(a_cache_dir, artist + "-lfm.txt")):
+				if os.path.isfile(os.path.join(self.a_cache_directory, artist + "-lfm.txt")):
 					pass
 				else:
 					self.status = _("Cooldown...")
 					wait = True
 
 			if self.pctl.playing_time < 2:
-				if os.path.isfile(os.path.join(a_cache_dir, artist + "-lfm.txt")):
+				if os.path.isfile(os.path.join(self.a_cache_directory, artist + "-lfm.txt")):
 					pass
 				else:
 					self.status = "..."
@@ -34406,20 +34408,20 @@ class ArtistInfoBox:
 
 		img_filename = f_artist + "-ftv-full.jpg"
 		text_filename = f_artist + "-lfm.txt"
-		img_filepath_dcg = os.path.join(a_cache_dir, f_artist + "-dcg.jpg")
-		img_filepath = os.path.join(a_cache_dir, img_filename)
-		text_filepath = os.path.join(a_cache_dir, text_filename)
+		img_filepath_dcg = os.path.join(self.a_cache_directory, f_artist + "-dcg.jpg")
+		img_filepath = os.path.join(self.a_cache_directory, img_filename)
+		text_filepath = os.path.join(self.a_cache_directory, text_filename)
 
-		standard_path = os.path.join(a_cache_dir, f_artist + "-lfm.webp")
+		standard_path = os.path.join(self.a_cache_directory, f_artist + "-lfm.webp")
 		image_paths = [
 			str(self.user_directory / "artist-pictures" / (f_artist + ".png")),
 			str(self.user_directory / "artist-pictures" / (f_artist + ".jpg")),
 			str(self.user_directory / "artist-pictures" / (f_artist + ".webp")),
-			os.path.join(a_cache_dir, f_artist + "-ftv-full.jpg"),
-			os.path.join(a_cache_dir, f_artist + "-lfm.png"),
-			os.path.join(a_cache_dir, f_artist + "-lfm.jpg"),
-			os.path.join(a_cache_dir, f_artist + "-lfm.webp"),
-			os.path.join(a_cache_dir, f_artist + "-dcg.jpg"),
+			os.path.join(self.a_cache_directory, f_artist + "-ftv-full.jpg"),
+			os.path.join(self.a_cache_directory, f_artist + "-lfm.png"),
+			os.path.join(self.a_cache_directory, f_artist + "-lfm.jpg"),
+			os.path.join(self.a_cache_directory, f_artist + "-lfm.webp"),
+			os.path.join(self.a_cache_directory, f_artist + "-dcg.jpg"),
 		]
 
 		if get_img_path:
@@ -35022,7 +35024,7 @@ class Showcase:
 
 		# self.ddt.force_gray = True
 
-		if self.pctl.playing_state == 3 and not radiobox.dummy_track.title:
+		if self.pctl.playing_state == 3 and not self.tauon.radiobox.dummy_track.title:
 			if not self.pctl.tag_meta:
 				y = int(self.window_size[1] / 2) - 60 - self.gui.scale
 				self.ddt.text((self.window_size[0] // 2, y, 2), self.pctl.url, self.colours.side_bar_line2, 317)
@@ -35056,7 +35058,7 @@ class Showcase:
 				track = self.pctl.master_library[index]
 			else:
 				if self.pctl.playing_state == 3:
-					track = radiobox.dummy_track
+					track = self.tauon.radiobox.dummy_track
 				else:
 					index = self.pctl.track_queue[self.pctl.queue_step]
 					track = self.pctl.master_library[index]
@@ -35735,7 +35737,7 @@ class DLMon:
 				if self.msys and "TauonMusicBox" in path:
 					continue
 
-				if min_age < 240 and os.path.isfile(path) and ext in bag.formats.Archive_Formats:
+				if min_age < 240 and os.path.isfile(path) and ext in self.formats.Archive_Formats:
 					size = os.path.getsize(path)
 					#logging.info("Check: " + path)
 					if path in self.watching:
@@ -35786,7 +35788,7 @@ class DLMon:
 						# Check if size is stable, then scan for audio files
 						if size == self.watching[path]:
 							del self.watching[path]
-							if folder_file_scan(path, bag.formats.DA_Formats) > 0.5:
+							if folder_file_scan(path, self.formats.DA_Formats) > 0.5:
 
 								# Check if folder not already imported
 								imported = False
@@ -38353,7 +38355,7 @@ def worker1(tauon: Tauon) -> None:
 				items_in_dir.sort()
 		except PermissionError:
 			logging.exception("Permission error accessing one or more files")
-			if snap_mode:
+			if tauon.snap_mode:
 				tauon.show_message(
 					_("Permission error accessing one or more files."),
 					_("If this location is on external media, see https://") + "github.com/Taiko2k/TauonMusicBox/wiki/Snap-Permissions",
@@ -40180,7 +40182,7 @@ def main(holder: Holder) -> None:
 				logging.exception("Failed to load TauonSMTC.dll - Media keys will not work!")
 		else:
 			logging.warning("Failed to load TauonSMTC.dll - Media keys will not work!")
-	auto_scale(bag)
+	auto_scale(bag=bag)
 	scale_assets(bag=bag, gui=gui, scale_want=prefs.scale_want)
 
 	try:
