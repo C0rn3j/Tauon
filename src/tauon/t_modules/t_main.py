@@ -5341,11 +5341,15 @@ class Tauon:
 		self.mpt                          = bag.mpt
 		self.gme                          = bag.gme
 		self.ddt                          = bag.ddt
+		self.fonts                        = bag.fonts
 		self.macos                        = bag.macos
 		self.mac_close                    = bag.mac_close
 		self.mac_maximize                 = bag.mac_maximize
 		self.mac_minimize                 = bag.mac_minimize
 		self.system                       = bag.system
+		self.platform_system              = bag.platform_system
+		self.wayland                      = bag.wayland
+		self.dirs                         = bag.dirs
 		self.colours                      = bag.colours
 		self.old_window_position          = bag.old_window_position
 		self.cache_directory              = bag.dirs.cache_directory
@@ -5455,6 +5459,18 @@ class Tauon:
 		self.showcase_menu         = Menu(self, 135)
 		self.spotify_playlist_menu = Menu(self, 175)
 		self.queue_menu            = Menu(self, 150)
+		self.radio_entry_menu      = Menu(self, 125)
+		self.center_info_menu      = Menu(self, 125)
+		self.gallery_menu          = Menu(self, 175, show_icons=True)
+		self.artist_info_menu      = Menu(self, 135)
+		self.artist_list_menu      = Menu(self, 165, show_icons=True)
+		self.lightning_menu        = Menu(self, 165)
+		self.lsp_menu              = Menu(self, 145)
+		self.folder_tree_menu      = Menu(self, 175, show_icons=True)
+		self.folder_tree_stem_menu = Menu(self, 190, show_icons=True)
+		self.overflow_menu         = Menu(self, 175)
+		self.radio_context_menu    = Menu(self, 175)
+
 		self.fields                               = Fields(tauon=self)
 		self.lb                                   = ListenBrainz(tauon=self)
 		self.thread_manager: ThreadManager | None = None # Avoid NameError
@@ -5608,7 +5624,7 @@ class Tauon:
 		self.gme_formats = bag.formats.GME_Formats
 
 		self.chrome: Chrome | None = None
-		self.chrome_menu: Menu | None = None
+		self.chrome_menu = self.x_menu
 		try:
 			from tauon.t_modules.t_chrome import Chrome
 			self.chrome = Chrome(self)
@@ -22792,17 +22808,18 @@ class Over:
 		self.pctl                = tauon.pctl
 		self.system              = tauon.system
 		self.flatpak_mode        = tauon.flatpak_mode
+		self.snap_mode           = tauon.snap_mode
 		self.album_mode_art_size = tauon.album_mode_art_size
-		self.platform_system     = tauon.bag.platform_system
+		self.platform_system     = tauon.platform_system
 		self.colours             = tauon.colours
-		self.dirs                = tauon.bag.dirs
+		self.dirs                = tauon.dirs
 		self.prefs               = tauon.prefs
 		self.gui                 = tauon.gui
 		self.inp                 = tauon.inp
 		self.ddt                 = tauon.ddt
 		self.lastfm              = tauon.lastfm
 		self.window_size         = tauon.window_size
-		self.wayland             = tauon.bag.wayland
+		self.wayland             = tauon.wayland
 		self.macos               = tauon.macos
 		self.msys                = tauon.msys
 		self.user_directory      = tauon.user_directory
@@ -23123,7 +23140,7 @@ class Over:
 
 		range = 12
 
-		self.toggle_square(x - 90 * self.gui.scale, y - 35 * self.gui.scale, toggle_eq, _("Enable"))
+		self.toggle_square(x - 90 * self.gui.scale, y - 35 * self.gui.scale, self.tauon.toggle_eq, _("Enable"))
 
 		self.ddt.text((x - 17 * self.gui.scale, y + 2 * self.gui.scale), "+", self.colours.grey(130), 16)
 		self.ddt.text((x - 17 * self.gui.scale, y + base_dis - 15 * self.gui.scale), "-", self.colours.grey(130), 16)
@@ -23608,7 +23625,7 @@ class Over:
 						"https://github.com/Taiko2k/TauonMusicBox/wiki/Discord-RP", mode="link")
 
 			if prefs.discord_enable and not old:
-				if snap_mode:
+				if self.snap_mode:
 					self.show_message(_("Sorry, this feature is unavailable with snap"), mode="error")
 					prefs.discord_enable = False
 				elif not discord_allow:
@@ -25832,18 +25849,19 @@ class Fields:
 
 class TopPanel:
 	def __init__(self, tauon: Tauon) -> None:
+		bag                  = tauon.bag
+		self.ddt             = tauon.ddt
+		self.gui             = tauon.gui
+		self.inp             = tauon.inp
+		self.pctl            = tauon.pctl
 		self.tauon           = tauon
 		self.prefs           = tauon.prefs
-		self.pctl            = tauon.pctl
-		self.gui             = tauon.gui
-		self.inp             = tauon.gui.inp
-		bag                  = tauon.bag
-		self.fonts           = tauon.bag.fonts
-		self.colours         = tauon.bag.colours
-		self.ddt             = tauon.bag.ddt
-		self.renderer        = tauon.bag.renderer
-		self.draw_max_button = bag.draw_max_button
-		self.window_size     = bag.window_size
+		self.fonts           = tauon.fonts
+		self.colours         = tauon.colours
+		self.renderer        = tauon.renderer
+		self.window_size     = tauon.window_size
+		self.overflow_menu   = tauon.overflow_menu
+		self.draw_max_button = tauon.draw_max_button
 		self.height          = self.gui.panelY
 		self.ty              = 0
 
@@ -26011,7 +26029,7 @@ class TopPanel:
 
 			if inp.right_click:
 				# prefs.artist_list ^= True
-				lsp_menu.activate(position=(5 * gui.scale, gui.panelY))
+				self.tauon.lsp_menu.activate(position=(5 * gui.scale, gui.panelY))
 				self.tauon.update_layout_do()
 
 		colour = colours.corner_button  # [230, 230, 230, 255]
@@ -26177,17 +26195,17 @@ class TopPanel:
 				x_start = x
 
 				if inp.mouse_click and tauon.coll(rect):
-					overflow_menu.items.clear()
+					self.overflow_menu.items.clear()
 					for tab in reversed(left_overflow):
 						if gui.radio_view:
-							overflow_menu.add(
+							self.overflow_menu.add(
 								MenuItem(pctl.radio_playlists[tab].name, self.left_overflow_switch_playlist,
 								pass_ref=True, set_ref=tab))
 						else:
-							overflow_menu.add(
+							self.overflow_menu.add(
 								MenuItem(pctl.multi_playlist[tab].title, self.left_overflow_switch_playlist,
 								pass_ref=True, set_ref=tab))
-					overflow_menu.activate(0, (rect[0], rect[1] + rect[3]))
+					self.overflow_menu.activate(0, (rect[0], rect[1] + rect[3]))
 
 			xx = x + (max_w - run)  # + round(6 * gui.scale)
 			self.tabs_left_x = x_start
@@ -26200,17 +26218,17 @@ class TopPanel:
 					rect[0] + round(3 * gui.scale), rect[1] + round(4 * gui.scale),
 					colours.tab_text)
 				if inp.mouse_click and tauon.coll(rect):
-					overflow_menu.items.clear()
+					self.overflow_menu.items.clear()
 					for tab in right_overflow:
 						if gui.radio_view:
-							overflow_menu.add(
+							self.overflow_menu.add(
 								MenuItem(
 									pctl.radio_playlists[tab].name, self.left_overflow_switch_playlist, pass_ref=True, set_ref=tab))
 						else:
-							overflow_menu.add(
+							self.overflow_menu.add(
 								MenuItem(
 									pctl.multi_playlist[tab].title, self.left_overflow_switch_playlist, pass_ref=True, set_ref=tab))
-					overflow_menu.activate(0, (rect[0], rect[1] + rect[3]))
+					self.overflow_menu.activate(0, (rect[0], rect[1] + rect[3]))
 
 			if gui.radio_view:
 				if not inp.mouse_down and pctl.radio_playlist_viewing not in show_tabs and pctl.radio_playlist_viewing in ready_tabs:
@@ -27252,7 +27270,7 @@ class BottomBarType1:
 					mode_menu.activate()
 
 				if tauon.d_click_timer.get() < 0.3 and inp.mouse_click:
-					set_mini_mode()
+					self.tauon.set_mini_mode()
 					gui.update += 1
 					return
 				tauon.d_click_timer.set()
@@ -30070,6 +30088,7 @@ class RadioBox:
 		self.tauon          = tauon
 		self.gui            = tauon.gui
 		self.coll           = tauon.coll
+		self.fields         = tauon.fields
 		self.draw           = pctl.draw
 		self.thread_manager = tauon.thread_manager
 		self.active = False
@@ -30661,8 +30680,8 @@ class RadioBox:
 		width = round(370 * self.gui.scale)
 
 		rect = (x + 8 * self.gui.scale, yy - round(2 * self.gui.scale), width, 22 * self.gui.scale)
-		tauon.fields.add(rect)
-		if (tauon.coll(rect) and self.gui.level_2_click) or (self.inp.key_tab_press and self.radio_field_active == 2):
+		self.fields.add(rect)
+		if (self.coll(rect) and self.gui.level_2_click) or (self.inp.key_tab_press and self.radio_field_active == 2):
 			self.radio_field_active = 1
 			self.inp.key_tab_press = False
 		if not self.radio_field_title.text and not (self.radio_field_active == 1 and self.gui.editline):
@@ -30678,8 +30697,8 @@ class RadioBox:
 
 		rect = (x + 8 * self.gui.scale, yy - round(2 * self.gui.scale), width, 22 * self.gui.scale)
 		self.ddt.rect_s(rect, colours.box_text_border, 1 * self.gui.scale)
-		tauon.fields.add(rect)
-		if (tauon.coll(rect) and self.gui.level_2_click) or (self.inp.key_tab_press and self.radio_field_active == 1):
+		self.fields.add(rect)
+		if (self.coll(rect) and self.gui.level_2_click) or (self.inp.key_tab_press and self.radio_field_active == 1):
 			self.radio_field_active = 2
 			self.inp.key_tab_press = False
 
@@ -30726,7 +30745,7 @@ class RadioBox:
 			radio_list = self.temp_list
 
 		rect = (x, y, w, h)
-		if tauon.coll(rect):
+		if self.coll(rect):
 			self.scroll_position += self.inp.mouse_wheel * -1
 		self.scroll_position = max(self.scroll_position, 0)
 		self.scroll_position = min(self.scroll_position, len(radio_list) // 2 - 7)
@@ -30773,13 +30792,13 @@ class RadioBox:
 					text_colour = colours.box_sub_text
 					bg = [255, 255, 255, 10]
 					self.ddt.rect(rect, bg)
-			elif (radio_entry_menu.active and radio_entry_menu.reference == p) or \
-					((not radio_entry_menu.active and tauon.coll(rect)) and not playing):
+			elif (self.tauon.radio_entry_menu.active and self.tauon.radio_entry_menu.reference == p) or \
+					((not self.tauon.radio_entry_menu.active and self.coll(rect)) and not playing):
 				text_colour = colours.box_sub_text
 				bg = [255, 255, 255, 10]
 				self.ddt.rect(rect, bg)
 
-			if tauon.coll(rect):
+			if self.coll(rect):
 				if self.gui.level_2_click:
 					# self.drag = p
 					# self.click_point = copy.copy(self.inp.mouse_position)
@@ -30796,7 +30815,7 @@ class RadioBox:
 				if self.inp.level_2_right_click:
 					self.right_clicked_station = station
 					self.right_clicked_station_p = p
-					radio_entry_menu.activate(station)
+					self.tauon.radio_entry_menu.activate(station)
 
 			bg = alpha_blend(bg, colours.box_background)
 
@@ -31561,6 +31580,7 @@ class ArtistList:
 		self.prefs                 = tauon.prefs
 		self.lastfm                = pctl.lastfm
 		self.artist_info_box       = pctl.artist_info_box
+		self.artist_list_menu      = tauon.artist_list_menu
 		self.artist_preview_render = tauon.artist_preview_render
 		self.tab_h = round(60 * self.gui.scale)
 		self.thumb_size = round(55 * self.gui.scale)
@@ -32037,8 +32057,8 @@ class ArtistList:
 			else:
 				fade = 0
 				t = self.click_highlight_timer.get()
-				if self.click_ref == artist and (t < 2.2 or artist_list_menu.active):
-					if t < 1.9 or artist_list_menu.active:
+				if self.click_ref == artist and (t < 2.2 or self.artist_list_menu.active):
+					if t < 1.9 or self.artist_list_menu.active:
 						fade = fade_max
 					else:
 						fade = fade_max - round((t - 1.9) / 0.3 * fade_max)
@@ -32234,7 +32254,7 @@ class ArtistList:
 				self.click_ref = artist
 				self.click_highlight_timer.set()
 
-				artist_list_menu.activate(in_reference=artist)
+				self.artist_list_menu.activate(in_reference=artist)
 
 	def render(self, x: int, y: int, w: int, h: int):
 		if self.prefs.artist_list_style == 1:
@@ -32374,9 +32394,12 @@ class ArtistList:
 class TreeView:
 
 	def __init__(self, tauon: Tauon, pctl: PlayerCtl) -> None:
-		self.pctl  = pctl
-		self.gui   = tauon.gui
-		self.prefs = tauon.prefs
+		self.gui                   = tauon.gui
+		self.pctl                  = pctl
+		self.msys                  = tauon.msys
+		self.prefs                 = tauon.prefs
+		self.folder_tree_menu      = tauon.folder_tree_menu
+		self.folder_tree_stem_menu = tauon.folder_tree_stem_menu
 		self.trees = {}  # Per playlist tree
 		self.rows = []  # For display (parsed from tree)
 		self.rows_id = ""
@@ -32613,7 +32636,7 @@ class TreeView:
 			full_folder_path = item[1] + "/" + item[0]
 
 			# Hold highlight while menu open
-			if (folder_tree_menu.active or folder_tree_stem_menu.active) and full_folder_path == self.menu_selected:
+			if (self.folder_tree_menu.active or self.folder_tree_stem_menu.active) and full_folder_path == self.menu_selected:
 				text_colour = [255, 255, 255, 170]
 				if semilight_mode:
 					text_colour = (255, 255, 255, 255)
@@ -32655,18 +32678,18 @@ class TreeView:
 						for p, id in enumerate(pctl.multi_playlist[pctl.id_to_pl(pl_id)].playlist_ids):
 							if msys:
 								if pctl.get_track(id).fullpath.startswith(target.lstrip("/")):
-									folder_tree_menu.activate(in_reference=id)
+									self.folder_tree_menu.activate(in_reference=id)
 									self.menu_selected = full_folder_path
 									break
 							elif pctl.get_track(id).fullpath.startswith(target):
-								folder_tree_menu.activate(in_reference=id)
+								self.folder_tree_menu.activate(in_reference=id)
 								self.menu_selected = full_folder_path
 								break
 					elif msys:
-						folder_tree_stem_menu.activate(in_reference=full_folder_path.lstrip("/"))
+						self.folder_tree_stem_menu.activate(in_reference=full_folder_path.lstrip("/"))
 						self.menu_selected = full_folder_path.lstrip("/")
 					else:
-						folder_tree_stem_menu.activate(in_reference=full_folder_path)
+						self.folder_tree_stem_menu.activate(in_reference=full_folder_path)
 						self.menu_selected = full_folder_path
 
 				elif inp.mouse_click:
@@ -33854,7 +33877,10 @@ class ArtistInfoBox:
 	def __init__(self, tauon: Tauon, pctl: PlayerCtl) -> None:
 		bag                        = tauon.bag
 		self.ddt                   = tauon.ddt
+		self.inp                   = tauon.inp
+		self.coll                  = tauon.coll
 		self.pctl                  = pctl
+		self.artist_info_menu      = tauon.artist_info_menu
 		self.artist_picture_render = tauon.artist_picture_render
 		self.artist_on = None
 		self.min_rq_timer = Timer()
@@ -33911,8 +33937,8 @@ class ArtistInfoBox:
 		wait = False
 
 		# Activate menu
-		if inp.right_click and tauon.coll((x, y, w, h)):
-			artist_info_menu.activate(in_reference=artist)
+		if self.inp.right_click and self.coll((x, y, w, h)):
+			self.artist_info_menu.activate(in_reference=artist)
 
 		background = colours.artist_bio_background
 		text_colour = colours.artist_bio_text
@@ -34522,7 +34548,7 @@ class RadioView:
 					hit = True
 					radiobox.x = extra_rect[0] + extra_rect[2]
 					radiobox.y = extra_rect[1]
-					radio_context_menu.activate((i, radio), position=(radiobox.x, yy + round(20 * gui.scale)))
+					self.tauon.radio_context_menu.activate((i, radio), position=(radiobox.x, yy + round(20 * gui.scale)))
 
 			self.menu_icon.render(x + (w - round(75 * gui.scale)), yy + round(26 * gui.scale), colour)
 
@@ -40462,24 +40488,23 @@ def main(holder: Holder) -> None:
 
 	# Create empty area menu
 	playlist_menu         = tauon.playlist_menu
-	radio_entry_menu      = Menu(tauon, 125)
+	radio_entry_menu      = tauon.radio_entry_menu
 	showcase_menu         = tauon.showcase_menu
-	center_info_menu      = Menu(tauon, 125)
+	center_info_menu      = tauon.center_info_menu
 	cancel_menu           = tauon.cancel_menu
-	gallery_menu          = Menu(tauon, 175, show_icons=True)
-	artist_info_menu      = Menu(tauon, 135)
+	gallery_menu          = tauon.gallery_menu
+	artist_info_menu      = tauon.artist_info_menu
 	queue_menu            = tauon.queue_menu
 	repeat_menu           = tauon.repeat_menu
 	shuffle_menu          = tauon.shuffle_menu
-	artist_list_menu      = Menu(tauon, 165, show_icons=True)
-	lightning_menu        = Menu(tauon, 165)
-	lsp_menu              = Menu(tauon, 145)
-	folder_tree_menu      = Menu(tauon, 175, show_icons=True)
-	folder_tree_stem_menu = Menu(tauon, 190, show_icons=True)
-	overflow_menu         = Menu(tauon, 175)
+	artist_list_menu      = tauon.artist_list_menu
+	lightning_menu        = tauon.lightning_menu
+	lsp_menu              = tauon.lsp_menu
+	folder_tree_menu      = tauon.folder_tree_menu
+	folder_tree_stem_menu = tauon.folder_tree_stem_menu
+	overflow_menu         = tauon.overflow_menu
 	spotify_playlist_menu = tauon.spotify_playlist_menu
-	radio_context_menu    = Menu(tauon, 175)
-	#chrome_menu          = Menu(tauon, 175)
+	radio_context_menu    = tauon.radio_context_menu
 
 	# . Menu entry: A side panel view layout
 	lsp_menu.add(MenuItem(_("Playlists + Queue"), tauon.enable_playlist_list, disable_test=tauon.lsp_menu_test_playlist))
@@ -41138,7 +41163,6 @@ def main(holder: Holder) -> None:
 		x_menu.add_sub(_("Chromecast…"), 220)
 		shooter(tauon.cast_search2)
 
-	tauon.chrome_menu = x_menu
 
 	#x_menu.add(_("Cast…"), cast_search, cast_deco)
 
@@ -45261,7 +45285,7 @@ def main(holder: Holder) -> None:
 							if draw.button(_("Lyrics"), x1 + 200 * gui.scale, y1 - 10 * gui.scale):
 								prefs.show_lyrics_showcase = True
 								gui.track_box = False
-								enter_showcase_view(track_id=pctl.r_menu_index)
+								tauon.enter_showcase_view(track_id=pctl.r_menu_index)
 								inp.mouse_click = False
 
 						if len(tc.comment) > 0:
