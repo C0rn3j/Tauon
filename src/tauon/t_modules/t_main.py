@@ -5421,6 +5421,7 @@ class Tauon:
 		self.device                       = socket.gethostname()
 		self.search_string_cache          = {}
 		self.search_dia_string_cache      = {}
+		self.albums:            list[int] = []
 		self.added:             list[int] = []
 		self.album_dex:              list = []
 		self.move_jobs:              list = []
@@ -13740,13 +13741,12 @@ class Tauon:
 			_("To exit this mode, click \"Disengage\" from main MENU"))
 
 	def prep_gal(self) -> None:
-		global albums
-		albums = []
+		self.albums = []
 		folder = ""
 
 		for index in self.pctl.default_playlist:
 			if folder != self.pctl.master_library[index].parent_folder_name:
-				albums.append([index, 0])
+				self.albums.append([index, 0])
 				folder = self.pctl.master_library[index].parent_folder_name
 
 	def pl_gen(self,
