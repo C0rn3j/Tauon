@@ -683,6 +683,7 @@ class GuiVar:
 		self.add_icon           = MenuIcon(asset_loader(self.bag, self.bag.loaded_asset_dc, "new.png", True))
 
 		self.last_fm_icon       = asset_loader(self.bag, self.bag.loaded_asset_dc, "as.png", True)
+		self.power_bar_icon     = asset_loader(self.bag, self.bag.loaded_asset_dc, "power.png", True)
 		self.mac_circle         = asset_loader(self.bag, self.bag.loaded_asset_dc, "macstyle.png", True)
 
 		self.restore_showcase_view = False
@@ -5344,6 +5345,8 @@ class Tauon:
 		self.gme                          = bag.gme
 		self.ddt                          = bag.ddt
 		self.fonts                        = bag.fonts
+#		self.mod_formats                  = bag.formats.MOD_Formats
+		self.formats                      = bag.formats
 		self.macos                        = bag.macos
 		self.mac_close                    = bag.mac_close
 		self.mac_maximize                 = bag.mac_maximize
@@ -5355,6 +5358,7 @@ class Tauon:
 		self.colours                      = bag.colours
 		self.old_window_position          = bag.old_window_position
 		self.cache_directory              = bag.dirs.cache_directory
+		self.config_directory             = bag.dirs.config_directory
 		self.user_directory:  Path | None = bag.dirs.user_directory
 		self.install_directory            = bag.dirs.install_directory
 		self.music_directory: Path | None = bag.dirs.music_directory
@@ -5495,6 +5499,8 @@ class Tauon:
 		self.folder_tree_stem_menu = Menu(self, 190, show_icons=True)
 		self.overflow_menu         = Menu(self, 175)
 		self.radio_context_menu    = Menu(self, 175)
+		self.radio_tab_menu        = Menu(self, 160, show_icons=True)
+		self.mode_menu             = Menu(self, 175)
 
 		self.fields                               = Fields(tauon=self)
 		self.lb                                   = ListenBrainz(tauon=self)
@@ -5503,6 +5509,14 @@ class Tauon:
 		self.album_mode_art_size                  = bag.album_mode_art_size
 		self.artist_picture_render                = PictureRender(tauon=self)
 		self.artist_preview_render                = PictureRender(tauon=self)
+		self.mini_lyrics_scroll    = ScrollBox(tauon=self)
+		self.playlist_panel_scroll = ScrollBox(tauon=self)
+		self.artist_info_scroll    = ScrollBox(tauon=self)
+		self.device_scroll         = ScrollBox(tauon=self)
+		self.artist_list_scroll    = ScrollBox(tauon=self)
+		self.gallery_scroll        = ScrollBox(tauon=self)
+		self.tree_view_scroll      = ScrollBox(tauon=self)
+		self.radio_view_scroll     = ScrollBox(tauon=self)
 		self.pctl                                 = PlayerCtl(tauon=self)
 		self.artist_info_box                      = self.pctl.artist_info_box
 		self.draw                                 = self.pctl.draw
@@ -5555,6 +5569,10 @@ class Tauon:
 		self.tab_pulse                            = EdgePulse(tauon=self)
 		self.radio_thumb_gen                      = RadioThumbGen(tauon=self)
 		self.dl_mon                               = DLMon(tauon=self)
+		self.drop_shadow                          = DropShadow(tauon=self)
+		self.lyrics_ren_mini                      = LyricsRenMini(tauon=self)
+		self.lyrics_ren                           = LyricsRen(tauon=self)
+		self.synced_to_static_lyrics              = TimedLyricsToStatic()
 
 		if self.system == "Linux" and not self.macos and not self.msys:
 			self.gnome = Gnome(tauon=self)
@@ -5587,14 +5605,6 @@ class Tauon:
 		self.text_sat_playlist = TextBox2(tauon=self)
 
 		self.rename_folder     = TextBox2(tauon=self)
-		self.mini_lyrics_scroll    = ScrollBox(tauon=self)
-		self.playlist_panel_scroll = ScrollBox(tauon=self)
-		self.artist_info_scroll    = ScrollBox(tauon=self)
-		self.device_scroll         = ScrollBox(tauon=self)
-		self.artist_list_scroll    = ScrollBox(tauon=self)
-		self.gallery_scroll        = ScrollBox(tauon=self)
-		self.tree_view_scroll      = ScrollBox(tauon=self)
-		self.radio_view_scroll     = ScrollBox(tauon=self)
 		self.transcode_list:      list[list[int]] = []
 		self.transcode_state:                 str = ""
 		# TODO(Martin): Rework this LC_* stuff, maybe use a simple object instead?
@@ -5623,7 +5633,6 @@ class Tauon:
 		self.stream_proxy                         = StreamEnc(self)
 		self.level_train:       list[list[float]] = []
 		self.radio_server                         = None
-		self.mod_formats                          = bag.formats.MOD_Formats
 		self.listen_alongers                      = {}
 		self.encode_folder_name                   = encode_folder_name
 		self.encode_track_name                    = encode_track_name
@@ -6455,7 +6464,7 @@ class Tauon:
 
 		# logging.info("Finished importing XSPF")
 
-	def ex_tool_tip(self, x: int, y: int, text1_width: int, text: str, font) -> None:
+	def ex_tool_tip(self, x: int, y: int, text1_width: int, text: str, font: int) -> None:
 		text2_width = self.ddt.get_text_w(text, font)
 		if text2_width == text1_width:
 			return
@@ -18922,11 +18931,11 @@ class LyricsRen:
 
 class TimedLyricsToStatic:
 
-	def __init__(self):
+	def __init__(self) -> None:
 		self.cache_key = None
 		self.cache_lyrics = ""
 
-	def get(self, track: TrackClass):
+	def get(self, track: TrackClass) -> str:
 		if track.lyrics:
 			return track.lyrics
 		if track.is_network:
@@ -22655,6 +22664,7 @@ class MessageBox:
 		self.gui         = tauon.gui
 		self.inp         = tauon.inp
 		self.draw        = tauon.draw
+		self.colours     = tauon.colours
 		self.window_size = tauon.window_size
 		self.message_info_icon     = asset_loader(bag, bag.loaded_asset_dc, "notice.png")
 		self.message_warning_icon  = asset_loader(bag, bag.loaded_asset_dc, "warning.png")
@@ -22834,9 +22844,9 @@ class PowerTag:
 
 class Over:
 	def __init__(self, tauon: Tauon) -> None:
-		bag                      = tauon.bag
 		self.tauon               = tauon
 		self.coll                = tauon.coll
+		self.formats             = tauon.formats
 		self.t_version           = tauon.t_version
 		self.pctl                = tauon.pctl
 		self.system              = tauon.system
@@ -22859,13 +22869,13 @@ class Over:
 		self.star_store          = tauon.star_store
 		self.init2done           = False
 
-		self.about_image  = asset_loader(bag, bag.loaded_asset_dc, "v4-a.png")
-		self.about_image2 = asset_loader(bag, bag.loaded_asset_dc, "v4-b.png")
-		self.about_image3 = asset_loader(bag, bag.loaded_asset_dc, "v4-c.png")
-		self.about_image4 = asset_loader(bag, bag.loaded_asset_dc, "v4-d.png")
-		self.about_image5 = asset_loader(bag, bag.loaded_asset_dc, "v4-e.png")
-		self.about_image6 = asset_loader(bag, bag.loaded_asset_dc, "v4-f.png")
-		self.title_image  = asset_loader(bag, bag.loaded_asset_dc, "title.png", True)
+		self.about_image  = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "v4-a.png")
+		self.about_image2 = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "v4-b.png")
+		self.about_image3 = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "v4-c.png")
+		self.about_image4 = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "v4-d.png")
+		self.about_image5 = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "v4-e.png")
+		self.about_image6 = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "v4-f.png")
+		self.title_image  = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "title.png", True)
 
 		# self.tab_width = round(115 * self.gui.scale)
 		self.w = 100
@@ -24695,7 +24705,7 @@ class Over:
 							_("Could not auto-detect mounted device path."),
 							_("Make sure the device is mounted and path is accessible."))
 
-			power_bar_icon.render(rect[0], rect[1], colour)
+			gui.power_bar_icon.render(rect[0], rect[1], colour)
 			y += 30 * gui.scale
 
 			prefs.sync_deletes = self.toggle_square(x, y, prefs.sync_deletes, _("Delete all other folders in target"))
@@ -24720,7 +24730,7 @@ class Over:
 			elif not gui.sync_progress:
 				if self.button(xx, y, text, width=ww):
 					if pl is not None:
-						auto_sync(pl)
+						self.tauon.auto_sync(pl)
 					else:
 						self.show_message(
 							_("Select a source playlist"),
@@ -25468,8 +25478,8 @@ class Over:
 
 				for key, value in self.ext_ratio.items():
 					colour = [200, 200, 200, 255]
-					if key in format_colours:
-						colour = format_colours[key]
+					if key in self.formats.format_colours:
+						colour = self.formats.format_colours[key]
 
 					colour = colorsys.rgb_to_hls(colour[0] / 255, colour[1] / 255, colour[2] / 255)
 					colour = colorsys.hls_to_rgb(1 - colour[0], colour[1] * 0.8, colour[2] * 0.8)
@@ -25514,7 +25524,7 @@ class Over:
 		rect = (x, y + round(2 * gui.scale), 40 * gui.scale, 15 * gui.scale)
 		self.tauon.fields.add(rect)
 		if self.tauon.coll(rect):
-			ex_tool_tip(x + round(45 * gui.scale), y - 20 * gui.scale, 0, _("Show track loves"), 12)
+			self.tauon.ex_tool_tip(x + round(45 * gui.scale), y - 20 * gui.scale, 0, _("Show track loves"), 12)
 
 		x += (55 * gui.scale)
 		self.toggle_square(x, y, self.tauon.star_toggle, "     ")
@@ -25522,7 +25532,7 @@ class Over:
 		rect = (x, y + round(2 * gui.scale), 40 * gui.scale, 15 * gui.scale)
 		self.tauon.fields.add(rect)
 		if self.tauon.coll(rect):
-			ex_tool_tip(x + round(35 * gui.scale), y - 20 * gui.scale, 0, _("Represent playtime as stars"), 12)
+			self.tauon.ex_tool_tip(x + round(35 * gui.scale), y - 20 * gui.scale, 0, _("Represent playtime as stars"), 12)
 
 		x += (55 * gui.scale)
 		self.toggle_square(x, y, self.tauon.star_line_toggle, "     ")
@@ -25532,7 +25542,7 @@ class Over:
 		rect = (x, y + round(2 * gui.scale), 40 * gui.scale, 15 * gui.scale)
 		self.tauon.fields.add(rect)
 		if self.tauon.coll(rect):
-			ex_tool_tip(x + round(35 * gui.scale), y - 20 * gui.scale, 0, _("Represent playcount as lines"), 12)
+			self.tauon.ex_tool_tip(x + round(35 * gui.scale), y - 20 * gui.scale, 0, _("Represent playcount as lines"), 12)
 
 		x = x0 + self.item_x_offset
 
@@ -26366,7 +26376,7 @@ class TopPanel:
 
 							if inp.key_shift_down:
 								pctl.multi_playlist[i].playlist_ids += pctl.multi_playlist[tauon.playlist_box.drag_on].playlist_ids
-								delete_playlist(tauon.playlist_box.drag_on, check_lock=True, force=True)
+								pctl.delete_playlist(tauon.playlist_box.drag_on, check_lock=True, force=True)
 							else:
 								pctl.move_playlist(tauon.playlist_box.drag_on, i)
 
@@ -26382,7 +26392,7 @@ class TopPanel:
 				# Activate menu on right click
 				elif inp.right_click:
 					if gui.radio_view:
-						radio_tab_menu.activate(copy.deepcopy(i))
+						tauon.radio_tab_menu.activate(copy.deepcopy(i))
 					else:
 						tauon.tab_menu.activate(copy.deepcopy(i))
 					gui.tab_menu_pl = i
@@ -26392,7 +26402,7 @@ class TopPanel:
 					self.tab_d_click_ref = -1
 					self.tab_d_click_timer.force_set(100)
 					if (pctl.gen_codes.get(pctl.pl_to_id(i)) and "self" not in pctl.gen_codes[pctl.pl_to_id(i)]):
-						clear_gen_ask(pctl.pl_to_id(i))
+						tauon.clear_gen_ask(pctl.pl_to_id(i))
 					inp.quick_drag = False
 					modified = False
 					gui.pl_update += 1
@@ -26429,7 +26439,7 @@ class TopPanel:
 			if gui.radio_view:
 				pass
 			elif inp.key_ctrl_down:
-				gen_dupe(tauon.playlist_box.drag_on)
+				tauon.gen_dupe(tauon.playlist_box.drag_on)
 
 			else:
 				if tauon.playlist_box.drag_source == 1:
@@ -26540,7 +26550,7 @@ class TopPanel:
 						ddt.rect((x + tab_width - bar_highlight_size, y, bar_highlight_size, gui.panelY2), [80, 160, 200, 255])
 					else:
 						ddt.rect((x, y, bar_highlight_size, gui.panelY2), [80, 160, 200, 255])
-				elif (inp.quick_drag or gui.ext_drop_mode) is True and pl_is_mut(i):
+				elif (inp.quick_drag or gui.ext_drop_mode) is True and tauon.pl_is_mut(i):
 					ddt.rect((x, y + self.height - bar_highlight_size, tab_width, bar_highlight_size), [80, 200, 180, 255])
 			# Drag yellow line highlight if single track already in playlist
 			elif inp.quick_drag and not point_proximity_test(gui.drag_source_position, inp.mouse_position, 15 * gui.scale):
@@ -26575,7 +26585,7 @@ class TopPanel:
 				ddt.rect((x, y, 2 * gui.scale, gui.panelY2), [80, 200, 180, 255])
 
 				if inp.mouse_up:
-					drop_tracks_to_new_playlist(gui.shift_selection)
+					tauon.drop_tracks_to_new_playlist(gui.shift_selection)
 
 			# Draw end drag tab indicator
 			if tauon.playlist_box.drag and inp.mouse_position[0] > x and inp.mouse_position[1] < gui.panelY:
@@ -26779,7 +26789,7 @@ class TopPanel:
 			text = gui.sync_progress
 			bg = [100, 200, 100, 255]
 			if inp.right_click and tauon.coll([x, y, 280 * gui.scale, 18 * gui.scale]):
-				cancel_menu.activate(position=(x + 20 * gui.scale, y + 23 * gui.scale))
+				tauon.cancel_menu.activate(position=(x + 20 * gui.scale, y + 23 * gui.scale))
 		elif tauon.transcode_list and gui.tc_cancel:
 			bg = [150, 150, 150, 255]
 			text = _("Stopping transcode...")
@@ -26820,7 +26830,7 @@ class TopPanel:
 			# 	del tauon.transcode_list[1:]
 			# 	gui.tc_cancel = True
 			if inp.right_click and tauon.coll([x, y, 280 * gui.scale, 18 * gui.scale]):
-				cancel_menu.activate(position=(x + 20 * gui.scale, y + 23 * gui.scale))
+				tauon.cancel_menu.activate(position=(x + 20 * gui.scale, y + 23 * gui.scale))
 
 			w = 100 * gui.scale
 			x += ddt.text((x, y), _("Transcoding"), bg, 311) + 8 * gui.scale
@@ -27300,7 +27310,7 @@ class BottomBarType1:
 
 			if pctl.playing_ready() and not gui.fullscreen:
 				if inp.right_click:
-					mode_menu.activate()
+					tauon.mode_menu.activate()
 
 				if tauon.d_click_timer.get() < 0.3 and inp.mouse_click:
 					self.tauon.set_mini_mode()
@@ -27517,7 +27527,7 @@ class BottomBarType1:
 					gui.tool_tip_lock_off_f = True
 				if inp.right_click:
 					# pctl.random_mode ^= True
-					toggle_random()
+					tauon.toggle_random()
 					gui.tool_tip_lock_off_f = True
 					# if window_size[0] < 600 * gui.scale:
 					# . Shuffle set to on
@@ -27551,7 +27561,7 @@ class BottomBarType1:
 					pctl.back()
 					gui.tool_tip_lock_off_b = True
 				if inp.right_click:
-					toggle_repeat()
+					tauon.toggle_repeat()
 					gui.tool_tip_lock_off_b = True
 					# if window_size[0] < 600 * gui.scale:
 					# . Repeat set to on
@@ -27587,7 +27597,7 @@ class BottomBarType1:
 				if inp.mouse_click:
 					tauon.extra_menu.activate(position=(x - 115 * gui.scale, y - 6 * gui.scale))
 				elif inp.right_click:
-					mode_menu.activate(position=(x - 115 * gui.scale, y - 6 * gui.scale))
+					tauon.mode_menu.activate(position=(x - 115 * gui.scale, y - 6 * gui.scale))
 			if tauon.extra_menu.active:
 				rpbc = colours.mode_button_active
 
@@ -27612,7 +27622,7 @@ class BottomBarType1:
 				if (inp.mouse_click or inp.right_click) and tauon.coll(rect):
 					if inp.mouse_click:
 						# pctl.random_mode ^= True
-						toggle_random()
+						tauon.toggle_random()
 						if pctl.random_mode is False:
 							self.random_click_off = True
 					else:
@@ -27666,7 +27676,7 @@ class BottomBarType1:
 				tauon.fields.add(rect)
 				if (inp.mouse_click or inp.right_click) and tauon.coll(rect):
 					if inp.mouse_click:
-						toggle_repeat()
+						tauon.toggle_repeat()
 						if pctl.repeat_mode is False:
 							self.repeat_click_off = True
 					else:  # right click
@@ -27733,9 +27743,10 @@ class BottomBarType1:
 
 class BottomBarType_ao1:
 	def __init__(self, tauon: Tauon) -> None:
-		self.window_size = tauon.bag.window_size
-		self.ddt = tauon.ddt
-		self.gui = tauon.gui
+		self.tauon       = tauon
+		self.ddt         = tauon.ddt
+		self.gui         = tauon.gui
+		self.window_size = tauon.window_size
 
 		self.mode = 0
 		self.seek_time = 0
@@ -27814,9 +27825,9 @@ class BottomBarType_ao1:
 		# mode menu
 		if self.inp.right_click:
 			if self.inp.mouse_position[0] > 190 * self.gui.scale and \
-					self.inp.mouse_position[1] > window_size[1] - self.gui.panelBY and \
-					self.inp.mouse_position[0] < window_size[0] - 190 * self.gui.scale:
-				mode_menu.activate()
+					self.inp.mouse_position[1] > self.window_size[1] - self.gui.panelBY and \
+					self.inp.mouse_position[0] < self.window_size[0] - 190 * self.gui.scale:
+				self.tauon.mode_menu.activate()
 
 		# Volume Bar 2 ------------------------------------------------
 		if True:
@@ -27992,7 +28003,7 @@ class BottomBarType_ao1:
 			# PLAY---
 			buttons_x_offset = 0
 			compact = False
-			if window_size[0] < 650 * self.gui.scale:
+			if self.window_size[0] < 650 * self.gui.scale:
 				compact = True
 
 			play_colour = colours.media_buttons_off
@@ -28017,7 +28028,7 @@ class BottomBarType_ao1:
 
 			if not compact or (compact and self.pctl.playing_state != 2):
 				rect = (
-				buttons_x_offset + (10 * self.gui.scale), window_size[1] - self.control_line_bottom - (13 * self.gui.scale),
+				buttons_x_offset + (10 * self.gui.scale), self.window_size[1] - self.control_line_bottom - (13 * self.gui.scale),
 				50 * self.gui.scale, 40 * self.gui.scale)
 				tauon.fields.add(rect)
 				if tauon.coll(rect):
@@ -28035,7 +28046,7 @@ class BottomBarType_ao1:
 					if self.inp.right_click:
 						self.pctl.show_current(highlight=True)
 
-				self.play_button.render(29 * self.gui.scale, window_size[1] - self.control_line_bottom, play_colour)
+				self.play_button.render(29 * self.gui.scale, self.window_size[1] - self.control_line_bottom, play_colour)
 				# self.ddt.rect_r(rect,[255,0,0,255], True)
 
 			# PAUSE---
@@ -28043,7 +28054,7 @@ class BottomBarType_ao1:
 				buttons_x_offset = -46 * self.gui.scale
 
 			x = (75 * self.gui.scale) + buttons_x_offset
-			y = window_size[1] - self.control_line_bottom
+			y = self.window_size[1] - self.control_line_bottom
 
 			if not compact or (compact and self.pctl.playing_state == 2):
 
@@ -28064,7 +28075,7 @@ class BottomBarType_ao1:
 			# FORWARD---
 			rect = (
 				buttons_x_offset + 125 * self.gui.scale,
-				window_size[1] - self.control_line_bottom - 10 * self.gui.scale, 50 * self.gui.scale, 35 * self.gui.scale)
+				self.window_size[1] - self.control_line_bottom - 10 * self.gui.scale, 50 * self.gui.scale, 35 * self.gui.scale)
 			tauon.fields.add(rect)
 			if tauon.coll(rect) and self.pctl.playing_state != 3:
 				forward_colour = colours.media_buttons_over
@@ -28073,9 +28084,9 @@ class BottomBarType_ao1:
 					self.gui.tool_tip_lock_off_f = True
 				if self.inp.right_click:
 					# self.pctl.random_mode ^= True
-					toggle_random()
+					self.tauon.toggle_random()
 					self.gui.tool_tip_lock_off_f = True
-					# if window_size[0] < 600 * self.gui.scale:
+					# if self.window_size[0] < 600 * self.gui.scale:
 					# . Shuffle set to on
 					self.gui.mode_toast_text = _("Shuffle On")
 					if not self.pctl.random_mode:
@@ -28086,7 +28097,7 @@ class BottomBarType_ao1:
 				if self.inp.middle_click:
 					self.pctl.advance(rr=True)
 					self.gui.tool_tip_lock_off_f = True
-				# tool_tip.test(buttons_x_offset + 230 * self.gui.scale + 50 * self.gui.scale, window_size[1] - self.control_line_bottom - 20 * self.gui.scale, "Advance")
+				# tool_tip.test(buttons_x_offset + 230 * self.gui.scale + 50 * self.gui.scale, self.window_size[1] - self.control_line_bottom - 20 * self.gui.scale, "Advance")
 				# if not self.gui.tool_tip_lock_off_f:
 				# 	tauon.tool_tip2.test(x + 45 * self.gui.scale, y - 35 * self.gui.scale, _("Forward, RC: Toggle shuffle, MC: Radio random"))
 			else:
@@ -28094,21 +28105,29 @@ class BottomBarType_ao1:
 
 			self.forward_button.render(
 				buttons_x_offset + 125 * self.gui.scale,
-				1 + window_size[1] - self.control_line_bottom, forward_colour)
+				1 + self.window_size[1] - self.control_line_bottom, forward_colour)
 
 class MiniMode:
-	def __init__(self, bag: Bag, gui: GuiVar):
-		self.window_size = bag.window_size
-		self.gui = gui
+	def __init__(self, tauon: Tauon) -> None:
+		self.tauon         = tauon
+		self.ddt           = tauon.ddt
+		self.inp           = tauon.inp
+		self.gui           = tauon.gui
+		self.coll          = tauon.coll
+		self.pctl          = tauon.pctl
+		self.fields        = tauon.fields
+		self.colours       = tauon.colours
+		self.window_size   = tauon.window_size
+		self.album_art_gen = tauon.album_art_gen
 		self.save_position = None
 		self.was_borderless = True
 		self.volume_timer = Timer()
 		self.volume_timer.force_set(100)
 
-		self.left_slide  = asset_loader(bag, bag.loaded_asset_dc, "left-slide.png", True)
-		self.right_slide = asset_loader(bag, bag.loaded_asset_dc, "right-slide.png", True)
-		self.repeat      = asset_loader(bag, bag.loaded_asset_dc, "repeat-mini-mode.png", True)
-		self.shuffle     = asset_loader(bag, bag.loaded_asset_dc, "shuffle-mini-mode.png", True)
+		self.left_slide  = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "left-slide.png", True)
+		self.right_slide = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "right-slide.png", True)
+		self.repeat      = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "repeat-mini-mode.png", True)
+		self.shuffle     = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "shuffle-mini-mode.png", True)
 
 		self.shuffle_fade_timer = Timer(100)
 		self.repeat_fade_timer = Timer(100)
@@ -28182,7 +28201,7 @@ class MiniMode:
 			if tauon.coll(text_hit_area):
 				if self.inp.mouse_click:
 					if tauon.d_click_timer.get() < 0.3:
-						restore_full_mode()
+						self.tauon.restore_full_mode()
 						self.gui.update += 1
 						return
 					tauon.d_click_timer.set()
@@ -28200,10 +28219,10 @@ class MiniMode:
 			if w != h or mouse_in_area:
 
 				if not line1 and not line2:
-					self.ddt.text((w // 2, y1 + 18 * self.gui.scale, 2), track.filename, line1c, 214, window_size[0] - 30 * self.gui.scale)
+					self.ddt.text((w // 2, y1 + 18 * self.gui.scale, 2), track.filename, line1c, 214, self.window_size[0] - 30 * self.gui.scale)
 				else:
-					self.ddt.text((w // 2, y1 + 10 * self.gui.scale, 2), line1, line2c, 514, window_size[0] - 30 * self.gui.scale)
-					self.ddt.text((w // 2, y1 + 31 * self.gui.scale, 2), line2, line1c, 414, window_size[0] - 30 * self.gui.scale)
+					self.ddt.text((w // 2, y1 + 10 * self.gui.scale, 2), line1, line2c, 514, self.window_size[0] - 30 * self.gui.scale)
+					self.ddt.text((w // 2, y1 + 31 * self.gui.scale, 2), line2, line1c, 414, self.window_size[0] - 30 * self.gui.scale)
 
 				# Test click to seek
 				if self.inp.mouse_up and tauon.coll(seek_r_hit):
@@ -28265,8 +28284,9 @@ class MiniMode:
 		if tauon.coll(right_area):
 			hint = 240
 		if hint:
-			self.right_slide.render(window_size[0] - self.right_slide.w - 16 * self.gui.scale, y1 + 17 * self.gui.scale,
-									[255, 255, 255, hint])
+			self.right_slide.render(
+				self.window_size[0] - self.right_slide.w - 16 * self.gui.scale, y1 + 17 * self.gui.scale,
+				[255, 255, 255, hint])
 
 		# Shuffle
 
@@ -28278,7 +28298,7 @@ class MiniMode:
 			colour = [255, 255, 255, 20]
 			if self.inp.mouse_click and tauon.coll(shuffle_area):
 				# self.pctl.random_mode ^= True
-				toggle_random()
+				self.tauon.toggle_random()
 			if self.pctl.random_mode:
 				colour = [255, 255, 255, 190]
 
@@ -28297,7 +28317,7 @@ class MiniMode:
 		if tauon.coll(control_hit_area) and not self.prefs.shuffle_lock:
 			colour = [255, 255, 255, 20]
 			if self.inp.mouse_click and tauon.coll(shuffle_area):
-				toggle_repeat()
+				self.tauon.toggle_repeat()
 			if self.pctl.repeat_mode:
 				colour = [255, 255, 255, 190]
 
@@ -28324,12 +28344,12 @@ class MiniMode:
 				self.pctl.advance()
 
 		# Show exit/min buttons when mosue over
-		tool_rect = [window_size[0] - 110 * self.gui.scale, 2, 108 * self.gui.scale, 45 * self.gui.scale]
+		tool_rect = [self.window_size[0] - 110 * self.gui.scale, 2, 108 * self.gui.scale, 45 * self.gui.scale]
 		if self.prefs.left_window_control:
 			tool_rect[0] = 0
 		tauon.fields.add(tool_rect)
 		if tauon.coll(tool_rect):
-			draw_window_tools(tauon)
+			self.tauon.draw_window_tools()
 
 		if w != h:
 			self.ddt.rect_s((1, 1, w - 2, h - 2), colours.mini_mode_border, 1 * self.gui.scale)
@@ -28337,20 +28357,28 @@ class MiniMode:
 				self.ddt.rect_s((2, 2, w - 4, h - 4), colours.mini_mode_border, 1 * self.gui.scale)
 
 class MiniMode2:
-	def __init__(self, bag: Bag, gui: GuiVar):
-		self.window_size = bag.window_size
-		self.gui = gui
+	def __init__(self, tauon: Tauon) -> None:
+		self.tauon         = tauon
+		self.ddt           = tauon.ddt
+		self.inp           = tauon.inp
+		self.gui           = tauon.gui
+		self.coll          = tauon.coll
+		self.pctl          = tauon.pctl
+		self.fields        = tauon.fields
+		self.colours       = tauon.colours
+		self.window_size   = tauon.window_size
+		self.album_art_gen = tauon.album_art_gen
 		self.save_position = None
 		self.was_borderless = True
 		self.volume_timer = Timer()
 		self.volume_timer.force_set(100)
 
-		self.left_slide  = asset_loader(bag, bag.loaded_asset_dc, "left-slide.png", True)
-		self.right_slide = asset_loader(bag, bag.loaded_asset_dc, "right-slide.png", True)
+		self.left_slide  = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "left-slide.png", True)
+		self.right_slide = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "right-slide.png", True)
 
 	def render(self):
-		w = window_size[0]
-		h = window_size[1]
+		w = self.window_size[0]
+		h = self.window_size[1]
 
 		x1 = h
 
@@ -28390,7 +28418,7 @@ class MiniMode2:
 			if tauon.coll(text_hit_area):
 				if self.inp.mouse_click:
 					if tauon.d_click_timer.get() < 0.3:
-						restore_full_mode()
+						self.tauon.restore_full_mode()
 						self.gui.update += 1
 						return
 					tauon.d_click_timer.set()
@@ -28403,7 +28431,7 @@ class MiniMode2:
 
 				self.ddt.text(
 					(x1 + 15 * self.gui.scale, 44 * self.gui.scale), track.filename, colours.grey(150), 315,
-					window_size[0] - x1 - 30 * self.gui.scale)
+					self.window_size[0] - x1 - 30 * self.gui.scale)
 			else:
 				# if self.ddt.get_text_w(line2, 215) > window_size[0] - x1 - 30 * self.gui.scale:
 				#     self.ddt.text((x1 + 15 * self.gui.scale, 19 * self.gui.scale), line2, colours.grey(249), 413,
@@ -28415,19 +28443,19 @@ class MiniMode2:
 
 				self.ddt.text(
 					(x1 + 15 * self.gui.scale, 18 * self.gui.scale), line2, colours.grey(249), 514,
-					window_size[0] - x1 - 30 * self.gui.scale)
+					self.window_size[0] - x1 - 30 * self.gui.scale)
 
 				self.ddt.text(
 					(x1 + 15 * self.gui.scale, 43 * self.gui.scale), line1, colours.grey(110), 514,
-					window_size[0] - x1 - 30 * self.gui.scale)
+					self.window_size[0] - x1 - 30 * self.gui.scale)
 
 		# Show exit/min buttons when mosue over
-		tool_rect = [window_size[0] - 110 * self.gui.scale, 2, 108 * self.gui.scale, 45 * self.gui.scale]
+		tool_rect = [self.window_size[0] - 110 * self.gui.scale, 2, 108 * self.gui.scale, 45 * self.gui.scale]
 		if self.prefs.left_window_control:
 			tool_rect[0] = 0
 		tauon.fields.add(tool_rect)
 		if tauon.coll(tool_rect):
-			draw_window_tools(tauon)
+			self.tauon.draw_window_tools()
 
 		# Seek bar
 		bg_rect = (h, h - round(5 * self.gui.scale), w - h, round(5 * self.gui.scale))
@@ -28458,16 +28486,24 @@ class MiniMode2:
 				self.ddt.rect(seek_rect, colour)
 
 class MiniMode3:
-	def __init__(self, bag: Bag, gui: GuiVar):
-		self.window_size = bag.window_size
-		self.gui = gui
+	def __init__(self, tauon: Tauon) -> None:
+		self.tauon         = tauon
+		self.ddt           = tauon.ddt
+		self.inp           = tauon.inp
+		self.gui           = tauon.gui
+		self.coll          = tauon.coll
+		self.pctl          = tauon.pctl
+		self.fields        = tauon.fields
+		self.colours       = tauon.colours
+		self.window_size   = tauon.window_size
+		self.album_art_gen = tauon.album_art_gen
 		self.save_position = None
 		self.was_borderless = True
 		self.volume_timer = Timer()
 		self.volume_timer.force_set(100)
 
-		self.left_slide  = asset_loader(bag, bag.loaded_asset_dc, "left-slide.png", True)
-		self.right_slide = asset_loader(bag, bag.loaded_asset_dc, "right-slide.png", True)
+		self.left_slide  = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "left-slide.png", True)
+		self.right_slide = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "right-slide.png", True)
 
 		self.shuffle_fade_timer = Timer(100)
 		self.repeat_fade_timer = Timer(100)
@@ -28480,8 +28516,8 @@ class MiniMode3:
 			volume_r = [0, 0, 0, 0]
 			volume_w = 0
 
-		w = window_size[0]
-		h = window_size[1]
+		w = self.window_size[0]
+		h = self.window_size[1]
 
 		y1 = w #+ 10 * gui.scale
 		# if w == h:
@@ -28537,12 +28573,12 @@ class MiniMode3:
 			# Render album art
 
 			wid = (w // 2) + round(60 * self.gui.scale)
-			ins = (window_size[0] - wid) / 2
+			ins = (self.window_size[0] - wid) / 2
 			off = round(4 * self.gui.scale)
 
-			drop_shadow.render(ins + off, ins + off, wid + off * 2, wid + off * 2)
+			self.tauon.drop_shadow.render(ins + off, ins + off, wid + off * 2, wid + off * 2)
 			self.ddt.rect((ins + 1, ins + 1, wid - 1, wid - 1), [20, 20, 20, 255])
-			tauon.album_art_gen.display(track, (ins, ins), (wid, wid))
+			self.album_art_gen.display(track, (ins, ins), (wid, wid))
 
 			line1c = [255, 255, 255, 255] #colours.mini_mode_text_1
 			line2c = [255, 255, 255, 255] #colours.mini_mode_text_2
@@ -31353,7 +31389,7 @@ class PlaylistBox:
 			if self.coll((tab_start, yy - 1, tab_width, (self.tab_h + 1))):
 				if self.inp.right_click:
 					if gui.radio_view:
-						radio_tab_menu.activate(i, self.inp.mouse_position)
+						tauon.radio_tab_menu.activate(i, self.inp.mouse_position)
 					else:
 						tauon.tab_menu.activate(i, self.inp.mouse_position)
 					gui.tab_menu_pl = i
@@ -32435,6 +32471,7 @@ class TreeView:
 		self.coll                  = tauon.coll
 		self.msys                  = tauon.msys
 		self.prefs                 = tauon.prefs
+		self.formats               = tauon.formats
 		self.tree_view_scroll      = tauon.tree_view_scroll
 		self.folder_tree_menu      = tauon.folder_tree_menu
 		self.folder_tree_stem_menu = tauon.folder_tree_stem_menu
@@ -32944,7 +32981,7 @@ class TreeView:
 			path = track.parent_folder_path
 			if path not in paths:
 				paths.append(path)
-				self.folder_colour_cache[path] = format_colours.get(track.file_ext)
+				self.folder_colour_cache[path] = self.formats.format_colours.get(track.file_ext)
 
 		# Genterate tree from folder paths
 		tree = []
@@ -33558,16 +33595,17 @@ class QueueBox:
 
 class MetaBox:
 
-	def __init__(self, tauon: Tauon):
-		self.tauon         = tauon
-		self.gui           = tauon.gui
-		self.inp           = tauon.inp
-		self.pctl          = tauon.pctl
-		self.fonts         = tauon.bag.fonts
-		self.prefs         = tauon.prefs
-		self.showcase_menu = tauon.showcase_menu
-		self.ddt           = tauon.ddt
-		self.colours       = tauon.colours
+	def __init__(self, tauon: Tauon) -> None:
+		self.tauon           = tauon
+		self.ddt             = tauon.ddt
+		self.gui             = tauon.gui
+		self.inp             = tauon.inp
+		self.pctl            = tauon.pctl
+		self.fonts           = tauon.fonts
+		self.prefs           = tauon.prefs
+		self.colours         = tauon.colours
+		self.showcase_menu   = tauon.showcase_menu
+		self.lyrics_ren_mini = tauon.lyrics_ren_mini
 
 	def l_panel(self, x, y, w, h, track, top_border: bool = True):
 		colours = self.colours
@@ -33664,9 +33702,9 @@ class MetaBox:
 
 		# Test for scroll wheel input
 		if inp.mouse_wheel != 0 and tauon.coll((x + 10, y, w - 10, h)):
-			lyrics_ren_mini.lyrics_position += inp.mouse_wheel * 30 * self.gui.scale
-			if lyrics_ren_mini.lyrics_position > 0:
-				lyrics_ren_mini.lyrics_position = 0
+			self.lyrics_ren_mini.lyrics_position += inp.mouse_wheel * 30 * self.gui.scale
+			if self.lyrics_ren_mini.lyrics_position > 0:
+				self.lyrics_ren_mini.lyrics_position = 0
 				self.tauon.lyric_side_top_pulse.pulse()
 
 			self.gui.update += 1
@@ -33678,8 +33716,8 @@ class MetaBox:
 		th -= h
 		th += 25 * self.gui.scale  # Empty space buffer at end
 
-		if lyrics_ren_mini.lyrics_position * -1 > th:
-			lyrics_ren_mini.lyrics_position = th * -1
+		if self.lyrics_ren_mini.lyrics_position * -1 > th:
+			self.lyrics_ren_mini.lyrics_position = th * -1
 			if oth > h:
 				self.tauon.lyric_side_bottom_pulse.pulse()
 
@@ -33687,18 +33725,18 @@ class MetaBox:
 		if self.gui.maximized:
 			scroll_w = 17 * self.gui.scale
 
-		lyrics_ren_mini.lyrics_position = self.tauon.mini_lyrics_scroll.draw(
+		self.lyrics_ren_mini.lyrics_position = self.tauon.mini_lyrics_scroll.draw(
 			x + w - 17 * self.gui.scale, y, scroll_w, h,
-			lyrics_ren_mini.lyrics_position * -1, th,
+			self.lyrics_ren_mini.lyrics_position * -1, th,
 			jump_distance=160 * self.gui.scale) * -1
 
 		margin = 10 * self.gui.scale
 		if colours.lm:
 			margin += 1 * self.gui.scale
 
-		lyrics_ren_mini.render(
+		self.lyrics_ren_mini.render(
 			pctl.track_queue[pctl.queue_step], x + margin,
-			y + lyrics_ren_mini.lyrics_position + 13 * self.gui.scale,
+			y + self.lyrics_ren_mini.lyrics_position + 13 * self.gui.scale,
 			w - 50 * self.gui.scale,
 			None, 0)
 
@@ -34567,7 +34605,7 @@ class RadioView:
 			# self.ddt.rect(hit_rect, [255, 255, 255, 3])
 			self.tauon.fields.add(start_rect)
 			colour = rgb_add_hls(tbg, l=0.05)
-			if tauon.coll(start_rect):
+			if self.coll(start_rect):
 				if inp.mouse_click:
 					radiobox.start(radio)
 					hit = True
@@ -34654,14 +34692,15 @@ class RadioView:
 class Showcase:
 	def __init__(self, tauon: Tauon) -> None:
 		self.tauon         = tauon
-		self.pctl          = tauon.pctl
-		self.showcase_menu = tauon.showcase_menu
 		self.gui           = tauon.gui
 		self.ddt           = tauon.ddt
+		self.pctl          = tauon.pctl
 		self.prefs         = tauon.prefs
 		self.colours       = tauon.colours
 		self.renderer      = tauon.renderer
+		self.lyrics_ren    = tauon.lyrics_ren
 		self.window_size   = tauon.window_size
+		self.showcase_menu = tauon.showcase_menu
 		self.lastfm_artist = None
 		self.artist_mode = False
 
@@ -34785,7 +34824,7 @@ class Showcase:
 
 			if not hide_art:
 				# Draw frame around art box
-				# drop_shadow.render(x + 5 * self.gui.scale, y + 5 * self.gui.scale, box + 10 * self.gui.scale, box + 10 * self.gui.scale)
+				# self.tauon.drop_shadow.render(x + 5 * self.gui.scale, y + 5 * self.gui.scale, box + 10 * self.gui.scale, box + 10 * self.gui.scale)
 				self.ddt.rect(
 					(x - round(2 * self.gui.scale), y - round(2 * self.gui.scale), box + round(4 * self.gui.scale),
 					box + round(4 * self.gui.scale)), [60, 60, 60, 135])
@@ -34811,7 +34850,7 @@ class Showcase:
 
 			if self.gui.panelY < inp.mouse_position[1] < self.window_size[1] - self.gui.panelBY:
 				if inp.mouse_wheel != 0:
-					lyrics_ren.lyrics_position += inp.mouse_wheel * 35 * self.gui.scale
+					self.lyrics_ren.lyrics_position += inp.mouse_wheel * 35 * self.gui.scale
 				if inp.right_click:
 					# track = self.pctl.playing_object()
 					if track != None:
@@ -34897,19 +34936,19 @@ class Showcase:
 				w = self.window_size[0] - x - 30 * self.gui.scale
 
 				if inp.key_up_press and not (inp.key_ctrl_down or inp.key_shift_down or inp.key_shiftr_down):
-					lyrics_ren.lyrics_position += 35 * self.gui.scale
+					self.lyrics_ren.lyrics_position += 35 * self.gui.scale
 				if inp.key_down_press and not (inp.key_ctrl_down or inp.key_shift_down or inp.key_shiftr_down):
-					lyrics_ren.lyrics_position -= 35 * self.gui.scale
+					self.lyrics_ren.lyrics_position -= 35 * self.gui.scale
 
-				lyrics_ren.test_update(track)
-				tw, th = self.ddt.get_text_wh(lyrics_ren.text + "\n", 17, w, True)
+				self.lyrics_ren.test_update(track)
+				tw, th = self.ddt.get_text_wh(self.lyrics_ren.text + "\n", 17, w, True)
 
-				lyrics_ren.lyrics_position = max(lyrics_ren.lyrics_position, th * -1 + 100 * self.gui.scale)
-				lyrics_ren.lyrics_position = min(lyrics_ren.lyrics_position, 70 * self.gui.scale)
+				self.lyrics_ren.lyrics_position = max(self.lyrics_ren.lyrics_position, th * -1 + 100 * self.gui.scale)
+				self.lyrics_ren.lyrics_position = min(self.lyrics_ren.lyrics_position, 70 * self.gui.scale)
 
-				lyrics_ren.render(
+				self.lyrics_ren.render(
 					x,
-					y + lyrics_ren.lyrics_position,
+					y + self.lyrics_ren.lyrics_position,
 					w,
 					int(self.window_size[1] - 100 * self.gui.scale),
 					0)
@@ -40481,10 +40520,6 @@ def main(holder: Holder) -> None:
 		ddt.win_prime_font(standard_font, 19, 515, weight=standard_weight, y_offset=1)
 		ddt.win_prime_font(standard_font, 20, 516, weight=standard_weight, y_offset=1)
 		ddt.win_prime_font(standard_font, 21, 517, weight=standard_weight, y_offset=1)
-	drop_shadow = DropShadow(tauon=tauon)
-	lyrics_ren_mini = LyricsRenMini(tauon=tauon)
-	lyrics_ren = LyricsRen(tauon=tauon)
-	tauon.synced_to_static_lyrics = TimedLyricsToStatic()
 	sdl3.SDL_SetTextureBlendMode(tauon.text_box_canvas, sdl3.SDL_BLENDMODE_BLEND)
 
 	#gst_output_field = TextBox2(tauon=tauon)
@@ -40591,8 +40626,6 @@ def main(holder: Holder) -> None:
 	folder_icon.colour = [244, 220, 66, 255]
 	info_icon.colour = [61, 247, 163, 255]
 
-	power_bar_icon = asset_loader(bag, loaded_asset_dc, "power.png", True)
-
 	folder_tree_stem_menu.add(MenuItem(_("Open Folder"), tauon.open_folder_stem, pass_ref=True, icon=folder_icon))
 	folder_tree_menu.add(MenuItem(_("Open Folder"), tauon.open_folder, pass_ref=True, pass_ref_deco=True, icon=folder_icon, disable_test=tauon.open_folder_disable_test))
 
@@ -40685,7 +40718,7 @@ def main(holder: Holder) -> None:
 	tab_menu = tauon.tab_menu
 	tab_menu.add(MenuItem(_("Rename"), tauon.rename_playlist, pass_ref=True, hint="Ctrl+R"))
 
-	radio_tab_menu = Menu(tauon, 160, show_icons=True)
+	radio_tab_menu = tauon.radio_tab_menu
 	radio_tab_menu.add(MenuItem(_("Rename"), tauon.rename_playlist, pass_ref=True, hint="Ctrl+R"))
 	tab_menu.add(MenuItem("Pin", tauon.pin_playlist_toggle, tauon.pl_pin_deco, pass_ref=True, pass_ref_deco=True))
 
@@ -41179,7 +41212,7 @@ def main(holder: Holder) -> None:
 
 	#x_menu.add(_("Cast…"), cast_search, cast_deco)
 
-	mode_menu = Menu(tauon, 175)
+	mode_menu = tauon.mode_menu
 
 	mode_menu.add(MenuItem(_("Tab"), tauon.set_mini_mode_D))
 	mode_menu.add(MenuItem(_("Mini"), tauon.set_mini_mode_A1))
@@ -41319,10 +41352,9 @@ def main(holder: Holder) -> None:
 
 	pref_box = tauon.pref_box
 
-	mini_mode = MiniMode(bag=bag, gui=gui)
-	mini_mode = MiniMode(bag=bag, gui=gui)
-	mini_mode2 = MiniMode2(bag=bag, gui=gui)
-	mini_mode3 = MiniMode3(bag=bag, gui=gui)
+	mini_mode  = MiniMode(tauon=tauon)
+	mini_mode2 = MiniMode2(tauon=tauon)
+	mini_mode3 = MiniMode3(tauon=tauon)
 
 	restore_ignore_timer = Timer()
 	restore_ignore_timer.force_set(100)
@@ -43316,7 +43348,7 @@ def main(holder: Holder) -> None:
 									if inp.mouse_click:
 										gui.pt = 1
 
-								power_bar_icon.render(rect[0] + round(5 * gui.scale), rect[1] + round(3 * gui.scale), colour)
+								gui.power_bar_icon.render(rect[0] + round(5 * gui.scale), rect[1] + round(3 * gui.scale), colour)
 
 							# Draw scroll bar
 							if gui.pt == 0:
@@ -43567,7 +43599,7 @@ def main(holder: Holder) -> None:
 
 									if card_mode:
 										ddt.text_background_colour = colours.grey(250)
-										drop_shadow.render(
+										tauon.drop_shadow.render(
 											x + 3 * gui.scale, y + 3 * gui.scale,
 											bag.album_mode_art_size + 11 * gui.scale,
 											bag.album_mode_art_size + 45 * gui.scale + 13 * gui.scale)
@@ -45050,7 +45082,7 @@ def main(holder: Holder) -> None:
 							value_colour, 314, max_w=w - 170 * gui.scale)
 
 						if tauon.coll(rect):
-							ex_tool_tip(x2 + 185 * gui.scale, y1, q, tc.title, 314)
+							tauon.ex_tool_tip(x2 + 185 * gui.scale, y1, q, tc.title, 314)
 
 						y1 += int(16 * gui.scale)
 
@@ -45070,7 +45102,7 @@ def main(holder: Holder) -> None:
 							value_colour, value_font_a, max_w=390 * gui.scale)
 
 						if tauon.coll(rect):
-							ex_tool_tip(x2 + 185 * gui.scale, y1, q, tc.artist, value_font_a)
+							tauon.ex_tool_tip(x2 + 185 * gui.scale, y1, q, tc.artist, value_font_a)
 
 						y1 += int(16 * gui.scale)
 
@@ -45091,7 +45123,7 @@ def main(holder: Holder) -> None:
 							value_font_a, max_w=390 * gui.scale)
 
 						if tauon.coll(rect):
-							ex_tool_tip(x2 + 185 * gui.scale, y1, q, tc.album, value_font_a)
+							tauon.ex_tool_tip(x2 + 185 * gui.scale, y1, q, tc.album, value_font_a)
 
 						y1 += int(26 * gui.scale)
 
@@ -45116,7 +45148,7 @@ def main(holder: Holder) -> None:
 						if tauon.coll(rect):
 							gui.frame_callback_list.append(TestTimer(0.71))
 							if track_box_path_tool_timer.get() > 0.7:
-								ex_tool_tip(x2 + 185 * gui.scale, y1, q, clean_string(tc.fullpath), 210)
+								tauon.ex_tool_tip(x2 + 185 * gui.scale, y1, q, clean_string(tc.fullpath), 210)
 						else:
 							track_box_path_tool_timer.set()
 
@@ -45161,7 +45193,7 @@ def main(holder: Holder) -> None:
 								(x + (8 + 88) * gui.scale, y1), tc.album_artist,
 								value_colour, value_font, max_w=120 * gui.scale)
 							if tauon.coll(rect):
-								ex_tool_tip(x2 + 185 * gui.scale, y1, q, tc.album_artist, value_font)
+								tauon.ex_tool_tip(x2 + 185 * gui.scale, y1, q, tc.album_artist, value_font)
 
 							x -= int(170 * gui.scale)
 
@@ -45256,7 +45288,7 @@ def main(holder: Holder) -> None:
 								(x + (8 + 88) * gui.scale, y1), tc.composer,
 								value_colour, value_font, max_w=120 * gui.scale)
 							if tauon.coll(rect):
-								ex_tool_tip(x2 + 185 * gui.scale, y1, q, tc.composer, value_font_a)
+								tauon.ex_tool_tip(x2 + 185 * gui.scale, y1, q, tc.composer, value_font_a)
 
 							x -= int(170 * gui.scale)
 
