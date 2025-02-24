@@ -369,7 +369,8 @@ class GuiVar:
 		self.side_drag         = False
 		self.ext_drop_mode     = False
 		self.quick_search_mode = False
-		self.editline = ""
+		self.b_info_bar        = False
+	self.editline = ""
 		self.rename_index:        int = 0
 		self.last_row:            int = 0
 		self.album_v_gap:         int = 66
@@ -43422,8 +43423,7 @@ def main(holder: Holder) -> None:
 						# Process inputs first
 						if (inp.mouse_click or inp.right_click or inp.middle_click or inp.mouse_down or inp.mouse_up) and pctl.default_playlist:
 							while render_pos < gui.album_scroll_px + window_size[1]:
-
-								if b_info_bar and render_pos > gui.album_scroll_px + b_info_y:
+								if gui.b_info_bar and render_pos > gui.album_scroll_px + b_info_y:
 									break
 
 								if render_pos < gui.album_scroll_px - bag.album_mode_art_size - gui.album_v_gap:
@@ -43599,7 +43599,7 @@ def main(holder: Holder) -> None:
 
 						# Render album grid
 						while render_pos < gui.album_scroll_px + window_size[1] and pctl.default_playlist:
-							if b_info_bar and render_pos > gui.album_scroll_px + b_info_y:
+							if gui.b_info_bar and render_pos > gui.album_scroll_px + b_info_y:
 								break
 
 							if render_pos < gui.album_scroll_px - bag.album_mode_art_size - gui.album_v_gap:
@@ -46612,8 +46612,6 @@ def main(holder: Holder) -> None:
 	transfer_setting = 0
 
 	b_panel_size = 300
-	b_info_bar = False
-
 
 	#sdl3.IMG_Quit()
 	#sdl3.SDL_QuitSubSystem(sdl3.SDL_INIT_EVERYTHING)
