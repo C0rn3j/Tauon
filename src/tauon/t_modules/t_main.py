@@ -174,6 +174,8 @@ from tauon.t_modules.t_tagscan import Ape, Flac, M4a, Opus, Wav, parse_picture_b
 from tauon.t_modules.t_themeload import Deco, load_theme
 from tauon.t_modules.t_tidal import Tidal
 from tauon.t_modules.t_webserve import authserve, controller, stream_proxy, webserve, webserve2
+if sys.platform == "linux":
+	from tauon.t_modules import t_topchart
 
 if TYPE_CHECKING:
 	from ctypes import CDLL
@@ -5373,6 +5375,7 @@ class Tauon:
 		self.t_agent                      = holder.t_agent
 		self.t_id                         = holder.t_id
 		self.fs_mode                      = holder.fs_mode
+		self.window_default_size          = holder.window_default_size
 		self.renderer                     = bag.renderer
 		self.window_title                 = holder.window_title
 		self.logical_size                 = bag.logical_size
@@ -5381,6 +5384,28 @@ class Tauon:
 		self.desktop:          str | None = bag.desktop
 		# List of encodings to check for with the fix mojibake function
 		self.encodings                    = ["cp932", "utf-8", "big5hkscs", "gbk"]  # These seem to be the most common for Japanese
+		self.column_names = (
+			"Artist",
+			"Album Artist",
+			"Album",
+			"Title",
+			"Composer",
+			"Time",
+			"Date",
+			"Genre",
+			"#",
+			"P",
+			"Starline",
+			"Rating",
+			"Comment",
+			"Codec",
+			"Lyrics",
+			"Bitrate",
+			"S",
+			"Filename",
+			"Disc",
+			"CUE",
+		)
 		self.device                       = socket.gethostname()
 		self.search_string_cache          = {}
 		self.search_dia_string_cache      = {}
@@ -12479,7 +12504,7 @@ class Tauon:
 	def standard_size(self) -> None:
 		self.prefs.album_mode = False
 		self.gui.rsp = True
-		self.window_size = window_default_size
+		self.window_size = self.window_default_size
 		sdl3.SDL_SetWindowSize(self.t_window, self.logical_size[0], self.logical_size[1])
 
 		self.gui.rspw = 80 + int(self.window_size[0] * 0.18)
@@ -12832,7 +12857,7 @@ class Tauon:
 			if cm.startswith("\"") and (cm.endswith((">", "<"))):
 				cm_found = False
 
-				for col in column_names:
+				for col in self.column_names:
 					if quote.lower() == col.lower() or _(quote).lower() == col.lower():
 						cm_found = True
 
@@ -33284,7 +33309,7 @@ class QueueBox:
 		if not inp.mouse_down and not inp.mouse_up:
 			self.dragging = None
 
-		if not queue_menu.active:
+		if not self.queue_menu.active:
 			self.right_click_id = None
 
 		fq = self.fq
@@ -33516,7 +33541,7 @@ class QueueBox:
 		if qb_right_click:
 			if qb_right_click == 1:
 				self.right_click_id = None
-			queue_menu.activate(position=inp.mouse_position)
+			self.queue_menu.activate(position=inp.mouse_position)
 
 class MetaBox:
 
@@ -38801,9 +38826,6 @@ def main(holder: Holder) -> None:
 		import comtypes
 		import atexit
 
-	if system == "Linux":
-		from tauon.t_modules import t_topchart
-
 	if system == "Linux" and not macos and not msys:
 		from tauon.t_modules.t_dbus import Gnome
 
@@ -40687,29 +40709,6 @@ def main(holder: Holder) -> None:
 	jell_icon.yoff = 2
 
 	tab_menu.br()
-
-	column_names = (
-		"Artist",
-		"Album Artist",
-		"Album",
-		"Title",
-		"Composer",
-		"Time",
-		"Date",
-		"Genre",
-		"#",
-		"P",
-		"Starline",
-		"Rating",
-		"Comment",
-		"Codec",
-		"Lyrics",
-		"Bitrate",
-		"S",
-		"Filename",
-		"Disc",
-		"CUE",
-	)
 
 	extra_tab_menu = Menu(tauon, 155, show_icons=True)
 
