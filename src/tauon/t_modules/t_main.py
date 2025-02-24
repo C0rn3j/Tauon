@@ -6617,7 +6617,7 @@ class Tauon:
 
 		# logging.info("Finished importing XSPF")
 
-	def ex_tool_tip(self, x: int, y: int, text1_width: int, text: str, font: int) -> None:
+	def ex_tool_tip(self, x: int, y: float, text1_width: int, text: str, font: int) -> None:
 		text2_width = self.ddt.get_text_w(text, font)
 		if text2_width == text1_width:
 			return
@@ -9316,7 +9316,7 @@ class Tauon:
 				hide_title=False))
 
 	def gen_sort_album(self, index: int) -> None:
-		def album(index: int) -> None:
+		def album(index: int) -> str:
 			return self.pctl.master_library[index].album
 
 		playlist = copy.deepcopy(self.pctl.multi_playlist[index].playlist_ids)
@@ -10608,7 +10608,7 @@ class Tauon:
 	def key_album(self, index: int) -> str:
 		return self.pctl.master_library[index].album.lower()
 
-	def key_duration(self, index: int) -> int:
+	def key_duration(self, index: int) -> float:
 		return self.pctl.master_library[index].length
 
 	def key_date(self, index: int) -> str:
