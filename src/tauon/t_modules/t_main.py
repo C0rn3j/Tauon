@@ -10626,6 +10626,9 @@ class Tauon:
 			return 0
 		return 1
 
+	def sort_dec(self, h) -> None:
+		self.sort_ass(h, True)
+
 	def sort_ass(self, h, invert: bool = False, custom_list=None, custom_name: str = "") -> None:
 		if custom_list is None:
 			if self.pl_is_locked(self.pctl.active_playlist_viewing):
@@ -34120,7 +34123,7 @@ class MetaBox:
 						if tr and tr.lyrics:
 							if self.tauon.draw_internel_link(
 								margin + sp + 6 * self.gui.scale, block_y + 40 * self.gui.scale, "Lyrics", self.colours.side_bar_line2, self.fonts.side_panel_line2):
-								prefs.show_lyrics_showcase = True
+								self.prefs.show_lyrics_showcase = True
 								self.tauon.enter_showcase_view(track_id=tr.index)
 
 class PictureRender:
@@ -34190,6 +34193,7 @@ class ArtistInfoBox:
 		self.ddt                   = tauon.ddt
 		self.inp                   = tauon.inp
 		self.coll                  = tauon.coll
+		self.prefs                 = tauon.prefs
 		self.user_directory        = tauon.user_directory
 		self.a_cache_directory     = tauon.a_cache_directory
 		self.artist_info_menu      = tauon.artist_info_menu
@@ -34393,7 +34397,6 @@ class ArtistInfoBox:
 			self.ddt.text((x + w // 2, y + h // 2 - 7 * self.gui.scale, 2), self.status, [255, 255, 255, 60], 313, bg=background)
 
 	def get_data(self, artist: str, get_img_path: bool = False, force_dl: bool = False) -> str | None:
-
 		if not get_img_path:
 			logging.info("Load Bio Data")
 
@@ -34453,7 +34456,7 @@ class ArtistInfoBox:
 
 				return ""
 
-			if not force_dl and not prefs.auto_dl_artist_data:
+			if not force_dl and not self.prefs.auto_dl_artist_data:
 				# . Alt: No artist data has been downloaded (try imply this needs to be manually triggered)
 				self.status = _("No artist data downloaded")
 				self.artist_on = artist
@@ -34465,7 +34468,7 @@ class ArtistInfoBox:
 			# . Alt: Looking up artist data
 			self.status = _("Looking up...")
 			self.gui.update += 1
-			data = lastfm.artist_info(artist)
+			data = self.tauon.lastfm.artist_info(artist)
 			self.text = ""
 			if data[0] is False:
 				self.artist_picture_render.show = False
@@ -34483,7 +34486,7 @@ class ArtistInfoBox:
 			logging.info("Save bio text")
 
 			self.artist_picture_render.show = False
-			if data[3] and prefs.enable_fanart_artist:
+			if data[3] and self.prefs.enable_fanart_artist:
 				try:
 					self.tauon.save_fanart_artist_thumb(data[3], img_filepath)
 					self.artist_picture_render.load(img_filepath, box_size)
@@ -35688,6 +35691,7 @@ class DLMon:
 	def __init__(self, tauon: Tauon) -> None:
 		self.tauon           = tauon
 		self.msys            = tauon.msys
+		self.prefs           = tauon.prefs
 		self.formats         = tauon.formats
 		self.music_directory = tauon.music_directory
 		self.ticker = Timer()
@@ -35748,7 +35752,7 @@ class DLMon:
 							# Check if folder to extract to exists
 							split = os.path.splitext(path)
 							target_dir = split[0]
-							if prefs.extract_to_music and self.music_directory is not None:
+							if self.prefs.extract_to_music and self.music_directory is not None:
 								target_dir = os.path.join(str(self.music_directory), os.path.basename(target_dir))
 
 							if os.path.exists(target_dir):
@@ -37424,9 +37428,6 @@ def field_paste(text_field) -> None:
 def field_clear(text_field) -> None:
 	text_field.clear()
 
-def sort_dec(h):
-	sort_ass(h, True)
-
 def worker3(tauon: Tauon) -> None:
 	while True:
 		# time.sleep(0.04)
@@ -37509,10 +37510,10 @@ def worker2(tauon: Tauon) -> None:
 					o_text = o_text[7:]
 					artist_mode = True
 
-				prefs.album_mode = False
+				tauon.prefs.album_mode = False
 				if o_text.startswith("album "):
 					o_text = o_text[6:]
-					prefs.album_mode = True
+					tauon.prefs.album_mode = True
 
 				composer_mode = False
 				if o_text.startswith("composer "):
@@ -37626,7 +37627,7 @@ def worker2(tauon: Tauon) -> None:
 								for split in genre.replace(";", "/").replace(",", "/").split("/"):
 									if s_text in split:
 										split = genre_correct(split)
-										if prefs.sep_genre_multi:
+										if tauon.prefs.sep_genre_multi:
 											split += "+"
 										if split in genres:
 											genres[split] += 3
@@ -37778,7 +37779,7 @@ def worker2(tauon: Tauon) -> None:
 						if temp_results[i][0] != 0:
 							del temp_results[i]
 
-				elif prefs.album_mode:
+				elif tauon.prefs.album_mode:
 					for i in reversed(range(len(temp_results))):
 						if temp_results[i][0] != 1:
 							del temp_results[i]
@@ -38710,7 +38711,7 @@ def worker1(tauon: Tauon) -> None:
 				tauon.star_store.remove(track)
 				pctl.master_library[track] = tauon.tag_scan(pctl.master_library[track])
 				tauon.star_store.merge(track, star)
-				lastfm.sync_pull_love(pctl.master_library[track])
+				tauon.lastfm.sync_pull_love(pctl.master_library[track])
 				del tauon.to_scan[0]
 				gui.update += 1
 			gui.album_artist_dict.clear()
@@ -41382,7 +41383,7 @@ def main(holder: Holder) -> None:
 	# WEBSERVER
 	if prefs.enable_web is True:
 		webThread = threading.Thread(
-			target=webserve, args=[pctl, prefs, gui, album_art_gen, str(install_directory), strings, tauon])
+			target=webserve, args=[pctl, prefs, gui, album_art_gen, str(install_directory), tauon.strings, tauon])
 		webThread.daemon = True
 		webThread.start()
 
@@ -41826,7 +41827,7 @@ def main(holder: Holder) -> None:
 						track = pctl.playing_object()
 						target_dir = track.parent_folder_path
 
-						shoot_dl = threading.Thread(target=download_img, args=(link, target_dir, track))
+						shoot_dl = threading.Thread(target=tauon.download_img, args=(link, target_dir, track))
 						shoot_dl.daemon = True
 						shoot_dl.start()
 
@@ -42406,7 +42407,7 @@ def main(holder: Holder) -> None:
 						input_text = pctl.playing_object().artist
 
 				if keymaps.test("show-encode-folder"):
-					open_encode_out()
+					tauon.open_encode_out()
 
 				if keymaps.test("toggle-left-panel"):
 					gui.lsp ^= True
@@ -42514,7 +42515,7 @@ def main(holder: Holder) -> None:
 				inp.level_2_enter = True
 
 			if inp.key_ctrl_down and inp.key_z_press:
-				undo.undo()
+				tauon.undo.undo()
 
 			if keymaps.test("quit"):
 				tauon.exit("Quit keyboard shortcut pressed")
@@ -42544,7 +42545,7 @@ def main(holder: Holder) -> None:
 						fr_scr = fr.lfm_scrobbles
 						to_scr = to.lfm_scrobbles
 
-						undo.bk_playtime_transfer(fr, fr_s, fr_scr, to, to_s, to_scr)
+						tauon.undo.bk_playtime_transfer(fr, fr_s, fr_scr, to, to_s, to_scr)
 
 						if to_s is None:
 							to_s = tauon.star_store.new_object()
