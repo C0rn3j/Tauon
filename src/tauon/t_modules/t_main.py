@@ -5352,6 +5352,7 @@ class Tauon:
 		self.wayland                      = bag.wayland
 		self.dirs                         = bag.dirs
 		self.colours                      = bag.colours
+		self.de_notify_support            = bag.de_notify_support
 		self.old_window_position          = bag.old_window_position
 		self.cache_directory              = bag.dirs.cache_directory
 		self.config_directory             = bag.dirs.config_directory
@@ -5690,7 +5691,7 @@ class Tauon:
 
 	def scan_ffprobe(self, nt: TrackClass):
 		startupinfo = None
-		if system == "Windows" or msys:
+		if self.system == "Windows" or self.msys:
 			startupinfo = subprocess.STARTUPINFO()
 			startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 		try:
@@ -21801,14 +21802,14 @@ class TransEditBox:
 
 		def field_edit(x, y, label, field_number, names, text_box):
 			changed = 0
-			self.ddt.text((x, y), label, colours.box_text_label, 11)
+			self.ddt.text((x, y), label, self.colours.box_text_label, 11)
 			y += round(16 * self.gui.scale)
 			rect1 = (x, y, round(370 * self.gui.scale), round(17 * self.gui.scale))
 			self.fields.add(rect1)
 			if (self.coll(rect1) and self.inp.mouse_click) or (self.inp.key_tab_press and self.active_field == field_number):
 				self.active_field = field_number
-			self.ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * self.gui.scale))
-			tc = colours.box_input_text
+			self.ddt.bordered_rect(rect1, self.colours.box_background, self.colours.box_text_border, round(1 * self.gui.scale))
+			tc = self.colours.box_input_text
 			if names and check_equal(names) and text_box.text == names[0]:
 				h, l, s = rgb_to_hls(tc[0], tc[1], tc[2])
 				l *= 0.7
@@ -21817,10 +21818,10 @@ class TransEditBox:
 				changed = 1
 			if not (names and check_equal(names)) and not text_box.text:
 				changed = 0
-				self.ddt.text((x + round(2 * self.gui.scale), y), _("<Multiple selected>"), colours.box_text_label, 12)
+				self.ddt.text((x + round(2 * self.gui.scale), y), _("<Multiple selected>"), self.colours.box_text_label, 12)
 			text_box.draw(x + round(3 * self.gui.scale), y, tc, self.active_field == field_number, width=370 * self.gui.scale)
 			if changed:
-				self.ddt.text((x + 377 * self.gui.scale, y - 1 * self.gui.scale), "⮨", colours.box_title_text, 214)
+				self.ddt.text((x + 377 * self.gui.scale, y - 1 * self.gui.scale), "⮨", self.colours.box_title_text, 214)
 			return changed
 
 		changed = 0
@@ -27949,7 +27950,9 @@ class BottomBarType_ao1:
 		self.ddt         = tauon.ddt
 		self.gui         = tauon.gui
 		self.coll        = tauon.coll
+		self.system      = tauon.system
 		self.fields      = tauon.fields
+		self.colours     = tauon.colours
 		self.window_size = tauon.window_size
 
 		self.mode = 0
@@ -27995,7 +27998,7 @@ class BottomBarType_ao1:
 
 	def render(self) -> None:
 		self.ddt.clear_rect((0, 0, self.window_size[0], self.gui.panelY))
-		self.ddt.rect_a((0, self.window_size[1] - self.gui.panelBY), (self.window_size[0], self.gui.panelBY), colours.bottom_panel_colour)
+		self.ddt.rect_a((0, self.window_size[1] - self.gui.panelBY), (self.window_size[0], self.gui.panelBY), self.colours.bottom_panel_colour)
 
 		right_offset = 0
 		if self.gui.display_time_mode >= 2:
@@ -28131,38 +28134,38 @@ class BottomBarType_ao1:
 
 		if self.gui.display_time_mode == 0:
 			text_time = get_display_time(self.pctl.playing_time)
-			self.ddt.text((x + 1 * self.gui.scale, y), text_time, colours.time_playing, fonts.bottom_panel_time)
+			self.ddt.text((x + 1 * self.gui.scale, y), text_time, self.colours.time_playing, fonts.bottom_panel_time)
 		elif self.gui.display_time_mode == 1:
 			if self.pctl.playing_state == 0:
 				text_time = get_display_time(0)
 			else:
 				text_time = get_display_time(self.pctl.playing_length - self.pctl.playing_time)
-			self.ddt.text((x + 1 * self.gui.scale, y), text_time, colours.time_playing, fonts.bottom_panel_time)
-			self.ddt.text((x - 5 * self.gui.scale, y), "-", colours.time_playing, fonts.bottom_panel_time)
+			self.ddt.text((x + 1 * self.gui.scale, y), text_time, self.colours.time_playing, fonts.bottom_panel_time)
+			self.ddt.text((x - 5 * self.gui.scale, y), "-", self.colours.time_playing, fonts.bottom_panel_time)
 		elif self.gui.display_time_mode == 2:
-			colours.time_sub = alpha_blend([255, 255, 255, 80], colours.bottom_panel_colour)
+			self.colours.time_sub = alpha_blend([255, 255, 255, 80], self.colours.bottom_panel_colour)
 
 			x -= 4
 			text_time = get_display_time(self.pctl.playing_time)
-			self.ddt.text((x - 25 * self.gui.scale, y), text_time, colours.time_playing, fonts.bottom_panel_time)
+			self.ddt.text((x - 25 * self.gui.scale, y), text_time, self.colours.time_playing, fonts.bottom_panel_time)
 
 			offset1 = 10 * self.gui.scale
 
-			if system == "Windows":
+			if self.system == "Windows":
 				offset1 += 2 * self.gui.scale
 
 			offset2 = offset1 + 7 * self.gui.scale
 
-			self.ddt.text((x + offset1, y), "/", colours.time_sub, fonts.bottom_panel_time)
+			self.ddt.text((x + offset1, y), "/", self.colours.time_sub, fonts.bottom_panel_time)
 			text_time = get_display_time(self.pctl.playing_length)
 			if self.pctl.playing_state == 0:
 				text_time = get_display_time(0)
 			elif self.pctl.playing_state == 3:
 				text_time = "-- : --"
-			self.ddt.text((x + offset2, y), text_time, colours.time_sub, fonts.bottom_panel_time)
+			self.ddt.text((x + offset2, y), text_time, self.colours.time_sub, fonts.bottom_panel_time)
 
 		elif self.gui.display_time_mode == 3:
-			colours.time_sub = alpha_blend([255, 255, 255, 80], colours.bottom_panel_colour)
+			self.colours.time_sub = alpha_blend([255, 255, 255, 80], self.colours.bottom_panel_colour)
 
 			track = self.pctl.playing_object()
 			if track and track.index != self.gui.dtm3_index:
@@ -28185,20 +28188,20 @@ class BottomBarType_ao1:
 			x -= 4
 			text_time = get_display_time(self.gui.dtm3_cum + self.pctl.playing_time)
 
-			self.ddt.text((x - 25 * self.gui.scale, y), text_time, colours.time_playing, fonts.bottom_panel_time)
+			self.ddt.text((x - 25 * self.gui.scale, y), text_time, self.colours.time_playing, fonts.bottom_panel_time)
 
 			offset1 = 10 * self.gui.scale
-			if system == "Windows":
+			if self.system == "Windows":
 				offset1 += 2 * self.gui.scale
 			offset2 = offset1 + 7 * self.gui.scale
 
-			self.ddt.text((x + offset1, y), "/", colours.time_sub, fonts.bottom_panel_time)
+			self.ddt.text((x + offset1, y), "/", self.colours.time_sub, fonts.bottom_panel_time)
 			text_time = get_display_time(self.gui.dtm3_total)
 			if self.pctl.playing_state == 0:
 				text_time = get_display_time(0)
 			elif self.pctl.playing_state == 3:
 				text_time = "-- : --"
-			self.ddt.text((x + offset2, y), text_time, colours.time_sub, fonts.bottom_panel_time)
+			self.ddt.text((x + offset2, y), text_time, self.colours.time_sub, fonts.bottom_panel_time)
 
 		# BUTTONS
 		# bottom buttons
@@ -28210,23 +28213,23 @@ class BottomBarType_ao1:
 			if self.window_size[0] < 650 * self.gui.scale:
 				compact = True
 
-			play_colour = colours.media_buttons_off
-			pause_colour = colours.media_buttons_off
-			stop_colour = colours.media_buttons_off
-			forward_colour = colours.media_buttons_off
-			back_colour = colours.media_buttons_off
+			play_colour = self.colours.media_buttons_off
+			pause_colour = self.colours.media_buttons_off
+			stop_colour = self.colours.media_buttons_off
+			forward_colour = self.colours.media_buttons_off
+			back_colour = self.colours.media_buttons_off
 
 			if self.pctl.playing_state == 1:
-				play_colour = colours.media_buttons_active
+				play_colour = self.colours.media_buttons_active
 
 			if self.pctl.auto_stop:
-				stop_colour = colours.media_buttons_active
+				stop_colour = self.colours.media_buttons_active
 
 			if self.pctl.playing_state == 2:
-				pause_colour = colours.media_buttons_active
-				play_colour = colours.media_buttons_active
+				pause_colour = self.colours.media_buttons_active
+				play_colour = self.colours.media_buttons_active
 			elif self.pctl.playing_state == 3:
-				play_colour = colours.media_buttons_active
+				play_colour = self.colours.media_buttons_active
 				if self.pctl.record_stream:
 					play_colour = [220, 50, 50, 255]
 
@@ -28236,7 +28239,7 @@ class BottomBarType_ao1:
 				50 * self.gui.scale, 40 * self.gui.scale)
 				self.fields.add(rect)
 				if self.coll(rect):
-					play_colour = colours.media_buttons_over
+					play_colour = self.colours.media_buttons_over
 					if self.inp.mouse_click:
 						if compact and self.pctl.playing_state == 1:
 							self.pctl.pause()
@@ -28265,7 +28268,7 @@ class BottomBarType_ao1:
 				rect = (x - 15 * self.gui.scale, y - 13 * self.gui.scale, 50 * self.gui.scale, 40 * self.gui.scale)
 				self.fields.add(rect)
 				if self.coll(rect) and self.pctl.playing_state != 3:
-					pause_colour = colours.media_buttons_over
+					pause_colour = self.colours.media_buttons_over
 					if self.inp.mouse_click:
 						self.pctl.pause()
 					if self.inp.right_click:
@@ -28282,7 +28285,7 @@ class BottomBarType_ao1:
 				self.window_size[1] - self.control_line_bottom - 10 * self.gui.scale, 50 * self.gui.scale, 35 * self.gui.scale)
 			self.fields.add(rect)
 			if self.coll(rect) and self.pctl.playing_state != 3:
-				forward_colour = colours.media_buttons_over
+				forward_colour = self.colours.media_buttons_over
 				if self.inp.mouse_click:
 					self.pctl.advance()
 					self.gui.tool_tip_lock_off_f = True
@@ -28352,7 +28355,7 @@ class MiniMode:
 		h1 = h - y1
 
 		# Draw background
-		bg = colours.mini_mode_background
+		bg = self.colours.mini_mode_background
 		# bg = [250, 250, 250, 255]
 
 		self.ddt.rect((0, 0, w, h), bg)
@@ -28390,8 +28393,8 @@ class MiniMode:
 			# Render album art
 			self.album_art_gen.display(track, (0, 0), (w, w))
 
-			line1c = colours.mini_mode_text_1
-			line2c = colours.mini_mode_text_2
+			line1c = self.colours.mini_mode_text_1
+			line2c = self.colours.mini_mode_text_2
 
 			if h == w and mouse_in_area:
 				# self.ddt.pretty_rect = (0, 260 * self.gui.scale, w, 100 * self.gui.scale)
@@ -28450,7 +28453,7 @@ class MiniMode:
 					progress_w = self.pctl.playing_time * seek_w / self.pctl.playing_length
 				seek_colour = [210, 210, 210, 255]
 				if self.gui.theme_name == "Carbon":
-					seek_colour = colours.bottom_panel_colour
+					seek_colour = self.colours.bottom_panel_colour
 
 				if self.pctl.playing_state != 1:
 					seek_colour = [210, 40, 100, 255]
@@ -28556,9 +28559,9 @@ class MiniMode:
 			self.tauon.draw_window_tools()
 
 		if w != h:
-			self.ddt.rect_s((1, 1, w - 2, h - 2), colours.mini_mode_border, 1 * self.gui.scale)
+			self.ddt.rect_s((1, 1, w - 2, h - 2), self.colours.mini_mode_border, 1 * self.gui.scale)
 			if self.gui.scale == 2:
-				self.ddt.rect_s((2, 2, w - 4, h - 4), colours.mini_mode_border, 1 * self.gui.scale)
+				self.ddt.rect_s((2, 2, w - 4, h - 4), self.colours.mini_mode_border, 1 * self.gui.scale)
 
 class MiniMode2:
 	def __init__(self, tauon: Tauon) -> None:
@@ -28587,8 +28590,8 @@ class MiniMode2:
 		x1 = h
 
 		# Draw background
-		self.ddt.rect((0, 0, w, h), colours.mini_mode_background)
-		self.ddt.text_background_colour = colours.mini_mode_background
+		self.ddt.rect((0, 0, w, h), self.colours.mini_mode_background)
+		self.ddt.text_background_colour = self.colours.mini_mode_background
 
 		detect_mouse_rect = (2, 2, w - 4, h - 4)
 		self.fields.add(detect_mouse_rect)
@@ -28634,23 +28637,23 @@ class MiniMode2:
 			if not line1 and not line2:
 
 				self.ddt.text(
-					(x1 + 15 * self.gui.scale, 44 * self.gui.scale), track.filename, colours.grey(150), 315,
+					(x1 + 15 * self.gui.scale, 44 * self.gui.scale), track.filename, self.colours.grey(150), 315,
 					self.window_size[0] - x1 - 30 * self.gui.scale)
 			else:
 				# if self.ddt.get_text_w(line2, 215) > window_size[0] - x1 - 30 * self.gui.scale:
-				#     self.ddt.text((x1 + 15 * self.gui.scale, 19 * self.gui.scale), line2, colours.grey(249), 413,
+				#     self.ddt.text((x1 + 15 * self.gui.scale, 19 * self.gui.scale), line2, self.colours.grey(249), 413,
 				#              window_size[0] - x1 - 35 * self.gui.scale)
 				#
-				#     self.ddt.text((x1 + 15 * self.gui.scale, 43 * self.gui.scale), line1, colours.grey(110), 513,
+				#     self.ddt.text((x1 + 15 * self.gui.scale, 43 * self.gui.scale), line1, self.colours.grey(110), 513,
 				#              window_size[0] - x1 - 35 * self.gui.scale)
 				# else:
 
 				self.ddt.text(
-					(x1 + 15 * self.gui.scale, 18 * self.gui.scale), line2, colours.grey(249), 514,
+					(x1 + 15 * self.gui.scale, 18 * self.gui.scale), line2, self.colours.grey(249), 514,
 					self.window_size[0] - x1 - 30 * self.gui.scale)
 
 				self.ddt.text(
-					(x1 + 15 * self.gui.scale, 43 * self.gui.scale), line1, colours.grey(110), 514,
+					(x1 + 15 * self.gui.scale, 43 * self.gui.scale), line1, self.colours.grey(110), 514,
 					self.window_size[0] - x1 - 30 * self.gui.scale)
 
 		# Show exit/min buttons when mosue over
@@ -28682,9 +28685,9 @@ class MiniMode2:
 				seek_rect = (
 					h, h - round(5 * self.gui.scale), round((w - h) * (self.pctl.playing_time / self.pctl.playing_length)),
 					round(5 * self.gui.scale))
-				colour = colours.artist_text
+				colour = self.colours.artist_text
 				if self.gui.theme_name == "Carbon":
-					colour = colours.bottom_panel_colour
+					colour = self.colours.bottom_panel_colour
 				if self.pctl.playing_state != 1:
 					colour = [210, 40, 100, 255]
 				self.ddt.rect(seek_rect, colour)
@@ -28730,7 +28733,7 @@ class MiniMode3:
 		h1 = h - y1
 
 		# Draw background
-		bg = colours.mini_mode_background
+		bg = self.colours.mini_mode_background
 		bg = [0, 0, 0, 0]
 		# bg = [250, 250, 250, 255]
 
@@ -28784,8 +28787,8 @@ class MiniMode3:
 			self.ddt.rect((ins + 1, ins + 1, wid - 1, wid - 1), [20, 20, 20, 255])
 			self.album_art_gen.display(track, (ins, ins), (wid, wid))
 
-			line1c = [255, 255, 255, 255] #colours.mini_mode_text_1
-			line2c = [255, 255, 255, 255] #colours.mini_mode_text_2
+			line1c = [255, 255, 255, 255] #self.colours.mini_mode_text_1
+			line2c = [255, 255, 255, 255] #self.colours.mini_mode_text_2
 
 			# if h == w and mouse_in_area:
 			#     # self.ddt.pretty_rect = (0, 260 * self.gui.scale, w, 100 * self.gui.scale)
@@ -28858,7 +28861,7 @@ class MiniMode3:
 					progress_w = self.pctl.playing_time * seek_w / self.pctl.playing_length
 				seek_colour = [210, 210, 210, 255]
 				if self.gui.theme_name == "Carbon":
-					seek_colour = colours.bottom_panel_colour
+					seek_colour = self.colours.bottom_panel_colour
 
 				if self.pctl.playing_state != 1:
 					seek_colour = [210, 40, 100, 255]
@@ -28987,9 +28990,9 @@ class MiniMode3:
 			self.tauon.draw_window_tools()
 
 		# if w != h:
-		#     self.ddt.rect_s((1, 1, w - 2, h - 2), colours.mini_mode_border, 1 * self.gui.scale)
+		#     self.ddt.rect_s((1, 1, w - 2, h - 2), self.colours.mini_mode_border, 1 * self.gui.scale)
 		#     if self.gui.scale == 2:
-		#         self.ddt.rect_s((2, 2, w - 4, h - 4), colours.mini_mode_border, 1 * self.gui.scale)
+		#         self.ddt.rect_s((2, 2, w - 4, h - 4), self.colours.mini_mode_border, 1 * self.gui.scale)
 		self.ddt.alpha_bg = False
 
 class StandardPlaylist:
@@ -31807,7 +31810,7 @@ class PlaylistBox:
 
 							ddt.text(
 								(tab_start + tab_width - 10 * gui.scale, int(round(ay)), 1),
-								"+" + str(self.adds[k][1]), colours.pluse_colour, 212, bg=real_bg)
+								"+" + str(self.adds[k][1]), self.colours.pluse_colour, 212, bg=real_bg)
 							gui.update += 1
 
 							ddt.rect(
@@ -31863,6 +31866,7 @@ class ArtistList:
 		self.gui                   = tauon.gui
 		self.coll                  = tauon.coll
 		self.prefs                 = tauon.prefs
+		self.colours               = tauon.colours
 		self.lastfm                = pctl.lastfm
 		self.star_store            = pctl.star_store
 		self.artist_info_box       = pctl.artist_info_box
@@ -32196,7 +32200,7 @@ class ArtistList:
 		back_colour = [30, 30, 30, 255]
 		back_colour_2 = [27, 27, 27, 255]
 		border_colour = [60, 60, 60, 255]
-		# if colours.lm:
+		# if self.colours.lm:
 		#     back_colour = [200, 200, 200, 255]
 		#     back_colour_2 = [240, 240, 240, 255]
 		#     border_colour = [160, 160, 160, 255]
@@ -32326,21 +32330,21 @@ class ArtistList:
 		if self.gui.compact_artist_list:
 			thin_mode = True
 			line2_colour = [115, 115, 115, 255]
-		elif test_lumi(colours.side_panel_background) < 0.55 and not thin_mode:
+		elif test_lumi(self.colours.side_panel_background) < 0.55 and not thin_mode:
 			light_mode = True
 			fade_max = 20
 			line1_colour = [35, 35, 35, 255]
 			line2_colour = [100, 100, 100, 255]
 
 		# Fade on click
-		bg = colours.side_panel_background
+		bg = self.colours.side_panel_background
 		if not thin_mode:
-			if self.coll(area) and is_level_zero(True):
+			if self.coll(area) and self.tauon.is_level_zero(True):
 			# or pctl.get_track(pctl.default_playlist[pctl.playlist_view_position]).artist == artist:
 				self.ddt.rect(area, [50, 50, 50, 50])
-				bg = alpha_blend([50, 50, 50, 50], colours.side_panel_background)
+				bg = alpha_blend([50, 50, 50, 50], self.colours.side_panel_background)
 				if self.prefs.transparent_mode:
-					bg = rgb_add_hls(colours.playlist_box_background, 0, 0.2, 0)
+					bg = rgb_add_hls(self.colours.playlist_box_background, 0, 0.2, 0)
 					self.ddt.rect(area, bg)
 			else:
 				fade = 0
@@ -32354,9 +32358,9 @@ class ArtistList:
 					self.gui.update += 1
 					self.ddt.rect(area, [50, 50, 50, fade])
 
-				bg = alpha_blend([50, 50, 50, fade], colours.side_panel_background)
+				bg = alpha_blend([50, 50, 50, fade], self.colours.side_panel_background)
 				if self.prefs.transparent_mode:
-					bg = colours.side_panel_background
+					bg = self.colours.side_panel_background
 
 		if self.prefs.artist_list_style == 1:
 			self.draw_card_with_thumbnail(artist, x, y, w, area, thin_mode, line1_colour, line2_colour, light_mode, bg)
@@ -32587,8 +32591,8 @@ class ArtistList:
 		area = (x, y, w, h)
 		area2 = (x + 1, y, w - 3, h)
 
-		self.ddt.rect(area, colours.side_panel_background)
-		self.ddt.text_background_colour = colours.side_panel_background
+		self.ddt.rect(area, self.colours.side_panel_background)
+		self.ddt.text_background_colour = self.colours.side_panel_background
 
 		if self.coll(area) and self.inp.mouse_wheel:
 			mx = 1
@@ -32609,7 +32613,7 @@ class ArtistList:
 
 		self.fields.add(area2)
 		scroll_x = x + w - 18 * self.gui.scale
-		if colours.lm:
+		if self.colours.lm:
 			scroll_x = x + w - 22 * self.gui.scale
 		if (self.coll(area2) or self.tauon.artist_list_scroll.held) and not self.tauon.pref_box.enabled:
 			scroll_width = 15 * self.gui.scale
@@ -32635,7 +32639,7 @@ class ArtistList:
 					text = _("Busy...")
 
 			self.ddt.text(
-				(x + w // 2, y + (h // 7), 2), text, alpha_mod(colours.side_bar_line2, 100), 212,
+				(x + w // 2, y + (h // 7), 2), text, alpha_mod(self.colours.side_bar_line2, 100), 212,
 				max_w=w - 17 * self.gui.scale)
 
 		yy = y + 12 * self.gui.scale
@@ -32835,22 +32839,22 @@ class TreeView:
 
 		area = (x, y, w, h)
 		self.fields.add(area)
-		self.ddt.rect(area, colours.side_panel_background)
-		self.ddt.text_background_colour = colours.side_panel_background
+		self.ddt.rect(area, self.colours.side_panel_background)
+		self.ddt.text_background_colour = self.colours.side_panel_background
 
 		if self.background_processing and self.rows_id != pl_id:
 			self.ddt.text(
-				(x + w // 2, y + (h // 7), 2), _("Loading Folder Tree..."), alpha_mod(colours.side_bar_line2, 100),
+				(x + w // 2, y + (h // 7), 2), _("Loading Folder Tree..."), alpha_mod(self.colours.side_bar_line2, 100),
 				212, max_w=w - 17 * self.gui.scale)
 			return
 
 		# if not tree or not self.rows:
-		#     self.ddt.text((x + w // 2, y + (h // 7), 2), _("Folder Tree"), alpha_mod(colours.side_bar_line2, 100),
+		#     self.ddt.text((x + w // 2, y + (h // 7), 2), _("Folder Tree"), alpha_mod(self.colours.side_bar_line2, 100),
 		#              212, max_w=w - 17 * self.gui.scale)
 		#     return
 		if not tree:
 			self.ddt.text(
-				(x + w // 2, y + (h // 7), 2), _("Folder Tree"), alpha_mod(colours.side_bar_line2, 100),
+				(x + w // 2, y + (h // 7), 2), _("Folder Tree"), alpha_mod(self.colours.side_bar_line2, 100),
 				212, max_w=w - 17 * self.gui.scale)
 			return
 
@@ -32866,7 +32870,7 @@ class TreeView:
 
 		if not self.rows:
 			self.ddt.text(
-				(x + w // 2, y + (h // 7), 2), _("Folder Tree"), alpha_mod(colours.side_bar_line2, 100),
+				(x + w // 2, y + (h // 7), 2), _("Folder Tree"), alpha_mod(self.colours.side_bar_line2, 100),
 				212, max_w=w - 17 * self.gui.scale)
 			return
 
@@ -32899,8 +32903,8 @@ class TreeView:
 		playing_track = self.pctl.playing_object()
 		max_w = w - round(45 * self.gui.scale)
 
-		light_mode = test_lumi(colours.side_panel_background) < 0.5
-		semilight_mode = test_lumi(colours.side_panel_background) < 0.8
+		light_mode = test_lumi(self.colours.side_panel_background) < 0.5
+		semilight_mode = test_lumi(self.colours.side_panel_background) < 0.8
 
 		for i, item in enumerate(self.rows):
 
@@ -32917,7 +32921,7 @@ class TreeView:
 			self.fields.add(rect)
 
 			# text_colour = [255, 255, 255, 100]
-			text_colour = rgb_add_hls(colours.side_panel_background, 0, 0.35, -0.15)
+			text_colour = rgb_add_hls(self.colours.side_panel_background, 0, 0.35, -0.15)
 
 			box_colour = [200, 100, 50, 255]
 
@@ -32970,7 +32974,7 @@ class TreeView:
 				elif self.inp.right_click:
 					if item[3]:
 						for p, id in enumerate(self.pctl.multi_playlist[self.pctl.id_to_pl(pl_id)].playlist_ids):
-							if msys:
+							if self.msys:
 								if self.pctl.get_track(id).fullpath.startswith(target.lstrip("/")):
 									self.folder_tree_menu.activate(in_reference=id)
 									self.menu_selected = full_folder_path
@@ -32979,7 +32983,7 @@ class TreeView:
 								self.folder_tree_menu.activate(in_reference=id)
 								self.menu_selected = full_folder_path
 								break
-					elif msys:
+					elif self.msys:
 						self.folder_tree_stem_menu.activate(in_reference=full_folder_path.lstrip("/"))
 						self.menu_selected = full_folder_path.lstrip("/")
 					else:
@@ -33003,11 +33007,10 @@ class TreeView:
 								del opens[s]
 
 					if item[3]:
-
 						# Locate the first track of folder in playlist
 						track_id = None
 						for p, id in enumerate(self.pctl.default_playlist):
-							if msys:
+							if self.msys:
 								if self.pctl.get_track(id).fullpath.startswith(target.lstrip("/")):
 									track_id = id
 									break
@@ -33099,7 +33102,7 @@ class TreeView:
 			elif True:
 				if not mouse_in or self.tree_view_scroll.held:
 					# text_colour = [255, 255, 255, 50]
-					text_colour = rgb_add_hls(colours.side_panel_background, 0, 0.2, -0.10)
+					text_colour = rgb_add_hls(self.colours.side_panel_background, 0, 0.2, -0.10)
 					if semilight_mode:
 						text_colour = [255, 255, 255, 70]
 					if light_mode:
@@ -33125,7 +33128,7 @@ class TreeView:
 			self.gui.shift_selection.clear()
 			self.gui.set_drag_source()
 			for p, id in enumerate(self.pctl.multi_playlist[self.pctl.id_to_pl(pl_id)].playlist_ids):
-				if msys:
+				if self.msys:
 					if self.pctl.get_track(id).fullpath.startswith(
 							self.click_drag_source[1].lstrip("/") + "/" + self.click_drag_source[0] + "/"):
 						self.gui.shift_selection.append(p)
@@ -33236,11 +33239,12 @@ class QueueBox:
 
 	def __init__(self, tauon: Tauon, pctl: PlayerCtl):
 		self.pctl       = pctl
-		self.coll       = tauon.coll
-		self.queue_menu = tauon.queue_menu
 		self.ddt        = tauon.ddt
 		self.gui        = tauon.gui
 		self.inp        = tauon.inp
+		self.coll       = tauon.coll
+		self.colours    = tauon.colours
+		self.queue_menu = tauon.queue_menu
 		self.dragging = None
 		self.fq = []
 		self.drag_start_y = 0
@@ -33432,15 +33436,15 @@ class QueueBox:
 	) -> None:
 
 		# text_colour = [230, 230, 230, 255]
-		bg = colours.queue_background
+		bg = self.colours.queue_background
 
 		# if fq[i].type == 0:
 
 		rect = (x + 13 * self.gui.scale, yy, w - 28 * self.gui.scale, self.tab_h)
 
 		if draw_back:
-			self.ddt.rect(rect, colours.queue_card_background)
-			bg = colours.queue_card_background
+			self.ddt.rect(rect, self.colours.queue_card_background)
+			bg = self.colours.queue_card_background
 
 		text_colour1 = rgb_add_hls(bg, 0, 0.28, -0.15)  # [255, 255, 255, 70]
 		text_colour2 = [255, 255, 255, 230]
@@ -33493,26 +33497,26 @@ class QueueBox:
 		yy = y
 		yy += round(4 * self.gui.scale)
 
-		sep_colour = alpha_blend([255, 255, 255, 11], colours.queue_background)
+		sep_colour = alpha_blend([255, 255, 255, 11], self.colours.queue_background)
 
 		if y > self.gui.panelY + 10 * self.gui.scale:  # Draw fancy light mode border
 			self.gui.queue_frame_draw = y
 		# else:
-		#     if not colours.lm:
-		#         self.ddt.rect((x, y, w, 3 * self.gui.scale),  colours.queue_background, True)
+		#     if not self.colours.lm:
+		#         self.ddt.rect((x, y, w, 3 * self.gui.scale),  self.colours.queue_background, True)
 
 		yy += round(3 * self.gui.scale)
 
 		box_rect = (x, yy - 6 * self.gui.scale, w, h)
-		self.ddt.rect(box_rect, colours.queue_background)
-		self.ddt.text_background_colour = colours.queue_background
+		self.ddt.rect(box_rect, self.colours.queue_background)
+		self.ddt.text_background_colour = self.colours.queue_background
 
 		if self.coll(box_rect) and self.inp.quick_drag and not self.pctl.force_queue:
 			self.ddt.rect(box_rect, [255, 255, 255, 2])
 			self.ddt.text_background_colour = alpha_blend([255, 255, 255, 2], self.ddt.text_background_colour)
 
 		# if y < self.gui.panelY * 2:
-		#     self.ddt.rect((x, y - 3 * self.gui.scale, w, 30 * self.gui.scale), colours.queue_background, True)
+		#     self.ddt.rect((x, y - 3 * self.gui.scale, w, 30 * self.gui.scale), self.colours.queue_background, True)
 
 		if h > 40 * self.gui.scale:
 			if not self.pctl.force_queue:
@@ -33520,7 +33524,7 @@ class QueueBox:
 					text = _("Add to Queue")
 				else:
 					text = _("Queue")
-				self.ddt.text((x + (w // 2), y + 15 * self.gui.scale, 2), text, alpha_mod(colours.index_text, 200), 212)
+				self.ddt.text((x + (w // 2), y + 15 * self.gui.scale, 2), text, alpha_mod(self.colours.index_text, 200), 212)
 
 		qb_right_click = 0
 
@@ -33533,8 +33537,8 @@ class QueueBox:
 				qb_right_click = 1
 
 		# text_colour = [255, 255, 255, 91]
-		text_colour = rgb_add_hls(colours.queue_background, 0, 0.3, -0.15)
-		if test_lumi(colours.queue_background) < 0.2:
+		text_colour = rgb_add_hls(self.colours.queue_background, 0, 0.3, -0.15)
+		if test_lumi(self.colours.queue_background) < 0.2:
 			text_colour = [0, 0, 0, 200]
 
 		line = _("Up Next:")
@@ -33703,7 +33707,7 @@ class QueueBox:
 						insert_position = None
 
 						if y1 < self.inp.mouse_position[1] < y1 + h1:
-							self.ddt.rect((x1, yy - 2 * self.gui.scale, w1, 2 * self.gui.scale), colours.queue_drag_indicator_colour)
+							self.ddt.rect((x1, yy - 2 * self.gui.scale, w1, 2 * self.gui.scale), self.colours.queue_drag_indicator_colour)
 							showed_indicator = True
 
 							if self.inp.mouse_up:
@@ -33711,7 +33715,7 @@ class QueueBox:
 						elif y2 < self.inp.mouse_position[1] < y2 + self.tab_h + 5 * self.gui.scale:
 							self.ddt.rect(
 								(x1, yy + self.tab_h + 2 * self.gui.scale, w1, 2 * self.gui.scale),
-								colours.queue_drag_indicator_colour)
+								self.colours.queue_drag_indicator_colour)
 							showed_indicator = True
 
 							if self.inp.mouse_up:
@@ -33731,7 +33735,7 @@ class QueueBox:
 			1] > yy - 4 * self.gui.scale and self.coll(box_rect):
 			yy -= self.tab_h
 			yy -= 4 * self.gui.scale
-			self.ddt.rect((x1, yy + self.tab_h + 2 * self.gui.scale, w1, 2 * self.gui.scale), colours.queue_drag_indicator_colour)
+			self.ddt.rect((x1, yy + self.tab_h + 2 * self.gui.scale, w1, 2 * self.gui.scale), self.colours.queue_drag_indicator_colour)
 			yy += self.tab_h
 			yy += 4 * self.gui.scale
 
@@ -33782,10 +33786,10 @@ class QueueBox:
 		if tracks and fq:
 			if tracks < 2:
 				line = _("{N} Track").format(N=str(tracks)) + " [" + get_hms_time(duration) + "]"
-				self.ddt.text((x + 12 * self.gui.scale, yy), line, text_colour, 11.5, bg=colours.queue_background)
+				self.ddt.text((x + 12 * self.gui.scale, yy), line, text_colour, 11.5, bg=self.colours.queue_background)
 			else:
 				line = _("{N} Tracks").format(N=str(tracks)) + " [" + get_hms_time(duration) + "]"
-				self.ddt.text((x + 12 * self.gui.scale, yy), line, text_colour, 11.5, bg=colours.queue_background)
+				self.ddt.text((x + 12 * self.gui.scale, yy), line, text_colour, 11.5, bg=self.colours.queue_background)
 
 		if self.dragging:
 			fqo = None
@@ -33951,7 +33955,7 @@ class MetaBox:
 			jump_distance=160 * self.gui.scale) * -1
 
 		margin = 10 * self.gui.scale
-		if colours.lm:
+		if self.colours.lm:
 			margin += 1 * self.gui.scale
 
 		self.lyrics_ren_mini.render(
@@ -33960,7 +33964,7 @@ class MetaBox:
 			w - 50 * self.gui.scale,
 			None, 0)
 
-		self.ddt.rect((x, y + h - 1, w, 1), colours.side_panel_background)
+		self.ddt.rect((x, y + h - 1, w, 1), self.colours.side_panel_background)
 
 		self.tauon.lyric_side_top_pulse.render(x, y, w - round(17 * self.gui.scale), 16 * self.gui.scale)
 		self.tauon.lyric_side_bottom_pulse.render(x, y + h, w - round(17 * self.gui.scale), 15 * self.gui.scale, bottom=True)
@@ -34237,8 +34241,8 @@ class ArtistInfoBox:
 		if self.inp.right_click and self.coll((x, y, w, h)):
 			self.artist_info_menu.activate(in_reference=artist)
 
-		background = colours.artist_bio_background
-		text_colour = colours.artist_bio_text
+		background = self.colours.artist_bio_background
+		text_colour = self.colours.artist_bio_text
 		self.ddt.rect((x + 10, y + 5, w - 15, h - 5), background)
 
 		if artist != self.artist_on:
@@ -35670,6 +35674,7 @@ class DLMon:
 
 	def __init__(self, tauon: Tauon) -> None:
 		self.tauon = tauon
+		self.msys  = tauon.msys
 		self.ticker = Timer()
 		self.ticker.force_set(8)
 
@@ -35712,7 +35717,7 @@ class DLMon:
 				min_age = (time.time() - stamp) / 60
 				ext = os.path.splitext(path)[1][1:].lower()
 
-				if msys and "TauonMusicBox" in path:
+				if self.msys and "TauonMusicBox" in path:
 					continue
 
 				if min_age < 240 and os.path.isfile(path) and ext in bag.formats.Archive_Formats:
@@ -35872,9 +35877,10 @@ class EdgePulse:
 class EdgePulse2:
 
 	def __init__(self, tauon: Tauon) -> None:
-		self.inp = tauon.inp
-		self.ddt = tauon.ddt
-		self.gui = tauon.gui
+		self.inp     = tauon.inp
+		self.ddt     = tauon.ddt
+		self.gui     = tauon.gui
+		self.colours = tauon.colours
 		self.timer = Timer()
 		self.timer.force_set(10)
 		self.ani_duration = 0.22
@@ -35893,7 +35899,7 @@ class EdgePulse2:
 			alpha = 30 - int(25 * (time / self.ani_duration))
 			h_off = (h // 5) * (time / self.ani_duration) * 4
 
-			if colours.lm:
+			if self.colours.lm:
 				colour = (0, 0, 0, alpha)
 			else:
 				colour = (255, 255, 255, alpha)
@@ -35912,8 +35918,8 @@ class EdgePulse2:
 class Undo:
 
 	def __init__(self, tauon: Tauon) -> None:
-		self.pctl = tauon.pctl
 		self.gui  = tauon.gui
+		self.pctl = tauon.pctl
 		self.e = []
 
 	def undo(self) -> None:
@@ -38679,7 +38685,7 @@ def worker1(tauon: Tauon) -> None:
 					if not gui.sync_progress:
 						if not gui.message_box:
 							tauon.show_message(_("Encoding complete."), line, mode="done")
-						if system == "Linux" and bag.de_notify_support:
+						if tauon.system == "Linux" and tauon.de_notify_support:
 							g_tc_notify.show()
 
 		if tauon.to_scan:
