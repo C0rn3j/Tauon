@@ -35766,7 +35766,7 @@ class DLMon:
 								pass
 								#logging.info("Target folder for archive already exists")
 
-							elif archive_file_scan(path, self.formats.DA_Formats, launch_prefix) >= 0.4:
+							elif archive_file_scan(path, self.formats.DA_Formats, self.tauon.launch_prefix) >= 0.4:
 								self.ready.add(path)
 								self.gui.update += 1
 								#logging.info("Archive detected as music")
@@ -38216,7 +38216,7 @@ def worker1(tauon: Tauon) -> None:
 							try:
 								gui.to_got = "ex"
 								gui.update += 1
-								line = launch_prefix + "unrar x -y -p- " + shlex.quote(path) + " " + shlex.quote(
+								line = tauon.launch_prefix + "unrar x -y -p- " + shlex.quote(path) + " " + shlex.quote(
 									target_dir) + os.sep
 								result = subprocess.run(shlex.split(line), check=True)
 								logging.info(result)
@@ -38232,7 +38232,7 @@ def worker1(tauon: Tauon) -> None:
 							try:
 								gui.to_got = "ex"
 								gui.update += 1
-								line = launch_prefix + "7z x -y " + shlex.quote(path) + " -o" + shlex.quote(
+								line = tauon.launch_prefix + "7z x -y " + shlex.quote(path) + " -o" + shlex.quote(
 									target_dir) + os.sep
 								result = subprocess.run(shlex.split(line), check=True)
 								logging.info(result)
