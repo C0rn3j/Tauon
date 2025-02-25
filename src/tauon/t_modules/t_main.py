@@ -14316,7 +14316,7 @@ class Tauon:
 		self.pctl.multi_playlist[ref].hide_title ^= 1
 		self.gui.pl_update = 1
 
-	def transcode_single(self, item: list[tuple[int, str]], manual_directory: str | None = None, manual_name: str | None = None):
+	def transcode_single(self, item: list[tuple[int, str]], manual_directory: Path | None = None, manual_name: str | None = None):
 		if manual_directory != None:
 			codec = "opus"
 			output = manual_directory
@@ -14362,7 +14362,7 @@ class Tauon:
 
 		if not (output / _("output")).exists():
 			(output / _("output")).mkdir()
-		target_out = str(output / _("output") / (str(track) + "." + codec))
+		target_out = str(output / f'{_("output")}{track}.{codec})')
 
 		command = self.get_ffmpeg() + " "
 
@@ -38652,7 +38652,7 @@ def worker1(tauon: Tauon) -> None:
 					q = 0
 					while True:
 						if tauon.core_use < cores and q < len(folder_items):
-							agg = [[folder_items[q], folder_name]]
+							agg = [[folder_items[q], Path(folder_name)]]
 							if agg not in dones:
 								tauon.core_use += 1
 								dones.append(agg)
