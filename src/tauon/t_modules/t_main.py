@@ -25131,12 +25131,13 @@ class Over:
 			elif old is True and x11 is False:
 				os.remove(x11_path)
 
-	def toggle_x_scale(self, mode: int = 0) -> None:
+	def toggle_x_scale(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return self.prefs.x_scale
 		self.prefs.x_scale ^= True
 		auto_scale(self.bag)
 		self.gui.update_layout = True
+		return None
 
 	def about(self, x0: int, y0: int, w0: int, h0: int) -> None:
 		gui     = self.gui
