@@ -14360,9 +14360,9 @@ class Tauon:
 
 		out_line = encode_track_name(t)
 
-		if not (output / _("output")).exists():
-			(output / _("output")).mkdir()
-		target_out = str(output / f'{_("output")}{track}.{codec})')
+		if not (output / "output").exists():
+			(output / "output").mkdir()
+		target_out = str(output / f"output{track}.{codec})")
 
 		command = self.get_ffmpeg() + " "
 
