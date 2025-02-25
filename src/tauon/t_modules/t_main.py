@@ -5019,11 +5019,12 @@ class Menu:
 class GallClass:
 	def __init__(self, tauon: Tauon, size: int = 250, save_out: bool = True) -> None:
 		self.tauon                = tauon
-		self.tls_context          = tauon.bag.tls_context
-		self.renderer             = tauon.bag.renderer
-		self.ddt                  = tauon.bag.ddt
-		self.folder_image_offsets = tauon.bag.folder_image_offsets
-		self.g_cache_directory    = tauon.bag.dirs.g_cache_directory
+		self.tls_context          = tauon.tls_context
+		self.renderer             = tauon.renderer
+		self.ddt                  = tauon.ddt
+		self.quickthumbnail       = tauon.quickthumbnail
+		self.folder_image_offsets = tauon.folder_image_offsets
+		self.g_cache_directory    = tauon.g_cache_directory
 		self.gui                  = tauon.gui
 		self.prefs                = tauon.prefs
 		self.search_over          = tauon.search_over
@@ -5051,8 +5052,8 @@ class GallClass:
 		# time.sleep(0.1)
 
 		if self.search_over.active:
-			while QuickThumbnail.queue:
-				img = QuickThumbnail.queue.pop(0)
+			while self.quickthumbnail.queue:
+				img = self.quickthumbnail.queue.pop(0)
 				response = urllib.request.urlopen(img.url, context=self.tls_context)
 				source_image = io.BytesIO(response.read())
 				img.read_and_thumbnail(source_image, img.size, img.size)
@@ -5642,8 +5643,8 @@ class Tauon:
 		self.album_mode:                     bool = False
 		self.console                              = bag.console
 		self.TrackClass                           = TrackClass
+		self.quickthumbnail                       = QuickThumbnail(tauon=self)
 		self.gall_ren                             = GallClass(tauon=self, size=self.album_mode_art_size)
-		self.QuickThumbnail                       = QuickThumbnail
 		self.thumb_tracks                         = ThumbTracks(tauon=self)
 		self.chunker                              = Chunker()
 		self.stream_proxy                         = StreamEnc(self)
@@ -40214,8 +40215,6 @@ def main(holder: Holder) -> None:
 
 	if prefs.prefer_side is False:
 		gui.rsp = False
-
-	QuickThumbnail.renderer = holder.renderer
 
 	if system == "Windows" or msys:
 		from lynxtray import SysTrayIcon
