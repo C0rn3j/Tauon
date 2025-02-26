@@ -67,6 +67,7 @@ import subprocess
 import sys
 import threading
 import time
+#import type_enforced
 import urllib.parse
 import urllib.request
 import webbrowser
@@ -46664,3 +46665,5 @@ def main(holder: Holder) -> None:
 		shutil.rmtree(cache_dir)
 
 	logging.info("Bye!")
+
+#type_enforced.Enforcer(sys.modules[__name__])
