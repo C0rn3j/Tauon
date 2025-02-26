@@ -5347,7 +5347,7 @@ class Tauon:
 		self.gme                          = bag.gme
 		self.ddt                          = bag.ddt
 		self.fonts                        = bag.fonts
-#		self.mod_formats                  = bag.formats.MOD_Formats
+#		self.mod_formats                  = bag.formats.MOD
 		self.formats                      = bag.formats
 		self.macos                        = bag.macos
 		self.mac_close                    = bag.mac_close
@@ -5681,7 +5681,7 @@ class Tauon:
 		self.librespot_p = None
 		self.MenuItem = MenuItem
 
-		self.gme_formats = bag.formats.GME_Formats
+		self.gme_formats = bag.formats.GME
 
 		self.chrome: Chrome | None = None
 		self.chrome_menu = self.x_menu
@@ -15382,7 +15382,7 @@ class Tauon:
 			nt.misc.clear()
 			nt.file_ext = os.path.splitext(os.path.basename(nt.fullpath))[1][1:].upper()
 
-			if nt.file_ext.lower() in self.bag.formats.GME_Formats and self.gme:
+			if nt.file_ext.lower() in self.bag.formats.GME and self.gme:
 				emu = ctypes.c_void_p()
 				track_info = ctypes.POINTER(GMETrackInfo)()
 				err = self.gme.gme_open_file(nt.fullpath.encode("utf-8"), ctypes.byref(emu), -1)
@@ -15591,7 +15591,7 @@ class Tauon:
 			else:
 				# Use MUTAGEN
 				try:
-					if nt.file_ext.lower() in self.bag.formats.VID_Formats:
+					if nt.file_ext.lower() in self.bag.formats.VID:
 						self.scan_ffprobe(nt)
 						return nt
 
@@ -25692,8 +25692,8 @@ class Over:
 
 				for key, value in self.ext_ratio.items():
 					colour = [200, 200, 200, 255]
-					if key in self.formats.format_colours:
-						colour = self.formats.format_colours[key]
+					if key in self.formats.colours:
+						colour = self.formats.colours[key]
 
 					colour = colorsys.rgb_to_hls(colour[0] / 255, colour[1] / 255, colour[2] / 255)
 					colour = colorsys.hls_to_rgb(1 - colour[0], colour[1] * 0.8, colour[2] * 0.8)
@@ -33220,7 +33220,7 @@ class TreeView:
 			path = track.parent_folder_path
 			if path not in paths:
 				paths.append(path)
-				self.folder_colour_cache[path] = self.formats.format_colours.get(track.file_ext)
+				self.folder_colour_cache[path] = self.formats.colours.get(track.file_ext)
 
 		# Genterate tree from folder paths
 		tree = []
@@ -35747,7 +35747,7 @@ class DLMon:
 				if self.msys and "TauonMusicBox" in path:
 					continue
 
-				if min_age < 240 and os.path.isfile(path) and ext in self.formats.Archive_Formats:
+				if min_age < 240 and os.path.isfile(path) and ext in self.formats.Archive:
 					size = os.path.getsize(path)
 					#logging.info("Check: " + path)
 					if path in self.watching:
@@ -35767,7 +35767,7 @@ class DLMon:
 								pass
 								#logging.info("Target folder for archive already exists")
 
-							elif archive_file_scan(path, self.formats.DA_Formats, self.tauon.launch_prefix) >= 0.4:
+							elif archive_file_scan(path, self.formats.DA, self.tauon.launch_prefix) >= 0.4:
 								self.ready.add(path)
 								self.gui.update += 1
 								#logging.info("Archive detected as music")
@@ -35798,7 +35798,7 @@ class DLMon:
 						# Check if size is stable, then scan for audio files
 						if size == self.watching[path]:
 							del self.watching[path]
-							if folder_file_scan(path, self.formats.DA_Formats) > 0.5:
+							if folder_file_scan(path, self.formats.DA) > 0.5:
 
 								# Check if folder not already imported
 								imported = False
@@ -36177,12 +36177,12 @@ class Formats:
 	* Extensions of files to be added when importing
 	"""
 
-	format_colours:  dict[str, tuple[int, int, int, int]]
-	VID_Formats:     set[str]
-	MOD_Formats:     set[str]
-	GME_Formats:     set[str]
-	DA_Formats:      set[str]
-	Archive_Formats: set[str]
+	colours: dict[str, tuple[int, int, int, int]]
+	VID:     set[str]
+	MOD:     set[str]
+	GME:     set[str]
+	DA:      set[str]
+	Archive: set[str]
 
 def get_cert_path(holder: Holder) -> str:
 	if holder.pyinstaller_mode:
@@ -36610,9 +36610,9 @@ def load_prefs(bag: Bag) -> None:
 		"bool", "allow-video-formats", prefs.allow_video_formats,
 		"Allow the import of MP4 and WEBM formats")
 	if prefs.allow_video_formats:
-		for item in bag.formats.VID_Formats:
-			if item not in bag.formats.DA_Formats:
-				bag.formats.DA_Formats.add(item)
+		for item in bag.formats.VID:
+			if item not in bag.formats.DA:
+				bag.formats.DA.add(item)
 
 	cf.br()
 	cf.add_text("[HiDPI]")
@@ -38001,7 +38001,7 @@ def worker1(tauon: Tauon) -> None:
 							logging.info("-- The referenced source file wasn't found. Searching for matching file name...")
 							for item in os.listdir(os.path.dirname(path)):
 								if os.path.splitext(item)[0] == os.path.splitext(os.path.basename(path))[0]:
-									if ".cue" not in item.lower() and item.split(".")[-1].lower() in bag.formats.DA_Formats:
+									if ".cue" not in item.lower() and item.split(".")[-1].lower() in bag.formats.DA:
 										file_name = item
 										file_path = os.path.join(os.path.dirname(path), file_name)
 										logging.info("-- Source found at: " + file_path)
@@ -38162,8 +38162,8 @@ def worker1(tauon: Tauon) -> None:
 			tauon.load_pls(path)
 			return 0
 
-		if os.path.splitext(path)[1][1:].lower() not in bag.formats.DA_Formats:
-			if os.path.splitext(path)[1][1:].lower() in bag.formats.Archive_Formats:
+		if os.path.splitext(path)[1][1:].lower() not in bag.formats.DA:
+			if os.path.splitext(path)[1][1:].lower() in bag.formats.Archive:
 				if not prefs.auto_extract:
 					tauon.show_message(
 						_("You attempted to drop an archive."),
@@ -38289,7 +38289,7 @@ def worker1(tauon: Tauon) -> None:
 				logging.info("File has an associated .cue file... Skipping")
 				return None
 
-			if pctl.master_library[de].file_ext.lower() in bag.formats.GME_Formats:
+			if pctl.master_library[de].file_ext.lower() in bag.formats.GME:
 				# Skip cache for subtrack formats
 				pass
 			else:
@@ -38322,7 +38322,7 @@ def worker1(tauon: Tauon) -> None:
 			tauon.tag_scan(nt)
 			tauon.cue_scan(nt.cue_sheet, nt)
 			del nt
-		elif nt.file_ext.lower() in bag.formats.GME_Formats and gme:
+		elif nt.file_ext.lower() in bag.formats.GME and gme:
 			emu = ctypes.c_void_p()
 			err = gme.gme_open_file(nt.fullpath.encode("utf-8"), ctypes.byref(emu), -1)
 			if not err:
@@ -38391,7 +38391,7 @@ def worker1(tauon: Tauon) -> None:
 				continue
 			if os.path.isdir(os.path.join(direc, items_in_dir[q])) is False:
 
-				if os.path.splitext(items_in_dir[q])[1][1:].lower() in bag.formats.DA_Formats:
+				if os.path.splitext(items_in_dir[q])[1][1:].lower() in bag.formats.DA:
 					if len(items_in_dir[q]) > 2 and items_in_dir[q][0:2] == "._":
 						continue
 
@@ -39335,7 +39335,7 @@ def main(holder: Holder) -> None:
 	MOD_Formats = {"xm", "mod", "s3m", "it", "mptm", "umx", "okt", "mtm", "669", "far", "wow", "dmf", "med", "mt2", "ult"}
 	GME_Formats = {"ay", "gbs", "gym", "hes", "kss", "nsf", "nsfe", "sap", "spc", "vgm", "vgz"}
 	formats = Formats(
-		format_colours = {
+		colours = {
 			"MP3":   [255, 130, 80,  255],  # Burnt orange
 			"FLAC":  [156, 249, 79,  255],  # Bright lime green
 			"M4A":   [81,  220, 225, 255],  # Soft cyan
@@ -39372,14 +39372,14 @@ def main(holder: Holder) -> None:
 			"VGM":   [0,   128, 255, 255],  # Deep blue
 			"VGZ":   [0,   128, 255, 255],  # Deep blue
 		},
-		VID_Formats = {"mp4", "webm"},
-		MOD_Formats = MOD_Formats,
-		GME_Formats = GME_Formats,
-		DA_Formats = {
+		VID = {"mp4", "webm"},
+		MOD = MOD_Formats,
+		GME = GME_Formats,
+		DA = {
 			"mp3", "wav", "opus", "flac", "ape", "aiff",
 			"m4a", "ogg", "oga", "aac", "tta", "wv", "wma",
 		} | MOD_Formats | GME_Formats,
-		Archive_Formats = Archive_Formats,
+		Archive = Archive_Formats,
 	)
 
 
@@ -45055,8 +45055,8 @@ def main(holder: Holder) -> None:
 
 						line = tc.file_ext
 						ex_colour = [130, 130, 130, 255]
-						if line in tauon.formats.format_colours:
-							ex_colour = tauon.formats.format_colours[line]
+						if line in tauon.formats.colours:
+							ex_colour = tauon.formats.colours[line]
 
 						# Spotify icon rendering
 						if line == "SPTY":
@@ -45087,8 +45087,8 @@ def main(holder: Holder) -> None:
 								e_colour = [130, 130, 130, 255]
 								if "container" in tc.misc:
 									line = tc.misc["container"].upper()
-									if line in tauon.formats.format_colours:
-										e_colour = tauon.formats.format_colours[line]
+									if line in tauon.formats.colours:
+										e_colour = tauon.formats.colours[line]
 
 								ddt.rect(ext_rect, e_colour)
 								colour = alpha_blend([10, 10, 10, 235], e_colour)
