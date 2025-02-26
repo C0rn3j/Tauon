@@ -371,9 +371,9 @@ class SpotCtl:
 				img = QuickThumbnail(self.tauon)
 				img.url = album.images[-1].url
 				img.size = round(50 * self.tauon.gui.scale)
-				self.tauon.quickthumbnail().items.append(img)
+				self.tauon.quickthumbnail.items.append(img)
 				if i < 10:
-					self.tauon.quickthumbnail().queue.append(img)
+					self.tauon.quickthumbnail.queue.append(img)
 				try:
 					self.tauon.gall_ren.lock.release()
 				except Exception:
