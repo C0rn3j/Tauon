@@ -5296,18 +5296,17 @@ class ThumbTracks:
 		self.album_art_gen = tauon.album_art_gen
 
 	def pixbuf(self, track: TrackClass) -> GdkPixbuf | None:
-
 		try:
 			source, offset = self.tauon.gall_ren.get_file_source(track)
 			if source is False:  # No art
 				return None
 			source_image = self.album_art_gen.get_source_raw(0, 0, track, subsource=source)
-			im = Image.open(source_image)
-			if im.mode != "RGB":
-				im = im.convert("RGB")
-			im.thumbnail((512, 512), Image.Resampling.LANCZOS)
-			width, height = im.size
-			data = im.tobytes()
+			with Image.open(source_image) as im:
+				if im.mode != "RGB":
+					im = im.convert("RGB")
+				im.thumbnail((512, 512), Image.Resampling.LANCZOS)
+				width, height = im.size
+				data = im.tobytes()
 			pixbuf = GdkPixbuf.Pixbuf.new_from_data(data, GdkPixbuf.Colorspace.RGB, False, 8, width, height, width * 3)
 			return pixbuf
 		except:
@@ -5330,12 +5329,12 @@ class ThumbTracks:
 
 		source_image = self.album_art_gen.get_source_raw(0, 0, track, subsource=source)
 
-		im = Image.open(source_image)
-		if im.mode != "RGB":
-			im = im.convert("RGB")
-		im.thumbnail((1000, 1000), Image.Resampling.LANCZOS)
+		with Image.open(source_image) as im:
+			if im.mode != "RGB":
+				im = im.convert("RGB")
+			im.thumbnail((1000, 1000), Image.Resampling.LANCZOS)
 
-		im.save(t_path, "JPEG")
+			im.save(t_path, "JPEG")
 
 		return t_path
 
