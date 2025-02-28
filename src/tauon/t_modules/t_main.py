@@ -4527,7 +4527,7 @@ class MenuItem:
 
 class ThreadManager:
 	def __init__(self, tauon: Tauon) -> None:
-		self.prefs = tauon.bag.prefs
+		self.prefs = tauon.prefs
 		self.tauon = tauon
 		self.worker1:  threading.Thread | None = None  # Artist list, download monitor, folder move, importing, db cleaning, transcoding
 		self.worker2:  threading.Thread | None = None  # Art bg, search
@@ -5344,7 +5344,8 @@ class Tauon:
 		self.bag                          = bag
 		self.mpt                          = bag.mpt
 		self.gme                          = bag.gme
-		self.ddt                          = bag.ddt
+		self.renderer                     = bag.renderer
+		self.ddt                          = TDraw(bag.renderer)
 		self.fonts                        = bag.fonts
 #		self.mod_formats                  = bag.formats.MOD
 		self.formats                      = bag.formats
@@ -5389,7 +5390,6 @@ class Tauon:
 		self.t_id                         = holder.t_id
 		self.fs_mode                      = holder.fs_mode
 		self.window_default_size          = holder.window_default_size
-		self.renderer                     = bag.renderer
 		self.window_title                 = holder.window_title
 		self.logical_size                 = bag.logical_size
 		self.window_size                  = bag.window_size
@@ -6031,11 +6031,11 @@ class Tauon:
 					self.top_panel.restore_button.render(rect[0] + 8 * gui.scale, rect[1] + 9 * gui.scale, fg_off)
 
 	def draw_window_border(self) -> None:
-		ddt         = self.bag.ddt
-		colours     = self.bag.colours
+		ddt         = self.ddt
+		colours     = self.colours
 		gui         = self.gui
 		corner_icon = self.gui.corner_icon
-		window_size = self.bag.window_size
+		window_size = self.window_size
 
 		corner_icon.render(window_size[0] - corner_icon.w, window_size[1] - corner_icon.h, colours.corner_icon)
 
@@ -12043,7 +12043,7 @@ class Tauon:
 	def update_layout_do(self) -> None:
 		window_size = self.window_size
 		prefs = self.prefs
-		dirs = self.bag.dirs
+		dirs = self.dirs
 		ddt = self.ddt
 		gui = self.gui
 		if prefs.scale_want != gui.scale:
@@ -12439,7 +12439,7 @@ class Tauon:
 					gui.max_window_tex += 1000
 
 				gui.tracklist_texture_rect = sdl3.SDL_FRect(0, 0, gui.max_window_tex, gui.max_window_tex)
-				renderer = self.bag.renderer
+				renderer = self.renderer
 				sdl3.SDL_DestroyTexture(gui.tracklist_texture)
 				sdl3.SDL_RenderClear(renderer)
 				gui.tracklist_texture = sdl3.SDL_CreateTexture(
@@ -15381,7 +15381,7 @@ class Tauon:
 			nt.misc.clear()
 			nt.file_ext = os.path.splitext(os.path.basename(nt.fullpath))[1][1:].upper()
 
-			if nt.file_ext.lower() in self.bag.formats.GME and self.gme:
+			if nt.file_ext.lower() in self.formats.GME and self.gme:
 				emu = ctypes.c_void_p()
 				track_info = ctypes.POINTER(GMETrackInfo)()
 				err = self.gme.gme_open_file(nt.fullpath.encode("utf-8"), ctypes.byref(emu), -1)
@@ -15590,7 +15590,7 @@ class Tauon:
 			else:
 				# Use MUTAGEN
 				try:
-					if nt.file_ext.lower() in self.bag.formats.VID:
+					if nt.file_ext.lower() in self.formats.VID:
 						self.scan_ffprobe(nt)
 						return nt
 
@@ -15706,7 +15706,7 @@ class Tauon:
 		return nt
 
 	def notify_song(self, notify_of_end: bool = False, delay: float = 0.0) -> None:
-		if not self.bag.de_notify_support:
+		if not self.de_notify_support:
 			return
 
 		if notify_of_end and self.prefs.end_setting != "stop":
@@ -16269,7 +16269,7 @@ class Tauon:
 			0,  # save time (unused)
 			gui.vis_want,  # gui.vis
 			pctl.selected_in_playlist,
-			self.bag.album_mode_art_size,
+			self.album_mode_art_size,
 			self.draw_border,
 			prefs.enable_web,
 			prefs.allow_remote,
@@ -16912,7 +16912,7 @@ class Tauon:
 		self.prefs.show_notifications ^= True
 
 		if self.prefs.show_notifications:
-			if not self.bag.de_notify_support:
+			if not self.de_notify_support:
 				self.show_message(_("Notifications for this DE not supported"), "", mode="warning")
 		return None
 
@@ -17453,17 +17453,17 @@ class Tauon:
 			gwp = get_window_position(self.t_window)
 			i_x = gmp[0] - gwp[0]
 			i_x = max(i_x, 0)
-			i_x = min(i_x, self.bag.window_size[0])
+			i_x = min(i_x, self.window_size[0])
 			i_y = gmp[1] - gwp[1]
 			i_y = max(i_y, 0)
-			i_y = min(i_y, self.bag.window_size[1])
+			i_y = min(i_y, self.window_size[1])
 		else:
 			i_y = pointer(c_int(0))
 			i_x = pointer(c_int(0))
 
 			sdl3.SDL_GetMouseState(i_x, i_y)
-			i_y = i_y.contents.value / self.bag.logical_size[0] * self.bag.window_size[0]
-			i_x = i_x.contents.value / self.bag.logical_size[0] * self.bag.window_size[0]
+			i_y = i_y.contents.value / self.logical_size[0] * self.window_size[0]
+			i_x = i_x.contents.value / self.logical_size[0] * self.window_size[0]
 
 		#logging.info((i_x, i_y))
 		self.gui.drop_playlist_target = 0
@@ -19031,8 +19031,8 @@ class DropShadow:
 
 	def __init__(self, tauon: Tauon) -> None:
 		self.gui      = tauon.gui
-		self.ddt      = tauon.bag.ddt
-		self.renderer = tauon.bag.renderer
+		self.ddt      = tauon.ddt
+		self.renderer = tauon.renderer
 		self.readys = {}
 		self.underscan = int(15 * tauon.gui.scale)
 		self.radius = 4
@@ -19088,8 +19088,8 @@ class LyricsRenMini:
 
 	def __init__(self, tauon: Tauon) -> None:
 		self.pctl  = tauon.pctl
-		self.ddt   = tauon.bag.ddt
-		self.colours = tauon.bag.colours
+		self.ddt   = tauon.ddt
+		self.colours = tauon.colours
 		self.prefs = tauon.prefs
 		self.index = -1
 		self.text  = ""
@@ -19118,8 +19118,8 @@ class LyricsRenMini:
 class LyricsRen:
 
 	def __init__(self, tauon: Tauon) -> None:
-		self.ddt     = tauon.bag.ddt
-		self.colours = tauon.bag.colours
+		self.ddt     = tauon.ddt
+		self.colours = tauon.colours
 		self.index = -1
 		self.text = ""
 
@@ -20138,8 +20138,8 @@ class AlbumArt:
 		self.inp                  = tauon.inp
 		self.gui                  = tauon.gui
 		self.prefs                = tauon.prefs
-		self.a_cache_directory    = tauon.bag.dirs.a_cache_directory
-		self.b_cache_directory    = tauon.bag.dirs.b_cache_directory
+		self.a_cache_directory    = tauon.dirs.a_cache_directory
+		self.b_cache_directory    = tauon.dirs.b_cache_directory
 		self.style_overlay        = style_overlay
 		self.colours              = tauon.colours
 		self.ddt                  = tauon.ddt
@@ -21144,8 +21144,8 @@ class StyleOverlay:
 		self.ddt            = tauon.ddt
 		self.pctl           = tauon.pctl
 		self.prefs          = tauon.prefs
-		self.renderer       = tauon.bag.renderer
-		self.window_size    = tauon.bag.window_size
+		self.renderer       = tauon.renderer
+		self.window_size    = tauon.window_size
 		self.album_art_gen  = AlbumArt(tauon=tauon, style_overlay=self)
 		self.thread_manager = tauon.thread_manager
 		self.min_on_timer = Timer()
@@ -21384,8 +21384,8 @@ class ToolTip:
 
 	def __init__(self, tauon: Tauon) -> None:
 		self.gui = tauon.gui
-		self.ddt = tauon.bag.ddt
-		self.colours = tauon.bag.colours
+		self.ddt = tauon.ddt
+		self.colours = tauon.colours
 		self.text = ""
 		self.h = 24 * self.gui.scale
 		self.w = 62 * self.gui.scale
@@ -21514,7 +21514,7 @@ class RenameTrackBox:
 		self.pctl         = tauon.pctl
 		self.coll         = tauon.coll
 		self.star_store   = tauon.star_store
-		self.window_size  = tauon.bag.window_size
+		self.window_size  = tauon.window_size
 		self.rename_files = tauon.rename_files
 		self.active = False
 		self.target_track_id = None
@@ -22062,7 +22062,7 @@ class ExportPlaylistBox:
 		self.id = None
 		self.directory_text_box = TextBox2(tauon=tauon)
 		self.default = {
-			"path": str(tauon.bag.dirs.music_directory) if tauon.bag.dirs.music_directory else str(tauon.bag.dirs.user_directory / "playlists"),
+			"path": str(tauon.dirs.music_directory) if tauon.dirs.music_directory else str(tauon.dirs.user_directory / "playlists"),
 			"type": "xspf",
 			"relative": False,
 			"auto": False,
@@ -22869,7 +22869,6 @@ class SearchOverlay:
 class MessageBox:
 
 	def __init__(self, tauon: Tauon) -> None:
-		bag = tauon.bag
 		self.tauon       = tauon
 		self.ddt         = tauon.ddt
 		self.gui         = tauon.gui
@@ -22877,6 +22876,7 @@ class MessageBox:
 		self.draw        = tauon.draw
 		self.colours     = tauon.colours
 		self.window_size = tauon.window_size
+		bag = tauon.bag
 		self.message_info_icon     = asset_loader(bag, bag.loaded_asset_dc, "notice.png")
 		self.message_warning_icon  = asset_loader(bag, bag.loaded_asset_dc, "warning.png")
 		self.message_tick_icon     = asset_loader(bag, bag.loaded_asset_dc, "done.png")
@@ -22966,9 +22966,9 @@ class MessageBox:
 class NagBox:
 	def __init__(self, tauon: Tauon) -> None:
 		self.gui          = tauon.gui
-		self.ddt          = tauon.bag.ddt
+		self.ddt          = tauon.ddt
 		self.prefs        = tauon.prefs
-		self.window_size  = tauon.bag.window_size
+		self.window_size  = tauon.window_size
 		self.wiggle_timer = Timer(10)
 
 	def draw(self):
@@ -27173,7 +27173,7 @@ class BottomBarType1:
 		pctl        = self.pctl
 		inp         = self.inp
 		colours     = self.colours
-		fonts       = self.tauon.bag.fonts
+		fonts       = self.tauon.fonts
 
 		sdl3.SDL_SetRenderDrawBlendMode(self.renderer, sdl3.SDL_BLENDMODE_NONE)
 		ddt.rect_a((0, self.window_size[1] - self.gui.panelBY), (self.window_size[0], self.gui.panelBY), colours.bottom_panel_colour)
@@ -31499,7 +31499,6 @@ class PlaylistBox:
 
 	def __init__(self, tauon: Tauon) -> None:
 		self.tauon       = tauon
-		bag              = tauon.bag
 		self.inp         = tauon.inp
 		self.gui         = tauon.gui
 		self.ddt         = tauon.ddt
@@ -31509,7 +31508,7 @@ class PlaylistBox:
 		self.fields      = tauon.fields
 		self.colours     = tauon.colours
 		self.window_size = tauon.window_size
-		self.scroll_on   = bag.prefs.old_playlist_box_position
+		self.scroll_on   = tauon.prefs.old_playlist_box_position
 		self.drag = False
 		self.drag_source = 0
 		self.drag_on = -1
@@ -31518,6 +31517,7 @@ class PlaylistBox:
 
 		self.indicate_w = round(2 * self.gui.scale)
 
+		bag              = tauon.bag
 		self.lock_icon = asset_loader(bag, bag.loaded_asset_dc, "lock-corner.png", True)
 		self.pin_icon = asset_loader(bag, bag.loaded_asset_dc, "dia-pin.png", True)
 		self.gen_icon = asset_loader(bag, bag.loaded_asset_dc, "gen-gear.png", True)
@@ -34698,7 +34698,6 @@ class RadioThumbGen:
 
 class RadioView:
 	def __init__(self, tauon: Tauon):
-		bag = tauon.bag
 		self.tauon       = tauon
 		self.ddt         = tauon.ddt
 		self.inp         = tauon.inp
@@ -34709,6 +34708,7 @@ class RadioView:
 		self.colours     = tauon.colours
 		self.radiobox    = tauon.radiobox
 		self.window_size = tauon.window_size
+		bag = tauon.bag
 		self.add_icon    = asset_loader(bag, bag.loaded_asset_dc, "add-station.png", True)
 		self.search_icon = asset_loader(bag, bag.loaded_asset_dc, "station-search.png", True)
 		self.save_icon   = asset_loader(bag, bag.loaded_asset_dc, "save-station.png", True)
@@ -34940,8 +34940,10 @@ class RadioView:
 class Showcase:
 	def __init__(self, tauon: Tauon) -> None:
 		self.tauon         = tauon
+		self.inp           = tauon.inp
 		self.gui           = tauon.gui
 		self.ddt           = tauon.ddt
+		self.coll          = tauon.coll
 		self.pctl          = tauon.pctl
 		self.prefs         = tauon.prefs
 		self.colours       = tauon.colours
@@ -35839,7 +35841,7 @@ class Fader:
 
 	def __init__(self, tauon: Tauon) -> None:
 		self.tauon = tauon
-		self.window_size = tauon.bag.window_size
+		self.window_size = tauon.window_size
 
 		self.total_timer = Timer()
 		self.timer = Timer()
@@ -35860,7 +35862,7 @@ class Fader:
 			self.a = min(1, self.a)
 
 		rect = [0, 0, self.window_size[0], self.window_size[1]]
-		self.tauon.bag.ddt.rect(rect, [0, 0, 0, int(110 * self.a)])
+		self.tauon.ddt.rect(rect, [0, 0, 0, int(110 * self.a)])
 
 		if not (self.a == 0 or self.a == 1):
 			self.tauon.gui.update += 1
@@ -36002,8 +36004,8 @@ class Undo:
 
 class GetSDLInput:
 	def __init__(self, tauon: Tauon) -> None:
-		self.logical_size = tauon.bag.logical_size
-		self.window_size = tauon.bag.window_size
+		self.logical_size = tauon.logical_size
+		self.window_size = tauon.window_size
 		self.mouse_capture_want = False
 		self.mouse_capture = False
 
@@ -36114,7 +36116,6 @@ class Bag:
 	formats:                 Formats
 	renderer:                sdl3.LP_SDL_Renderer
 	overlay_texture_texture: sdl3.LP_SDL_Texture
-	ddt:                     TDraw
 	fonts:                   Fonts
 	tls_context:             ssl.SSLContext
 	#sdl_syswminfo:           SDL_SysWMinfo
@@ -39433,7 +39434,6 @@ def main(holder: Holder) -> None:
 	radio_playlist_viewing = 0
 	radio_playlists: list[RadioPlaylist] = [RadioPlaylist(uid=uid_gen(), name="Default", stations=[])]
 
-	ddt = TDraw(renderer)
 	fonts = Fonts()
 	colours = ColoursClass()
 	colours.post_config()
@@ -39527,7 +39527,6 @@ def main(holder: Holder) -> None:
 		console=console,
 		dirs=dirs,
 		prefs=prefs,
-		ddt=ddt,
 		fonts=fonts,
 		formats=formats,
 		renderer=renderer,
@@ -40509,6 +40508,7 @@ def main(holder: Holder) -> None:
 			pctl.taskbar_progress = False
 			logging.warning("Could not find TaskbarLib.tlb")
 
+	ddt = tauon.ddt
 	ddt.scale = gui.scale
 	ddt.force_subpixel_text = prefs.force_subpixel_text
 
