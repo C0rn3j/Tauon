@@ -42802,11 +42802,11 @@ def main(holder: Holder) -> None:
 					if keymaps.test("shift-up") and pctl.selected_in_playlist > -1:
 						gui.pl_update += 1
 						if pctl.selected_in_playlist > len(pctl.default_playlist) - 1:
-							pctl.selected_in_playlist = 0
+							pctl.selected_in_playlist = len(default_playlist) - 1
 
 						if not gui.shift_selection:
 							gui.shift_selection.append(pctl.selected_in_playlist)
-						if pctl.selected_in_playlist < len(pctl.default_playlist) - 1:
+						if pctl.selected_in_playlist > 0:
 							r = pctl.selected_in_playlist
 							pctl.selected_in_playlist -= 1
 							if pctl.selected_in_playlist not in gui.shift_selection:
