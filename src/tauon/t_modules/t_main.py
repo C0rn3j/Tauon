@@ -771,7 +771,7 @@ class StarStore:
 	def object_key(self, track: TrackClass) -> tuple[str, str, str]:
 		return track.artist, track.title, track.filename
 
-	def add(self, index: int, value: int) -> None:
+	def add(self, index: int, value: float) -> None:
 		"""Increments the play time"""
 		track_object = self.pctl.master_library[index]
 
