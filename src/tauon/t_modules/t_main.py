@@ -752,6 +752,7 @@ class GuiVar:
 		self.center_blur_pixel = (0, 0, 0)
 
 class StarStore:
+	"""Functions for reading and setting play counts"""
 	def __init__(self, tauon: Tauon, pctl: PlayerCtl) -> None:
 		self.tauon      = tauon
 		self.pctl       = pctl
@@ -39591,7 +39592,6 @@ def main(holder: Holder) -> None:
 		max_window_tex=max_window_tex,
 	)
 
-	# Functions for reading and setting play counts
 	inp = gui.inp
 	keymaps = gui.keymaps
 
