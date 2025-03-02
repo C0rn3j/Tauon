@@ -11,10 +11,7 @@ class Prefs:
 	"""Used to hold any kind of settings"""
 
 	view_prefs:              dict[str, bool]
-#	music_directory:         Path | None
 	encoder_output:          Path
-#	user_directory:          Path
-#	cache_directory:         Path
 	window_opacity:          float
 	ui_scale:                float
 	power_save:              bool
