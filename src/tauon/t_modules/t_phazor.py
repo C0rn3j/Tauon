@@ -172,10 +172,10 @@ def player4(tauon: Tauon) -> None:
 			aud.config_set_feed_samplerate(44100)
 			aud.config_set_min_buffer(1000)
 			if not shutil.which("librespot"):
-				gui.show_message(_("SPP: Error, librespot not found"))
+				tauon.show_message(_("SPP: Error, librespot not found"))
 				return 1
 			# if not prefs.spot_username or not prefs.spot_password:
-			#	 gui.show_message("Please enter your spotify username and password in settings")
+			#	 tauon.show_message("Please enter your spotify username and password in settings")
 			#	 return 1
 			if tauon.librespot_p:
 				if force:
@@ -582,17 +582,17 @@ def player4(tauon: Tauon) -> None:
 				part = requests.get(network_url, stream=True, params=params, timeout=(3, 10))
 
 				if part.status_code == HTTPStatus.NOT_FOUND:
-					gui.show_message("Server: File not found", mode="error")
+					tauon.show_message("Server: File not found", mode="error")
 					self.error = track
 					return 1
 				if part.status_code != HTTPStatus.OK:
-					gui.show_message("Server Error", mode="error")
+					tauon.show_message("Server Error", mode="error")
 					self.error = track
 					return 1
 
 			except Exception as e:
 				logging.exception("Download failed!")
-				gui.show_message(_("Error"), str(e), mode="error")
+				tauon.show_message(_("Error"), str(e), mode="error")
 				self.error = track
 				return 1
 
@@ -1194,7 +1194,7 @@ def player4(tauon: Tauon) -> None:
 								break
 							aud.stop()
 							if not gui.message_box:
-								gui.show_message(_("Error loading track"), mode="warning")
+								tauon.show_message(_("Error loading track"), mode="warning")
 							error = True
 							break
 						time.sleep(0.016)
