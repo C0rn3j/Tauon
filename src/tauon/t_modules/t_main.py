@@ -183,9 +183,11 @@ if TYPE_CHECKING:
 	from PIL.ImageFile import ImageFile
 	from tauon.t_modules.t_bootstrap import Holder
 	from websocket import WebSocketApp
-	from lynxtray import SysTrayIcon
+	if sys.platform == "win32":
+		from lynxtray import SysTrayIcon
 	from mutagen.id3 import ID3
 	from subprocess import Popen
+	from pylast import LastFMNetwork
 
 class LoadImageAsset:
 	assets: list[LoadImageAsset] = []
@@ -771,9 +773,8 @@ class StarStore:
 		"""Increments the play time"""
 		track_object = self.pctl.master_library[index]
 
-		if self.after_scan:
-			if track_object in self.after_scan:
-				return
+		if self.after_scan and track_object in self.after_scan:
+			return
 
 		key = track_object.artist, track_object.title, track_object.filename
 
@@ -3607,19 +3608,6 @@ class PlayerCtl:
 		self.gui.pl_update += 1
 
 class LastFMapi:
-	API_SECRET = "6e433964d3ff5e817b7724d16a9cf0cc"
-	connected = False
-	API_KEY = "bfdaf6357f1dddd494e5bee1afe38254"
-	scanning_username = ""
-
-	network = None
-	lastfm_network = None
-	tries = 0
-
-	scanning_friends = False
-	scanning_loves = False
-	scanning_scrobbles = False
-
 	def __init__(self, tauon: Tauon, pctl: PlayerCtl) -> None:
 		self.tauon          = tauon
 		self.star_store     = pctl.star_store
@@ -3630,6 +3618,18 @@ class LastFMapi:
 		self.prefs          = self.tauon.prefs
 		self.sg             = None
 		self.url            = None
+		self.API_SECRET = "6e433964d3ff5e817b7724d16a9cf0cc"
+		self.connected = False
+		self.API_KEY = "bfdaf6357f1dddd494e5bee1afe38254"
+		self.scanning_username = ""
+
+		self.network: LibreFMNetwork | None = None
+		self.lastfm_network: LastFMNetwork | None = None
+		self.tries = 0
+
+		self.scanning_friends = False
+		self.scanning_loves = False
+		self.scanning_scrobbles = False
 
 	def get_network(self) -> LibreFMNetwork:
 		if self.prefs.use_libre_fm:
@@ -3721,9 +3721,7 @@ class LastFMapi:
 		self.prefs.scrobble_hold ^= True
 
 	def details_ready(self) -> bool:
-		if self.prefs.last_fm_token:
-			return True
-		return False
+		return bool(self.prefs.last_fm_token)
 
 	def last_fm_only_connect(self) -> bool:
 		if not self.last_fm_enable:
@@ -3840,10 +3838,8 @@ class LastFMapi:
 		return False, "", "", "", ""
 
 	def artist_mbid(self, artist: str):
-
-		if self.lastfm_network is None:
-			if self.last_fm_only_connect() is False:
-				return ""
+		if self.lastfm_network is None and self.last_fm_only_connect() is False:
+			return ""
 
 		try:
 			if artist != "":
@@ -3953,7 +3949,6 @@ class LastFMapi:
 		return True
 
 	def get_bio(self, artist: str) -> str:
-
 		if self.lastfm_network is None:
 			if self.last_fm_only_connect() is False:
 				return ""
@@ -40215,7 +40210,7 @@ def main(holder: Holder) -> None:
 	if prefs.prefer_side is False:
 		gui.rsp = False
 
-	if system == "Windows" or msys:
+	if sys.platform == "win32":
 		from lynxtray import SysTrayIcon
 
 	tauon = Tauon(
