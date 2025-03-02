@@ -12033,10 +12033,10 @@ class Tauon:
 			item.reload()
 		for menu in Menu.instances:
 			menu.rescale()
-		self.bottom_bar1.__init__()
-		self.bottom_bar_ao1.__init__()
-		self.top_panel.__init__()
-		self.view_box.__init__(reload=True)
+		self.bottom_bar1.__init__(self)
+		self.bottom_bar_ao1.__init__(self)
+		self.top_panel.__init__(self)
+		self.view_box.__init__(self, reload=True)
 		self.queue_box.recalc()
 		self.playlist_box.recalc()
 
