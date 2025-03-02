@@ -61,7 +61,6 @@ class LibreSpot:
 		self.cache_directory = tauon.cache_directory
 		self.running    = False
 		self.flush      = False
-		self.state: int = 0
 
 	def go(self, force: bool = False) -> int:
 		self.aud.config_set_feed_samplerate(44100)

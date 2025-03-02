@@ -190,6 +190,7 @@ if TYPE_CHECKING:
 	from pylast import LastFMNetwork
 
 class LoadImageAsset:
+	# TODO(Martin): Global class var!
 	assets: list[LoadImageAsset] = []
 
 	def __init__(self, *, bag: Bag, path: str, is_full_path: bool = False, reload: bool = False, scale_name: str = "") -> None:
@@ -228,6 +229,7 @@ class LoadImageAsset:
 		sdl3.SDL_RenderTexture(self.renderer, self.texture, None, self.rect)
 
 class WhiteModImageAsset:
+	# TODO(Martin): Global class var!
 	assets: list[WhiteModImageAsset] = []
 
 	def __init__(self, *, bag: Bag, path: str, reload: bool = False, scale_name: str = ""):
@@ -4558,6 +4560,7 @@ class ThreadManager:
 class Menu:
 	"""Right click context menu generator"""
 
+	# TODO(Martin): Global class vars!
 	switch = 0
 	count = switch + 1
 	instances: list[Menu] = []
@@ -19308,6 +19311,7 @@ class TimedLyricsRen:
 		return None
 
 class TextBox2:
+	# TODO(Martin): Global class var!
 	cursor = True
 
 	def __init__(self, tauon: Tauon) -> None:
@@ -19730,6 +19734,7 @@ class TextBox2:
 		sdl3.SDL_RenderTexture(self.renderer, self.tauon.text_box_canvas, None, self.tauon.text_box_canvas_rect)
 
 class TextBox:
+	# TODO(Martin): Global class var!
 	cursor = True
 
 	def __init__(self, tauon: Tauon) -> None:
