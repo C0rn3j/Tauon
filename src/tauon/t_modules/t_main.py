@@ -31,7 +31,6 @@ Verify the rework actually uses copies where copies should be used!
 from __future__ import annotations
 
 
-
 import base64
 import builtins
 import certifi
@@ -165,7 +164,7 @@ from tauon.t_modules.guitar_chords import GuitarChords
 from tauon.t_modules.t_jellyfin import Jellyfin
 from tauon.t_modules.t_launch import Launch
 from tauon.t_modules.t_lyrics import genius, lyric_sources, uses_scraping
-from tauon.t_modules.t_phazor import phazor_exists, player4
+from tauon.t_modules.t_phazor import phazor_exists, player4, Cachement, LibreSpot
 from tauon.t_modules.t_prefs import Prefs
 from tauon.t_modules.t_search import bandcamp_search
 from tauon.t_modules.t_spot import SpotCtl
@@ -186,6 +185,7 @@ if TYPE_CHECKING:
 	from websocket import WebSocketApp
 	from lynxtray import SysTrayIcon
 	from mutagen.id3 import ID3
+	from subprocess import Popen
 
 class LoadImageAsset:
 	assets: list[LoadImageAsset] = []
@@ -1574,8 +1574,8 @@ class PlayerCtl:
 		self.volume_store: float = 50  # Used to save the previous volume when muted
 		self.new_time = 0
 		self.time_to_get = []
-		self.a_time = 0
-		self.b_time = 0
+		self.a_time: float = 0
+		self.b_time: float = 0
 		# self.playlist_backup = []
 		self.active_replaygain = 0
 		self.auto_stop = False
@@ -4345,7 +4345,7 @@ class LastScrob:
 
 		self.running = False
 
-	def update(self, add_time):
+	def update(self, add_time: float) -> None:
 		if self.pctl.queue_step > len(self.pctl.track_queue) - 1:
 			logging.info("Queue step error 1")
 			return
@@ -5432,8 +5432,6 @@ class Tauon:
 		self.move_in_progress:       bool = False
 		self.msys                         = bag.msys
 		self.worker2_lock                 = threading.Lock()
-		#TODO(Martin) : Fix this by moving the class to root of the module
-		self.cachement:  player4.Cachement | None = None
 		self.dummy_event:          sdl3.SDL_Event = sdl3.SDL_Event()
 		self.temp_dest                            = sdl3.SDL_FRect(0, 0)
 		self.text_box_canvas_rect      = sdl3.SDL_FRect(0, 0, round(2000 * gui.scale), round(40 * gui.scale))
@@ -5665,7 +5663,12 @@ class Tauon:
 		self.quick_close = False
 
 		self.copied_track = None
-		self.aud: CDLL | None = None
+		self.aud:                 CDLL | None = None
+		self.player4_state:               int = 0
+		self.librespot_p: Popen[bytes] | None = None
+		self.spot_ctl                         = SpotCtl(self)
+		self.cachement                        = Cachement(self)
+		self.spotc                            = LibreSpot(self)
 
 		self.recorded_songs = []
 
@@ -5675,9 +5678,6 @@ class Tauon:
 		self.remote_limited = True
 		self.enable_librespot = shutil.which("librespot")
 
-		#TODO(Martin) : Fix this by moving the class to root of the module
-		self.spotc: player4.LibreSpot | None = None
-		self.librespot_p = None
 		self.MenuItem = MenuItem
 
 		self.gme_formats = bag.formats.GME
@@ -5695,7 +5695,6 @@ class Tauon:
 		finally:
 			logging.debug("Found Chrome(pychromecast) for chromecast support")
 
-		self.spot_ctl          = SpotCtl(self)
 		self.tidal             = Tidal(self)
 		self.plex              = PlexService(self)
 		self.jellyfin          = Jellyfin(self)
