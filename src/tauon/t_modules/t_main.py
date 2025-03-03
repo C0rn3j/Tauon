@@ -2585,7 +2585,7 @@ class PlayerCtl:
 
 			self.tauon.album_art_gen.display(target, (0, 0), (50, 50), theme_only=True)
 
-	def jump(self, index: int, pl_position: int = None, jump: bool = True) -> None:
+	def jump(self, index: int, pl_position: int | None = None, jump: bool = True) -> None:
 		self.lfm_scrobbler.start_queue()
 		self.auto_stop = False
 
@@ -7403,12 +7403,12 @@ class Tauon:
 	def show_sub_search(self, track_object: TrackClass) -> None:
 		self.sub_lyrics_box.activate(track_object)
 
-	def save_embed_img_disable_test(self, track_object: TrackClass) -> bool:
+	def save_embed_img_disable_test(self, track_object: TrackClass | int) -> bool:
 		if type(track_object) is int:
 			track_object = self.pctl.master_library[track_object]
 		return track_object.is_network
 
-	def save_embed_img(self, track_object: TrackClass) -> None:
+	def save_embed_img(self, track_object: TrackClass | int) -> None:
 		if type(track_object) is int:
 			track_object = self.pctl.master_library[track_object]
 		filepath = track_object.fullpath
@@ -7447,7 +7447,7 @@ class Tauon:
 			logging.exception("Unknown error trying to save an image")
 			self.show_message(_("Image save error."), _("A mysterious error occurred"), mode="error")
 
-	def open_image_deco(self, track_object: TrackClass):
+	def open_image_deco(self, track_object: TrackClass | int):
 		if type(track_object) is int:
 			track_object = self.pctl.master_library[track_object]
 		info = self.album_art_gen.get_info(track_object)
@@ -7458,17 +7458,17 @@ class Tauon:
 		line_colour = self.colours.menu_text
 		return [line_colour, self.colours.menu_background, None]
 
-	def open_image_disable_test(self, track_object: TrackClass) -> bool:
+	def open_image_disable_test(self, track_object: TrackClass | int) -> bool:
 		if type(track_object) is int:
 			track_object = self.pctl.master_library[track_object]
 		return track_object.is_network
 
-	def open_image(self, track_object: TrackClass) -> None:
+	def open_image(self, track_object: TrackClass | int) -> None:
 		if type(track_object) is int:
 			track_object = self.pctl.master_library[track_object]
 		self.album_art_gen.open_external(track_object)
 
-	def extract_image_deco(self, track_object: TrackClass):
+	def extract_image_deco(self, track_object: TrackClass | int):
 		if type(track_object) is int:
 			track_object = self.pctl.master_library[track_object]
 		info = self.album_art_gen.get_info(track_object)
@@ -7493,7 +7493,7 @@ class Tauon:
 
 		return [line_colour, self.colours.menu_background, None]
 
-	def cycle_image_gal_deco(self, track_object: TrackClass):
+	def cycle_image_gal_deco(self, track_object: TrackClass | int):
 		if type(track_object) is int:
 			track_object = self.pctl.master_library[track_object]
 		info = self.album_art_gen.get_info(track_object)
@@ -7505,17 +7505,17 @@ class Tauon:
 
 		return [line_colour, self.colours.menu_background, None]
 
-	def cycle_offset(self, track_object: TrackClass) -> None:
+	def cycle_offset(self, track_object: TrackClass | int) -> None:
 		if type(track_object) is int:
 			track_object = self.pctl.master_library[track_object]
 		self.album_art_gen.cycle_offset(track_object)
 
-	def cycle_offset_back(self, track_object: TrackClass) -> None:
+	def cycle_offset_back(self, track_object: TrackClass | int) -> None:
 		if type(track_object) is int:
 			track_object = self.pctl.master_library[track_object]
 		self.album_art_gen.cycle_offset_reverse(track_object)
 
-	def dl_art_deco(self, track_object: TrackClass):
+	def dl_art_deco(self, track_object: TrackClass | int):
 		if type(track_object) is int:
 			track_object = self.pctl.master_library[track_object]
 		if not track_object.album or not track_object.artist:
@@ -7653,12 +7653,12 @@ class Tauon:
 			logging.exception("Matching cover art or ID could not be found.")
 			self.show_message(_("Matching cover art or ID could not be found."))
 
-	def download_art1_fire_disable_test(self, track_object: TrackClass) -> bool:
+	def download_art1_fire_disable_test(self, track_object: TrackClass | int) -> bool:
 		if type(track_object) is int:
 			track_object = self.pctl.master_library[track_object]
 		return track_object.is_network
 
-	def download_art1_fire(self, track_object: TrackClass) -> None:
+	def download_art1_fire(self, track_object: TrackClass | int) -> None:
 		if type(track_object) is int:
 			track_object = self.pctl.master_library[track_object]
 		shoot_dl = threading.Thread(target=self.download_art1, args=[track_object])
@@ -7769,7 +7769,7 @@ class Tauon:
 			logging.exception("Failed to delete file")
 			self.show_message(_("Something went wrong"), mode="error")
 
-	def delete_track_image_deco(self, track_object: TrackClass):
+	def delete_track_image_deco(self, track_object: TrackClass | int):
 		if type(track_object) is int:
 			track_object = self.pctl.master_library[track_object]
 		info = self.album_art_gen.get_info(track_object)
@@ -7794,7 +7794,7 @@ class Tauon:
 				text = _("Delete Embedded | Track")
 		return [line_colour, self.colours.menu_background, text]
 
-	def delete_track_image(self, track_object: TrackClass) -> None:
+	def delete_track_image(self, track_object: TrackClass | int) -> None:
 		if type(track_object) is int:
 			track_object = self.pctl.master_library[track_object]
 		if track_object.is_network:
@@ -36319,8 +36319,7 @@ def get_theme_name(number: int) -> str:
 def get_end_folder(direc: str) -> str | None:
 	for w in range(len(direc)):
 		if direc[-w - 1] == "\\" or direc[-w - 1] == "/":
-			direc = direc[-w:]
-			return direc
+			return direc[-w:]
 	return None
 
 def set_path(nt: TrackClass, path: str) -> None:
@@ -42279,8 +42278,7 @@ def main(holder: Holder) -> None:
 			if tauon.sleep_timer.get() > 2:
 				sdl3.SDL_WaitEventTimeout(None, 1000)
 			continue
-		else:
-			power = 0
+		power = 0
 
 		gui.pl_update = min(gui.pl_update, 2)
 
