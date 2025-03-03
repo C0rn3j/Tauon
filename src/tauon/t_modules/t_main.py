@@ -173,8 +173,20 @@ from tauon.t_modules.t_tagscan import Ape, Flac, M4a, Opus, Wav, parse_picture_b
 from tauon.t_modules.t_themeload import Deco, load_theme
 from tauon.t_modules.t_tidal import Tidal
 from tauon.t_modules.t_webserve import authserve, controller, stream_proxy, webserve, webserve2
+
 if sys.platform == "linux":
 	from tauon.t_modules import t_topchart
+
+if sys.platform not in ("win32", "darwin"):
+	import gi
+	try:
+		gi.require_version("Notify", "0.7")
+	except Exception:
+		logging.exception("Failed importing gi Notify 0.7, will try 0.8")
+		gi.require_version("Notify", "0.8")
+	from gi.repository import Notify
+	from gi.repository import GdkPixbuf
+	from gi.repository import GLib
 
 if TYPE_CHECKING:
 	from ctypes import CDLL
@@ -23460,7 +23472,6 @@ class Over:
 		if not self.phazor_found:
 			x += round(20 * self.gui.scale)
 			self.ddt.text((x, y - 25 * self.gui.scale), _("PHAzOR DLL not found!"), colour, 213)
-
 		elif self.prefs.backend == 4:
 			y = y0 + round(20 * self.gui.scale)
 			x = x0 + 20 * self.gui.scale
@@ -38840,9 +38851,6 @@ def main(holder: Holder) -> None:
 		last_fm_enable = False
 
 	if not windows_native:
-		import gi
-		from gi.repository import GLib
-
 		font_folder = str(install_directory / "fonts")
 		if os.path.isdir(font_folder):
 			logging.info(f"Fonts directory:           {font_folder}")
@@ -39284,14 +39292,6 @@ def main(holder: Holder) -> None:
 
 	if system == "Windows":
 		os.environ["SDL_BINARY_PATH"] = str(install_directory / "lib")
-	elif not msys and not macos:
-		try:
-			gi.require_version("Notify", "0.7")
-		except Exception:
-			logging.exception("Failed importing gi Notify 0.7, will try 0.8")
-			gi.require_version("Notify", "0.8")
-		from gi.repository import Notify
-		from gi.repository import GdkPixbuf
 
 	wayland = True
 	if os.environ.get("SDL_VIDEODRIVER") != "wayland":
