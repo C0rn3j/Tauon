@@ -30,10 +30,8 @@ Verify the rework actually uses copies where copies should be used!
 
 from __future__ import annotations
 
-
 import base64
 import builtins
-import certifi
 import colorsys
 import copy
 import ctypes
@@ -47,25 +45,27 @@ import io
 import json
 import locale as py_locale
 import logging
+
 #import magic
 import math
+
 #import mimetypes
 import os
 import pickle
 import platform
 import random
 import re
-import sdl3
 import secrets
 import shlex
 import shutil
 import signal
-import ssl
 import socket
+import ssl
 import subprocess
 import sys
 import threading
 import time
+
 #import type_enforced
 import urllib.parse
 import urllib.request
@@ -73,11 +73,12 @@ import webbrowser
 import xml.etree.ElementTree as ET
 import zipfile
 from collections import OrderedDict
-from ctypes import Structure, byref, c_char_p, c_double, c_int, c_uint32, c_void_p, pointer, c_float
+from ctypes import Structure, byref, c_char_p, c_double, c_float, c_int, c_uint32, c_void_p, pointer
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
+import certifi
 import musicbrainzngs
 import mutagen
 import mutagen.flac
@@ -85,9 +86,9 @@ import mutagen.id3
 import mutagen.mp4
 import mutagen.oggvorbis
 import requests
+import sdl3
 from bs4 import BeautifulSoup
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
-
 from send2trash import send2trash
 from unidecode import unidecode
 
