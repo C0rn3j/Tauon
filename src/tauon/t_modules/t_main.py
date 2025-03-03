@@ -4856,7 +4856,7 @@ class Menu:
 				ddt.text((x_run + x, y_run + ytoff), label, fx[0], self.font, max_w=self.w - (x + 9 * gui.scale), bg=bg)
 
 				# Render the items hint
-				if self.items[i].hint != None:
+				if self.items[i].hint is not None:
 
 					if is_light(bg) or colours.lm:
 						hint_colour = rgb_add_hls(bg, 0, -0.30, -0.3)
@@ -4991,7 +4991,7 @@ class Menu:
 
 		Menu.active = True
 
-		if position != None:
+		if position is not None:
 			self.pos = [position[0], position[1]]
 		else:
 			self.pos = [copy.deepcopy(inp.mouse_position[0]), copy.deepcopy(inp.mouse_position[1])]
@@ -6242,7 +6242,7 @@ class Tauon:
 		for q in range(len(todo)):
 			# key = self.pctl.master_library[todo[q]].title + self.pctl.master_library[todo[q]].filename
 			old_star = self.star_store.full_get(todo[q])
-			if old_star != None:
+			if old_star is not None:
 				self.star_store.remove(todo[q])
 
 			if enc_field == "All" or enc_field == "Artist":
@@ -6263,7 +6263,7 @@ class Tauon:
 				line = line.decode(enc, "ignore")
 				self.pctl.master_library[todo[q]].title = line
 
-			if old_star != None:
+			if old_star is not None:
 				self.star_store.insert(todo[q], old_star)
 
 			# if key in self.pctl.star_library:
@@ -10348,7 +10348,7 @@ class Tauon:
 				track.comment = recode(track.comment, detect)
 				track.lyrics = recode(track.lyrics, detect)
 
-				if key != None:
+				if key is not None:
 					self.star_store.insert(item, key)
 
 				self.search_string_cache.pop(track.index, None)
@@ -13786,7 +13786,7 @@ class Tauon:
 
 		Creates a default playlist when called without parameters
 		"""
-		if playlist_ids == None:
+		if playlist_ids is None:
 			playlist_ids = []
 		if notify:
 			self.pctl.notify_change()
@@ -14339,7 +14339,7 @@ class Tauon:
 		self.gui.pl_update = 1
 
 	def transcode_single(self, item: list[tuple[int, str]], manual_directory: Path | None = None, manual_name: str | None = None):
-		if manual_directory != None:
+		if manual_directory is not None:
 			codec = "opus"
 			output = manual_directory
 			track = item
@@ -19447,7 +19447,7 @@ class TextBox2:
 				self.text):
 				while g() == " ":
 					d()
-				while g() != " " and g() != None:
+				while g() != " " and g() is not None:
 					d()
 
 			# Ctrl + left to move cursor back a word
@@ -19456,7 +19456,7 @@ class TextBox2:
 					self.cursor_position += 1
 					if not self.inp.key_shift_down:
 						self.selection = self.cursor_position
-				while g() != None and g() not in " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~":
+				while g() is not None and g() not in " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~":
 					self.cursor_position += 1
 					if not self.inp.key_shift_down:
 						self.selection = self.cursor_position
@@ -19472,7 +19472,7 @@ class TextBox2:
 					self.cursor_position -= 1
 					if not self.inp.key_shift_down:
 						self.selection = self.cursor_position
-				while g2() != None and g2() not in " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~":
+				while g2() is not None and g2() not in " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~":
 					self.cursor_position -= 1
 					if not self.inp.key_shift_down:
 						self.selection = self.cursor_position
@@ -19873,7 +19873,7 @@ class TextBox:
 				self.text):
 				while g() == " ":
 					d()
-				while g() != " " and g() != None:
+				while g() != " " and g() is not None:
 					d()
 
 			# Ctrl + left to move cursor back a word
@@ -19882,7 +19882,7 @@ class TextBox:
 					self.cursor_position += 1
 					if not inp.key_shift_down:
 						self.selection = self.cursor_position
-				while g() != None and g() not in " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~":
+				while g() is not None and g() not in " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~":
 					self.cursor_position += 1
 					if not inp.key_shift_down:
 						self.selection = self.cursor_position
@@ -19898,7 +19898,7 @@ class TextBox:
 					self.cursor_position -= 1
 					if not inp.key_shift_down:
 						self.selection = self.cursor_position
-				while g2() != None and g2() not in " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~":
+				while g2() is not None and g2() not in " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~":
 					self.cursor_position -= 1
 					if not inp.key_shift_down:
 						self.selection = self.cursor_position
@@ -20290,7 +20290,7 @@ class AlbumArt:
 					max_h = unit.actual_size[1]
 					found_unit = unit
 
-		if found_unit == None:
+		if found_unit is None:
 			return 1
 
 		unit = found_unit
