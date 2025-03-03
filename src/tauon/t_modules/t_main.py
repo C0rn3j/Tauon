@@ -23082,6 +23082,7 @@ class Over:
 		self.system              = tauon.system
 		self.macos               = tauon.macos
 		self.msys                = tauon.msys
+		self.phazor_found        = phazor_exists(tauon.pctl)
 		self.init2done           = False
 
 		self.about_image  = asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "v4-a.png")
@@ -23456,7 +23457,7 @@ class Over:
 		colour = self.colours.box_sub_text
 
 		# if system == "Linux":
-		if not phazor_exists(self.tauon.pctl):
+		if not self.phazor_found:
 			x += round(20 * self.gui.scale)
 			self.ddt.text((x, y - 25 * self.gui.scale), _("PHAzOR DLL not found!"), colour, 213)
 
