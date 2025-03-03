@@ -4152,11 +4152,12 @@ class LastFMapi:
 class ListenBrainz:
 
 	def __init__(self, tauon: Tauon) -> None:
-		self.bag       = tauon.bag
-		self.t_title   = tauon.t_title
-		self.n_version = tauon.n_version
-		self.prefs     = tauon.prefs
-		self.enable    = tauon.prefs.enable_lb
+		self.bag          = tauon.bag
+		self.t_title      = tauon.t_title
+		self.n_version    = tauon.n_version
+		self.prefs        = tauon.prefs
+		self.enable       = tauon.prefs.enable_lb
+		self.show_message = tauon.show_message
 		# self.url = "https://api.listenbrainz.org/1/submit-listens"
 
 	def url(self) -> str:
@@ -6992,7 +6993,7 @@ class Tauon:
 			if self.pctl.get_track(item).fullpath.startswith(artist_folder):
 				insert = i
 
-		logging.info("The folder to be moved is: " + move_folder)
+		logging.info(f"The folder to be moved is: {move_folder}")
 		load_order = LoadClass()
 		load_order.target = os.path.join(artist_folder, track.parent_folder_name)
 		load_order.playlist = pl_id
@@ -7246,7 +7247,7 @@ class Tauon:
 			return None
 
 		t = self.lyrics_fetch_timer.get()
-		logging.info("Lyric rate limit timer is: " + str(t) + " / -60")
+		logging.info(f"Lyric rate limit timer is: {str(t)} / -60")
 		if t < -40:
 			logging.info("Lets try again later")
 			if not silent:
@@ -7571,14 +7572,14 @@ class Tauon:
 				album_id = s["release-group-list"][0]["id"]
 				artist_id = s["release-group-list"][0]["artist-credit"][0]["artist"]["id"]
 
-				logging.info("Found release group ID: " + album_id)
-				logging.info("Found artist ID: " + artist_id)
+				logging.info(f"Found release group ID: {album_id}")
+				logging.info(f"Found artist ID: {artist_id}")
 			else:
 				album_id = tr.misc["musicbrainz_releasegroupid"]
 				artist_id = tr.misc["musicbrainz_artistids"][0]
 
-				logging.info("Using tagged release group ID: " + album_id)
-				logging.info("Using tagged artist ID: " + artist_id)
+				logging.info(f"Using tagged release group ID: {album_id}")
+				logging.info(f"Using tagged artist ID: {artist_id}")
 
 			if self.prefs.enable_fanart_cover:
 				try:
@@ -7759,7 +7760,7 @@ class Tauon:
 				os.remove(source)
 				# self.clear_img_cache()
 				self.clear_track_image_cache(track_object)
-				logging.info("Deleted file: " + source)
+				logging.info(f"Deleted file: {source}")
 		except Exception:
 			logging.exception("Failed to delete file")
 			self.show_message(_("Something went wrong"), mode="error")
@@ -9592,7 +9593,7 @@ class Tauon:
 
 				logging.info("found target artist level")
 				logging.info(t_artist)
-				logging.info("Upper folder is: " + upper)
+				logging.info(f"Upper folder is: {upper}")
 
 				if len(move_path) < 4:
 					self.show_message(_("Safety interupt! The source path seems oddly short."), move_path, mode="error")
@@ -9633,7 +9634,7 @@ class Tauon:
 
 				artist_folder = os.path.join(upper, artist)
 
-				logging.info("Target will be: " + artist_folder)
+				logging.info(f"Target will be: {artist_folder}")
 
 				if os.path.isdir(artist_folder):
 					logging.info("The target artist folder already exists")
@@ -9641,7 +9642,7 @@ class Tauon:
 					logging.info("Need to make artist folder")
 					os.makedirs(artist_folder)
 
-				logging.info("The folder to be moved is: " + move_path)
+				logging.info(f"The folder to be moved is: {move_path}")
 				load_order = LoadClass()
 				load_order.target = os.path.join(artist_folder, move_track.parent_folder_name)
 				load_order.playlist = self.pctl.multi_playlist[self.pctl.active_playlist_viewing].uuid_int
@@ -10206,13 +10207,13 @@ class Tauon:
 					found += 1
 					found += 1
 					if do:
-						logging.info("Deleting Folder: " + os.path.join(folder, item))
+						logging.info(f"Deleting Folder: {os.path.join(folder, item)}")
 						shutil.rmtree(os.path.join(folder, item))
 
 			if do:
 				for item in to_purge:
 					if os.path.isfile(os.path.join(folder, item)):
-						logging.info("Deleting File: " + os.path.join(folder, item))
+						logging.info(f"Deleting File: {os.path.join(folder, item)}")
 						os.remove(os.path.join(folder, item))
 				# self.clear_img_cache()
 
@@ -10312,7 +10313,7 @@ class Tauon:
 					for cha in test:
 						if cha in j_chars:
 							detect = enc
-							logging.info("This looks like Japanese: " + test)
+							logging.info(f"This looks like Japanese: {test}")
 							break
 						if detect is not None:
 							break
@@ -10323,7 +10324,7 @@ class Tauon:
 					for cha in test:
 						if cha in j_chars:
 							detect = enc
-							logging.info("This looks like Japanese: " + test)
+							logging.info(f"This looks like Japanese: {test}")
 							break
 						if detect is not None:
 							break
@@ -10331,7 +10332,7 @@ class Tauon:
 				break
 
 		if detect is not None:
-			logging.info("Fix Mojibake: Detected encoding as: " + detect)
+			logging.info(f"Fix Mojibake: Detected encoding as: {detect}")
 			for item in lot:
 				track = self.pctl.master_library[item]
 				# key = self.pctl.master_library[item].title + self.pctl.master_library[item].filename
@@ -14119,8 +14120,8 @@ class Tauon:
 							self.pctl.master_library[track].fullpath = b
 							self.pctl.master_library[track].filename = os.path.basename(b)
 							logging.info("External Edit: File rename detected.")
-							logging.info("    Renaming: " + a)
-							logging.info("          To: " + b)
+							logging.info(f"    Renaming: {a}")
+							logging.info(f"          To: {b}")
 							break
 					else:
 						logging.warning("External Edit: A file rename was detected but track was not found.")
@@ -14207,15 +14208,15 @@ class Tauon:
 		self.message_box_min_timer.set()
 		match mode:
 			case "done" | "confirm":
-				logging.debug("Message: " + line1 + line2 + line3)
+				logging.debug(f"Message: {line1} {line2} {line3}")
 			case "info":
-				logging.info("Message: " + line1 + line2 + line3)
+				logging.info(f"Message: {line1} {line2} {line3}")
 			case "warning":
-				logging.warning("Message: " + line1 + line2 + line3)
+				logging.warning(f"Message: {line1} {line2} {line3}")
 			case "error":
-				logging.error("Message: " + line1 + line2 + line3)
+				logging.error(f"Message: {line1} {line2} {line3}")
 			case _:
-				logging.error(f"Unknown mode '{mode}' for message: " + line1 + line2 + line3)
+				logging.error(f"Unknown mode '{mode}' for message: {line1} {line2} {line3}")
 		self.gui.update = 1
 
 	def draw_rating_widget(self, x: int, y: int, n_track: TrackClass, album: bool = False) -> None:
@@ -16206,7 +16207,7 @@ class Tauon:
 				n = item.split("-")
 				if len(n) > 2 and n[2] == str(track.index):
 					os.remove(os.path.join(direc, item))
-					logging.info("Cleared cache thumbnail: " + os.path.join(direc, item))
+					logging.info(f"Cleared cache thumbnail: {os.path.join(direc, item)}")
 
 		keys = set()
 		for key, value in self.gall_ren.gall.items():
@@ -18034,7 +18035,7 @@ class PlexService:
 
 			for track in album.tracks():
 				if not track.duration:
-					logging.warning("Skipping track with invalid duration - " + track.title + " - " + track.grandparentTitle)
+					logging.warning(f"Skipping track with invalid duration - {track.title} - {track.grandparentTitle}")
 					continue
 
 				id = self.pctl.master_count
@@ -18100,6 +18101,7 @@ class SubsonicService:
 		self.t_title          = tauon.t_title
 		self.star_store       = tauon.star_store
 		self.album_star_store = album_star_store
+		self.show_message     = tauon.show_message
 		self.playlists        = tauon.prefs.subsonic_playlists
 		self.scanning         = False
 
@@ -18140,7 +18142,7 @@ class SubsonicService:
 
 		if d["subsonic-response"]["status"] != "ok":
 			self.show_message(_("Subsonic Error: ") + response.text, mode="warning")
-			logging.error("Subsonic Error: " + response.text)
+			logging.error(f"Subsonic Error: {response.text}")
 
 		return d
 
