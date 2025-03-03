@@ -7182,9 +7182,7 @@ class Tauon:
 		self.prefs.lyric_metadata_panel_top ^= True
 
 	def lyrics_in_side_show(self, track_object: TrackClass) -> bool:
-		if self.gui.combo_mode or not self.prefs.show_lyrics_side:
-			return False
-		return True
+		return not (self.gui.combo_mode or not self.prefs.show_lyrics_side)
 
 	def toggle_side_art(self) -> None:
 		self.prefs.show_side_lyrics_art_panel ^= True
@@ -9765,9 +9763,7 @@ class Tauon:
 			self.gallery_select_animate_timer.set()
 
 	def last_fm_test(self, ignore) -> bool:
-		if self.lastfm.connected:
-			return True
-		return False
+		return self.lastfm.connected
 
 	def heart_xmenu_colour(self) -> list[int] | None:
 		if self.love(False, self.pctl.r_menu_index):
@@ -11140,9 +11136,7 @@ class Tauon:
 		return None
 
 	def lastfm_menu_test(self, _: int) -> bool:
-		if (self.prefs.auto_lfm and self.prefs.last_fm_token is not None) or self.prefs.enable_lb or self.prefs.maloja_enable:
-			return True
-		return False
+		return bool(self.prefs.auto_lfm and self.prefs.last_fm_token is not None or self.prefs.enable_lb or self.prefs.maloja_enable)
 
 	def lb_mode(self) -> bool:
 		return self.prefs.enable_lb
@@ -15180,18 +15174,14 @@ class Tauon:
 		if star is None:
 			return False
 
-		if "L" in star[1]:
-			return True
-		return False
+		return "L" in star[1]
 
 	def get_love_index(self, index: int) -> bool:
 		star = self.star_store.full_get(index)
 		if star is None:
 			return False
 
-		if "L" in star[1]:
-			return True
-		return False
+		return "L" in star[1]
 
 	def get_love_timestamp_index(self, index: int):
 		star = self.star_store.full_get(index)
@@ -17104,9 +17094,7 @@ class Tauon:
 
 	def scale1(self, mode: int = 0) -> bool | None:
 		if mode == 1:
-			if self.prefs.ui_scale == 1:
-				return True
-			return False
+			return self.prefs.ui_scale == 1
 
 		self.prefs.ui_scale = 1
 		self.pref_box.large_preset()
@@ -17117,9 +17105,7 @@ class Tauon:
 
 	def scale125(self, mode: int = 0) -> bool | None:
 		if mode == 1:
-			if self.prefs.ui_scale == 1.25:
-				return True
-			return False
+			return self.prefs.ui_scale == 1.25
 		return None
 
 		self.prefs.ui_scale = 1.25
@@ -17155,9 +17141,7 @@ class Tauon:
 
 	def scale2(self, mode: int = 0) -> bool | None:
 		if mode == 1:
-			if self.prefs.ui_scale == 2:
-				return True
-			return False
+			return self.prefs.ui_scale == 2
 
 		self.prefs.ui_scale = 2
 		self.pref_box.large_preset()
@@ -17188,9 +17172,7 @@ class Tauon:
 
 	def toggle_scroll(self, mode: int = 0) -> bool | None:
 		if mode == 1:
-			if self.prefs.scroll_enable:
-				return False
-			return True
+			return not self.prefs.scroll_enable
 
 		self.prefs.scroll_enable ^= True
 		self.gui.pl_update = 1
@@ -17320,49 +17302,37 @@ class Tauon:
 
 	def switch_single(self, mode: int = 0) -> bool | None:
 		if mode == 1:
-			if self.prefs.transcode_mode == "single":
-				return True
-			return False
+			return self.prefs.transcode_mode == "single"
 		self.prefs.transcode_mode = "single"
 		return None
 
 	def switch_mp3(self, mode: int = 0) -> bool | None:
 		if mode == 1:
-			if self.prefs.transcode_codec == "mp3":
-				return True
-			return False
+			return self.prefs.transcode_codec == "mp3"
 		self.prefs.transcode_codec = "mp3"
 		return None
 
 	def switch_ogg(self, mode: int = 0) -> bool | None:
 		if mode == 1:
-			if self.prefs.transcode_codec == "ogg":
-				return True
-			return False
+			return self.prefs.transcode_codec == "ogg"
 		self.prefs.transcode_codec = "ogg"
 		return None
 
 	def switch_opus(self, mode: int = 0) -> bool | None:
 		if mode == 1:
-			if self.prefs.transcode_codec == "opus":
-				return True
-			return False
+			return self.prefs.transcode_codec == "opus"
 		self.prefs.transcode_codec = "opus"
 		return None
 
 	def switch_opus_ogg(self, mode: int = 0) -> bool | None:
 		if mode == 1:
-			if self.prefs.transcode_opus_as:
-				return True
-			return False
+			return self.prefs.transcode_opus_as
 		self.prefs.transcode_opus_as ^= True
 		return None
 
 	def toggle_transcode_output(self, mode: int = 0) -> bool | None:
 		if mode == 1:
-			if self.prefs.transcode_inplace:
-				return False
-			return True
+			return not self.prefs.transcode_inplace
 		self.prefs.transcode_inplace ^= True
 		if self.prefs.transcode_inplace:
 			self.gui.transcode_icon.colour = [250, 20, 20, 255]
@@ -17376,9 +17346,7 @@ class Tauon:
 
 	def toggle_transcode_inplace(self, mode: int = 0) -> bool | None:
 		if mode == 1:
-			if self.prefs.transcode_inplace:
-				return True
-			return False
+			return self.prefs.transcode_inplace
 
 		if self.gui.sync_progress:
 			self.prefs.transcode_inplace = False
@@ -17397,9 +17365,7 @@ class Tauon:
 
 	def switch_flac(self, mode: int = 0) -> bool | None:
 		if mode == 1:
-			if self.prefs.transcode_codec == "flac":
-				return True
-			return False
+			return self.prefs.transcode_codec == "flac"
 		self.prefs.transcode_codec = "flac"
 		return None
 
