@@ -94,6 +94,7 @@ from unidecode import unidecode
 
 builtins._ = lambda x: x
 
+from tauon.t_modules.guitar_chords import GuitarChords
 from tauon.t_modules.t_config import Config
 from tauon.t_modules.t_db_migrate import database_migrate
 from tauon.t_modules.t_dbus import Gnome
@@ -101,12 +102,12 @@ from tauon.t_modules.t_draw import QuickThumbnail, TDraw
 from tauon.t_modules.t_extra import (
 	ColourGenCache,
 	FunctionStore,
+	RadioPlaylist,
+	RadioStation,
 	TauonPlaylist,
 	TauonQueueItem,
 	TestTimer,
 	Timer,
-	RadioPlaylist,
-	RadioStation,
 	alpha_blend,
 	alpha_mod,
 	archive_file_scan,
@@ -160,11 +161,10 @@ from tauon.t_modules.t_extra import (
 	uri_parse,
 	year_search,
 )
-from tauon.t_modules.guitar_chords import GuitarChords
 from tauon.t_modules.t_jellyfin import Jellyfin
 from tauon.t_modules.t_launch import Launch
 from tauon.t_modules.t_lyrics import genius, lyric_sources, uses_scraping
-from tauon.t_modules.t_phazor import get_phazor_path, phazor_exists, player4, Cachement, LibreSpot
+from tauon.t_modules.t_phazor import Cachement, LibreSpot, get_phazor_path, phazor_exists, player4
 from tauon.t_modules.t_prefs import Prefs
 from tauon.t_modules.t_search import bandcamp_search
 from tauon.t_modules.t_spot import SpotCtl
@@ -19388,8 +19388,7 @@ class TextBox2:
 			if p == 2:
 				return self.text[len(self.text) - min(self.cursor_position, self.selection):]
 			return None
-		else:
-			return ""
+		return ""
 
 	def draw(
 			self, x, y, colour, active=True, secret=False, font=13, width=0, click=False, selection_height=18, big=False):
