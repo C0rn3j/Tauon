@@ -86,7 +86,6 @@ import mutagen.mp4
 import mutagen.oggvorbis
 import requests
 from bs4 import BeautifulSoup
-from dataclasses import dataclass
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
 
 from send2trash import send2trash
