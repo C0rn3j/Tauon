@@ -5319,8 +5319,7 @@ class ThumbTracks:
 				im.thumbnail((512, 512), Image.Resampling.LANCZOS)
 				width, height = im.size
 				data = im.tobytes()
-			pixbuf = GdkPixbuf.Pixbuf.new_from_data(data, GdkPixbuf.Colorspace.RGB, False, 8, width, height, width * 3)
-			return pixbuf
+			return GdkPixbuf.Pixbuf.new_from_data(data, GdkPixbuf.Colorspace.RGB, False, 8, width, height, width * 3)
 		except:
 			logging.exception("Error create pixbuf of album art")
 			return None
@@ -7124,7 +7123,7 @@ class Tauon:
 			if self.pctl.playing_ready():
 				p = self.pctl.playing_object().parent_folder_path
 
-			# fixme for network tracks
+			# TODO(Taiko): fixme for network tracks
 			for i, item in enumerate(self.pctl.force_queue):
 				if p != self.pctl.get_track(item.track_id).parent_folder_path:
 					queue_item = queue_item_gen(
@@ -19411,7 +19410,7 @@ class TextBox2:
 		if click is False:
 			click = self.inp.mouse_click
 		if self.inp.mouse_down:
-			self.gui.update = 2  # TODO, more elegant fix
+			self.gui.update = 2  # TODO(Taiko): more elegant fix
 
 		rect = (x - 3, y - 2, width - 3, 21 * self.gui.scale)
 		select_rect = (x - 20 * self.gui.scale, y - 2, width + 20 * self.gui.scale, 21 * self.gui.scale)
@@ -27057,7 +27056,7 @@ class TopPanel:
 		if status:
 			x += ddt.text((x, y), text, bg, 311)
 			# x += ddt.get_text_w(text, 11)
-		# TODO list listenieng clients
+		# TODO(Taiko): list listening clients
 		elif tauon.transcode_list:
 			bg = colours.status_info_text
 			# if inp.key_ctrl_down and inp.key_c_press:
