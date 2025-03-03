@@ -1886,10 +1886,9 @@ class PlayerCtl:
 			self.show_message(_("Playlist is locked to prevent accidental deletion"))
 			return
 
-		if not force:
-			if self.tauon.pl_is_locked(index):
-				self.show_message(_("Playlist is locked to prevent accidental deletion"))
-				return
+		if not force and self.tauon.pl_is_locked(index):
+			self.show_message(_("Playlist is locked to prevent accidental deletion"))
+			return
 
 		if self.gui.rename_playlist_box:
 			return
@@ -2323,10 +2322,9 @@ class PlayerCtl:
 			track_index = index
 
 		# Switch to source playlist
-		if not no_switch:
-			if self.active_playlist_viewing != self.active_playlist_playing and (
-					track_index not in self.multi_playlist[self.active_playlist_viewing].playlist_ids):
-				self.switch_playlist(self.active_playlist_playing)
+		if not no_switch and self.active_playlist_viewing != self.active_playlist_playing and (
+				track_index not in self.multi_playlist[self.active_playlist_viewing].playlist_ids):
+			self.switch_playlist(self.active_playlist_playing)
 
 		if self.gui.playlist_view_length < 1:
 			return 0
@@ -4028,7 +4026,7 @@ class LastFMapi:
 			self.show_message(_("Getting friend data..."), _("This may take a very long time."), mode="info")
 			for friend in friends:
 				self.scanning_username = friend.name
-				logging.info("Getting friend loves: " + friend.name)
+				logging.info(f"Getting friend loves: {friend.name}")
 
 				try:
 					loves = friend.get_loved_tracks(limit=None)
@@ -4043,8 +4041,8 @@ class LastFMapi:
 						if tr.title.casefold() == title and tr.artist.casefold() == artist:
 							tr.lfm_friend_likes.add(friend.name)
 							logging.info("MATCH")
-							logging.info("     " + artist + " - " + title)
-							logging.info("      ----- " + friend.name)
+							logging.info(f"     {artist} - {title}")
+							logging.info(f"      ----- {friend.name}")
 
 		except Exception:
 			logging.exception("There was an error getting friends loves")
@@ -4091,7 +4089,7 @@ class LastFMapi:
 					if tr.title.casefold() == title and tr.artist.casefold() == artist:
 						matches += 1
 						logging.info("MATCH:")
-						logging.info("     " + artist + " - " + title)
+						logging.info(f"     {artist} - {title}")
 						star = self.star_store.full_get(index)
 						if star is None:
 							star = self.star_store.new_object()
@@ -4326,7 +4324,7 @@ class LastScrob:
 				tr = self.queue.pop()
 
 				self.gui.pl_update = 1
-				logging.info("Submit Scrobble " + tr[0].artist + " - " + tr[0].title)
+				logging.info(f"Submit Scrobble {tr[0].artist} - {tr[0].title}")
 
 				success = True
 
@@ -4650,9 +4648,8 @@ class Menu:
 		self.subs[sub_menu_index].append(menu_item)
 
 	def test_item_active(self, item) -> bool:
-		if item.show_test is not None:
-			if item.show_test(1) is False:
-				return False
+		if item.show_test is not None and item.show_test(1) is False:
+			return False
 		return True
 
 	def is_item_disabled(self, item):
@@ -5189,7 +5186,7 @@ class GallClass:
 				time.sleep(0.001)
 
 			except Exception:
-				logging.exception("Image load failed on track: " + key[0].fullpath)
+				logging.exception(f"Image load failed on track: {key[0].fullpath}")
 				order = [0, None, None, None]
 				self.gall[key] = order
 				self.gui.update += 1
@@ -6441,7 +6438,7 @@ class Tauon:
 	def load_xspf(self, path: str) -> None:
 		name = os.path.basename(path)[:-5]
 		# self.log("Importing XSPF playlist: " + path, title=True)
-		logging.info("Importing XSPF playlist: " + path)
+		logging.info(f"Importing XSPF playlist: {path}")
 
 		try:
 			parser = ET.XMLParser(encoding="utf-8")
@@ -6609,13 +6606,13 @@ class Tauon:
 			missing += 1
 			logging.error("-- Failed to locate track")
 			if "location" in track:
-				logging.error("-- -- Expected path: " + track["location"])
+				logging.error(f"-- -- Expected path: {track['location']}")
 			if "title" in track:
-				logging.error("-- -- Title: " + track["title"])
+				logging.error(f"-- -- Title: {track['title']}")
 			if "artist" in track:
-				logging.error("-- -- Artist: " + track["artist"])
+				logging.error(f"-- -- Artist: {track['artist']}")
 			if "album" in track:
-				logging.error("-- -- Album: " + track["album"])
+				logging.error(f"-- -- Album: {track['album']}")
 
 		if missing > 0:
 			self.show_message(
@@ -6917,9 +6914,8 @@ class Tauon:
 		move_folder = track.parent_folder_path
 
 		# Stop playing track if its in the current folder
-		if self.pctl.playing_state > 0:
-			if move_folder in self.pctl.playing_object().parent_folder_path:
-				self.pctl.stop(True)
+		if self.pctl.playing_state > 0 and move_folder in self.pctl.playing_object().parent_folder_path:
+			self.pctl.stop(True)
 
 		target_base = path
 
@@ -8109,12 +8105,11 @@ class Tauon:
 				type = "OGG"
 			seen_types[type] = seen_types.get(type, 0) + 1
 
-			if track.fullpath and not track.is_network:
-				if track.fullpath not in seen_files:
-					size = track.size
-					if not size and os.path.isfile(track.fullpath):
-						size = os.path.getsize(track.fullpath)
-					seen_files[track.fullpath] = size
+			if track.fullpath and not track.is_network and track.fullpath not in seen_files:
+				size = track.size
+				if not size and os.path.isfile(track.fullpath):
+					size = os.path.getsize(track.fullpath)
+				seen_files[track.fullpath] = size
 
 		total_size = sum(seen_files.values())
 
@@ -9565,9 +9560,8 @@ class Tauon:
 		match_track = self.pctl.get_track(self.pctl.default_playlist[self.gui.shift_selection[0]])
 		match_path = match_track.parent_folder_path
 
-		if self.pctl.playing_state > 0 and move:
-			if self.pctl.playing_object().parent_folder_path == move_path:
-				self.pctl.stop(True)
+		if self.pctl.playing_state > 0 and move and self.pctl.playing_object().parent_folder_path == move_path:
+			self.pctl.stop(True)
 
 		p = Path(match_path)
 		s = list(p.parts)
@@ -15817,9 +15811,8 @@ class Tauon:
 		loved = False
 		star = self.star_store.full_get(track_id)
 
-		if star is not None:
-			if "L" in star[1]:
-				loved = True
+		if star is not None and "L" in star[1]:
+			loved = True
 
 		if set is False:
 			return loved
@@ -17928,7 +17921,7 @@ class Tauon:
 		self.thread_manager.ready("worker")
 
 	def exit(self, reason: str) -> None:
-		logging.info("Shutting down. Reason: " + reason)
+		logging.info(f"Shutting down. Reason: {reason}")
 		self.pctl.running = False
 		self.wake()
 
@@ -36222,8 +36215,7 @@ def setup_tls(holder: Holder) -> ssl.SSLContext:
 	os.environ['REQUESTS_CA_BUNDLE'] = cert_path
 
 	# Create default TLS context
-	tls_context = ssl.create_default_context(cafile=get_cert_path(holder))
-	return tls_context
+	return ssl.create_default_context(cafile=get_cert_path(holder))
 
 def whicher(target: str, flatpak_mode: bool) -> bool | str | None:
 	"""Detect and launch programs outside of flatpak sandbox"""
