@@ -35293,7 +35293,7 @@ class ColourPulse2:
 		self.out_timer.start = 0
 		self.active = False
 
-	def get(self, hit, on, off, low_hls, high_hls):
+	def get(self, hit: bool, on: bool, off: bool, low_hls: list[int], high_hls: list[int]) -> list[int] | tuple[int, int, int, int]:
 		if on:
 			return high_hls
 			# rgb = colorsys.hls_to_rgb(high_hls[0], high_hls[1], high_hls[2])
@@ -35421,7 +35421,7 @@ class ViewBox:
 		# self.gui.level_2_click = False
 		self.gui.update = 2
 
-	def button(self, x, y, asset, test, colour_get=None, name: str = "Unknown", animate: bool = True, low: int = 0, high: int = 0):
+	def button(self, x: float, y: float, asset: WhiteModImageAsset | LoadImageAsset, test, colour_get: ColourPulse2 | None = None, name: str = "Unknown", animate: bool = True, low: list[int] = 0, high: list[int] = 0):
 		on = test()
 		rect = [
 			x - 8 * self.gui.scale,
@@ -35445,8 +35445,8 @@ class ViewBox:
 				fun = test
 			if colour_get is None:
 				colour = self.over_colour
-
-		colour = colour_get.get(col, on, not on and not animate, low, high)
+			else:
+				colour = colour_get.get(col, on, not on and not animate, low, high)
 
 		# if "+" in name:
 		#
