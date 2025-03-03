@@ -4577,7 +4577,7 @@ class Menu:
 	instances: list[Menu] = []
 	active = False
 
-	def rescale(self):
+	def rescale(self) -> None:
 		self.vertical_size = round(self.base_v_size * self.tauon.gui.scale)
 		self.h = self.vertical_size
 		self.w = self.request_width * self.tauon.gui.scale
@@ -4602,8 +4602,8 @@ class Menu:
 		self.pos = [0, 0]
 		self.rescale()
 
-		self.reference = 0
-		self.items: list[MenuItem] = []
+		self.reference: int = 0
+		self.items: list[MenuItem | None]= []
 		self.subs: list[list[MenuItem]] = []
 		self.selected = -1
 		self.up = False
@@ -4659,6 +4659,7 @@ class Menu:
 			if item.pass_ref_deco:
 				return item.disable_test(self.reference)
 			return item.disable_test()
+		return None
 
 	def render_icon(self, x: float, y: float, icon, selected, fx):
 		colours = self.colours
@@ -7317,6 +7318,7 @@ class Tauon:
 			self.gui.update += 1
 			self.lyrics_ren.lyrics_position = 0
 			self.pctl.notify_change()
+		return None
 
 	def get_lyric_wiki(self, track_object: TrackClass) -> None:
 		if track_object.artist == "" or track_object.title == "":
@@ -7753,6 +7755,7 @@ class Tauon:
 			self.show_message(_("{N} files processed").local(N=removed), mode="done")
 		if pr == 1:
 			self.pctl.revert()
+		return None
 
 	def delete_file_image(self, track_object: TrackClass) -> None:
 		try:
@@ -8009,6 +8012,7 @@ class Tauon:
 			return folders
 
 		self.transcode_list.extend(folders)
+		return None
 
 	def get_folder_tracks_local(self, pl_in: int) -> list[int]:
 		selection = []
@@ -8350,6 +8354,7 @@ class Tauon:
 		self.pctl.multi_playlist[pl].playlist_ids[:] = pl2[:]
 		self.reload_albums()
 		self.tree_view_box.clear_target_pl(pl)
+		return None
 
 	def gen_unique_pl_title(self, base: str, extra: str="", start: int = 1) -> str:
 		ex = start
@@ -8696,6 +8701,7 @@ class Tauon:
 				hide_title=True))
 
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "s\"" + self.pctl.multi_playlist[index].title + "\" a rat>"
+		return None
 
 	def gen_top_100(self, index: int, custom_list=None):
 		source = custom_list
@@ -8714,6 +8720,7 @@ class Tauon:
 				hide_title=True))
 
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "s\"" + self.pctl.multi_playlist[index].title + "\" a pt>"
+		return None
 
 	def gen_folder_top(self, pl: int, get_sets: bool = False, custom_list=None):
 		source = custom_list
@@ -8773,6 +8780,7 @@ class Tauon:
 				hide_title=False))
 
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "s\"" + self.pctl.multi_playlist[pl].title + "\" a pa>"
+		return None
 
 	def gen_folder_top_rating(self, pl: int, get_sets: bool = False, custom_list: list[int] | None = None):
 		source = custom_list
@@ -8822,6 +8830,7 @@ class Tauon:
 				hide_title=False))
 
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "s\"" + self.pctl.multi_playlist[pl].title + "\" a rata>"
+		return None
 
 	def gen_lyrics(self, pl: int, custom_list=None):
 		playlist = []
@@ -8847,6 +8856,7 @@ class Tauon:
 			self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "s\"" + self.pctl.multi_playlist[pl].title + "\" a ly"
 		else:
 			self.show_message(_("No tracks with lyrics were found."))
+		return None
 
 	def gen_incomplete(self, pl: int, custom_list=None):
 		playlist = []
@@ -8902,6 +8912,7 @@ class Tauon:
 			# self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "s\"" + self.pctl.multi_playlist[pl].title + "\" a ly"
 		else:
 			self.show_message(_("No incomplete albums were found."))
+		return None
 
 	def gen_codec_pl(self, codec: str) -> None:
 		playlist = []
@@ -8941,6 +8952,7 @@ class Tauon:
 
 		if custom_list is not None:
 			return playlist
+		return None
 
 	def gen_last_modified(self, index: int, custom_list=None, reverse: bool = True):
 		source = custom_list
@@ -8973,6 +8985,7 @@ class Tauon:
 				hide_title=False))
 
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "s\"" + self.pctl.multi_playlist[index].title + "\" a m>"
+		return None
 
 	def gen_love(self, pl: int, custom_list=None):
 		playlist = []
@@ -9000,6 +9013,7 @@ class Tauon:
 			self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "s\"" + self.pctl.multi_playlist[pl].title + "\" a l"
 		else:
 			self.show_message(_("No loved tracks were found."))
+		return None
 
 	def gen_comment(self, pl: int) -> None:
 		playlist = []
@@ -9074,6 +9088,7 @@ class Tauon:
 				hide_title=True))
 
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "s\"" + self.pctl.multi_playlist[index].title + "\" a d>"
+		return None
 
 	def gen_folder_duration(self, pl: int, get_sets: bool = False):
 		if len(self.pctl.multi_playlist[pl].playlist_ids) < 3:
@@ -9115,6 +9130,7 @@ class Tauon:
 				title=self.pctl.multi_playlist[pl].title + add_pl_tag(_("Longest Albums")),
 				playlist_ids=copy.deepcopy(playlist),
 				hide_title=False))
+		return None
 
 	def gen_sort_date(self, index: int, rev: bool = False, custom_list=None):
 		def g_date(index: int) -> str:
@@ -9168,6 +9184,7 @@ class Tauon:
 			self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "s\"" + self.pctl.multi_playlist[index].title + "\" a y>"
 		else:
 			self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "s\"" + self.pctl.multi_playlist[index].title + "\" a y<"
+		return None
 
 	def gen_sort_date_new(self, index: int):
 		self.gen_sort_date(index, True)
@@ -9217,6 +9234,7 @@ class Tauon:
 				hide_title=False))
 
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "s\"" + self.pctl.multi_playlist[index].title + "\" a ra"
+		return None
 
 	def gen_best_random(self, index: int):
 		playlist = []
@@ -9255,6 +9273,7 @@ class Tauon:
 				hide_title=self.pctl.multi_playlist[index].hide_title))
 
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "s\"" + self.pctl.multi_playlist[index].title + "\" a rv"
+		return None
 
 	def gen_folder_reverse(self, index: int, custom_list=None):
 		source = custom_list
@@ -9287,6 +9306,7 @@ class Tauon:
 				hide_title=False))
 
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "s\"" + self.pctl.multi_playlist[index].title + "\" a rva"
+		return None
 
 	def gen_dupe(self, index: int) -> None:
 		playlist = self.pctl.multi_playlist[index].playlist_ids
@@ -10169,6 +10189,7 @@ class Tauon:
 
 		if pre_state == 1:
 			self.pctl.revert()
+		return None
 
 	def clean_folder(self, index: int, do: bool = False) -> int | None:
 		track = self.pctl.master_library[index]
@@ -14622,6 +14643,7 @@ class Tauon:
 		self.added += reversed(cued)
 
 		# bag.cue_list.append(filepath)
+		return None
 
 	def get_album_from_first_track(self, track_position, track_id=None, pl_number=None, pl_id: int | None = None):
 		if pl_number is None:
@@ -14811,6 +14833,7 @@ class Tauon:
 		return 0
 
 		self.gui.update += 1 # TODO(Martin): WTF Unreachable??
+		return None
 
 	def toggle_album_mode(self, force_on: bool = False) -> None:
 		self.gui.gall_tab_enter = False
@@ -15048,6 +15071,7 @@ class Tauon:
 		# Generate POWER BAR
 		self.gui.power_bar = self.gen_power2()
 		self.gui.pt = 0
+		return None
 
 	def reload_backend(self) -> None:
 		self.gui.backend_reloading = True
@@ -15876,6 +15900,7 @@ class Tauon:
 		self.gui.update += 1
 		if sync and self.pctl.mpris is not None:
 			self.pctl.mpris.update(force=True)
+		return None
 
 	def line_render(self, n_track: TrackClass, p_track: TrackClass, y: int, this_line_playing, album_fade: int, start_x: int, width: int, style: int = 1, ry=None):
 		timec   = self.colours.bar_time
@@ -18109,6 +18134,7 @@ class PlexService:
 		self.pctl.multi_playlist.append(self.tauon.pl_gen(title=_("PLEX Collection"), playlist_ids=playlist))
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "plex path"
 		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
+		return None
 
 class SubsonicService:
 
@@ -18352,6 +18378,7 @@ class SubsonicService:
 		self.pctl.multi_playlist.append(self.tauon.pl_gen(title=_("Airsonic Collection"), playlist_ids=playlist))
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "air"
 		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
+		return None
 
 	# def get_music2(self, return_list=False):
 	#
@@ -18672,6 +18699,7 @@ class KoelService:
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "koel path tn"
 		self.tauon.standard_sort(len(self.pctl.multi_playlist) - 1)
 		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
+		return None
 
 class TauService:
 	def __init__(self, tauon: Tauon) -> None:
@@ -18779,6 +18807,7 @@ class TauService:
 		self.tauon.standard_sort(len(self.pctl.multi_playlist) - 1)
 		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 		self.processing = False
+		return None
 
 class STray:
 
@@ -19824,6 +19853,7 @@ class TextBox:
 				return self.text[len(self.text) - min(self.cursor_position, self.selection):]
 		else:
 			return ""
+		return None
 
 	def draw(
 		self, x: int, y: int, colour: list[int], active: bool = True, secret: bool = False,
@@ -20766,6 +20796,7 @@ class AlbumArt:
 			im.save(save_path + ".png", "PNG")
 		else:
 			im.save(save_path + ".jpg", "JPEG")
+		return None
 
 	def display(self, track: TrackClass, location, box, fast: bool = False, theme_only: bool = False) -> int | None:
 		index = track.index
@@ -22241,6 +22272,7 @@ class SearchOverlay:
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "a\"" + name + "\""
 
 		self.inp.key_return_press = False
+		return None
 
 	def click_year(self, name, get_list: bool = False):
 		playlist = []
@@ -22263,6 +22295,7 @@ class SearchOverlay:
 
 		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 		self.inp.key_return_press = False
+		return None
 
 	def click_composer(self, name: str, get_list: bool = False):
 		playlist = []
@@ -22286,6 +22319,7 @@ class SearchOverlay:
 		self.pctl.switch_playlist(len(self.pctl.multi_playlist) - 1)
 
 		self.inp.key_return_press = False
+		return None
 
 	def click_meta(self, name: str, get_list: bool = False, search_lists=None):
 		if search_lists is None:
@@ -22316,6 +22350,7 @@ class SearchOverlay:
 		self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "p\"" + name + "\""
 
 		self.inp.key_return_press = False
+		return None
 
 	def click_genre(self, name: str, get_list: bool = False, search_lists=None):
 		playlist = []
@@ -22362,6 +22397,7 @@ class SearchOverlay:
 			self.pctl.gen_codes[self.pctl.pl_to_id(len(self.pctl.multi_playlist) - 1)] = "g=\"" + name + "\""
 
 		self.inp.key_return_press = False
+		return None
 
 	def click_album(self, index) -> None:
 		self.pctl.jump(index)
@@ -25824,27 +25860,31 @@ class Over:
 		self.button(x, y, _("Thick default"), self.large_preset, 124 * gui.scale)
 
 
-	def set_playlist_cycle(self, mode: int = 0):
+	def set_playlist_cycle(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return True if self.prefs.end_setting == "cycle" else False
 		self.prefs.end_setting = "cycle"
 		# pl_follow = False
+		return None
 
-	def set_playlist_advance(self, mode: int = 0):
+	def set_playlist_advance(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return True if self.prefs.end_setting == "advance" else False
 		self.prefs.end_setting = "advance"
 		# pl_follow = False
+		return None
 
-	def set_playlist_stop(self, mode: int = 0):
+	def set_playlist_stop(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return True if self.prefs.end_setting == "stop" else False
 		self.prefs.end_setting = "stop"
+		return None
 
-	def set_playlist_repeat(self, mode: int = 0):
+	def set_playlist_repeat(self, mode: int = 0) -> bool | None:
 		if mode == 1:
 			return True if self.prefs.end_setting == "repeat" else False
 		self.prefs.end_setting = "repeat"
+		return None
 
 	def small_preset(self) -> None:
 		self.prefs.playlist_row_height = round(22 * self.prefs.ui_scale)
@@ -35454,7 +35494,7 @@ class ViewBox:
 
 		return fun
 
-	def tracks(self, hit: bool =False) -> bool | None:
+	def tracks(self, hit: bool = False) -> bool | None:
 		if hit is False:
 			return self.prefs.album_mode is False and \
 				self.gui.combo_mode is False and \
@@ -35467,6 +35507,7 @@ class ViewBox:
 				self.x_menu.close_next_frame = True
 
 		self.tauon.view_tracks()
+		return None
 
 	def side(self, hit: bool = False) -> bool | None:
 		if hit is False:
@@ -35480,6 +35521,7 @@ class ViewBox:
 				self.x_menu.close_next_frame = True
 
 		self.tauon.view_standard_meta()
+		return None
 
 	def gallery1(self, hit: bool = False) -> bool | None:
 		if hit is False:
@@ -35498,6 +35540,7 @@ class ViewBox:
 			self.x_menu.close_next_frame = True
 
 		self.tauon.force_album_view()
+		return None
 
 	def radio(self, hit: bool = False) -> bool | None:
 		if hit is False:
@@ -35510,6 +35553,7 @@ class ViewBox:
 
 		if self.x_menu.active:
 			self.x_menu.close_next_frame = True
+		return None
 
 	def lyrics(self, hit: bool = False) -> bool | None:
 		if hit is False:
@@ -35526,6 +35570,7 @@ class ViewBox:
 			self.tauon.exit_combo(restore=True)
 		if self.x_menu.active:
 			self.x_menu.close_next_frame = True
+		return None
 
 	def col(self, hit: bool = False) -> bool | None:
 		if hit is False:
@@ -35539,6 +35584,7 @@ class ViewBox:
 			self.tauon.toggle_album_mode()
 
 		self.tauon.toggle_library_mode()
+		return None
 
 	def artist_info(self, hit: bool = False) -> bool | None:
 		if hit is False:
