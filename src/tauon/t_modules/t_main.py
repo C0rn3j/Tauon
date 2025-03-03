@@ -1429,9 +1429,9 @@ class TrackClass:
 		self.lyrics:       str = ""
 		self.synced:       str = ""
 
-		self.lfm_friend_likes = set()
+		self.lfm_friend_likes   = set()
 		self.lfm_scrobbles: int = 0
-		self.misc: list = {}
+		self.misc:         dict = {}
 
 class LoadClass:
 	"""Object for import track jobs (passed to worker thread)"""
