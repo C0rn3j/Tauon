@@ -661,6 +661,7 @@ class GuiVar:
 		self.mouse_left_window = False
 
 		self.rendered_playlist_position = 0
+		self.playlist_view_length: int = 0
 
 		self.show_album_ratings = False
 		self.gen_code_errors = False
@@ -21718,6 +21719,7 @@ class TransEditBox:
 		self.gui               = tauon.gui
 		self.ddt               = tauon.ddt
 		self.inp               = tauon.inp
+		self.coll              = tauon.coll
 		self.draw              = tauon.draw
 		self.pctl              = tauon.pctl
 		self.colours           = tauon.colours
