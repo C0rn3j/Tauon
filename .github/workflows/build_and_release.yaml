@@ -99,6 +99,11 @@ jobs:
           name: TauonMusicBox-linux
           path: TauonMusicBox.7z
 
+      - name: Test SDL3 bug
+        run: |
+          cd src/tauon/tests
+          python sdl3_named_param_bug.py
+
 
   build-macos:
     runs-on: macos-latest
