@@ -238,27 +238,28 @@ jobs:
         shell: msys2 {0}
         run: |
           python -m pip install --break-system-packages --upgrade pip
-          python -m venv .venv
           export CFLAGS="-I/mingw64/include"
           export PIP_FIND_LINKS=https://github.com/ddelange/python-magic/releases/expanded_assets/0.4.28.post8
-          .venv/bin/python -m pip install \
+          python -m pip install \
             -r requirements.txt \
             build \
             pyinstaller
+        #  .venv/bin/python -m pip install \
+        #  python -m venv .venv
         #  export PIP_FIND_LINKS=https://github.com/ddelange/python-magic/releases/expanded_assets/0.4.28.post8
 
       - name: Build the project using python-build
         shell: msys2 {0}
         run: |
-          source .venv/bin/activate
           python -m compile_translations
           python -m build --wheel
+#          source .venv/bin/activate
 
       - name: Install the project into a venv
         shell: msys2 {0}
         run: |
-          source .venv/bin/activate
           pip install --prefix ".venv" dist/*.whl
+#          source .venv/bin/activate
 
       # https://github.com/Taiko2k/Tauon/pull/931#issuecomment-1464880133
       - name: Download optionals from latest release files and notofonts' GitHub

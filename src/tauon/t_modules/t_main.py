@@ -8311,8 +8311,8 @@ class StyleOverlay:
 		2 - render first
 	"""
 
-	def __init__(self):
-
+	def __init__(self, tauon: Tauon) -> None:
+		self.ddt = tauon.ddt
 		self.min_on_timer = Timer()
 		self.fade_on_timer = Timer(0)
 		self.fade_off_timer = Timer()
@@ -8403,7 +8403,7 @@ class StyleOverlay:
 
 		if self.stage == 1:
 
-			s_image = ddt.load_image(self.im)
+			s_image = self.ddt.load_image(self.im)
 
 			c = sdl3.SDL_CreateTextureFromSurface(renderer, s_image)
 
@@ -40580,7 +40580,7 @@ if rename_folder_previous:
 temp_dest = sdl3.SDL_FRect(0, 0)
 
 album_art_gen = tauon.album_art_gen
-style_overlay = StyleOverlay()
+style_overlay = StyleOverlay(tauon)
 
 click_time = time.time()
 scroll_hold = False
