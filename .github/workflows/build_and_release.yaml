@@ -234,13 +234,12 @@ jobs:
           # https://github.com/xiph/opusfile/pull/47
           sed -i 's,<opus_multistream.h>,<opus/opus_multistream.h>,' /mingw64/include/opus/opusfile.h
 
-      - name: Install Python dependencies and setup venv
+      - name: Install Python dependencies # and setup venv
         shell: msys2 {0}
         run: |
           python -m pip install --break-system-packages --upgrade pip
           export CFLAGS="-I/mingw64/include"
-          export PIP_FIND_LINKS=https://github.com/ddelange/python-magic/releases/expanded_assets/0.4.28.post8
-          python -m pip install \
+          python -m pip install --break-system-packages \
             -r requirements.txt \
             build \
             pyinstaller
