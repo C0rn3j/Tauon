@@ -345,8 +345,7 @@ class TDraw:
 		size = g.getbuffer().nbytes
 		pointer = ctypes.c_void_p(ctypes.addressof(ctypes.c_char.from_buffer(g.getbuffer())))
 		stream = sdl3.SDL_IOFromMem(pointer, c_ulong(size))
-		logging.critical(f"{type(stream)} | {type(c_bool(True))}")
-		return sdl3.IMG_Load_IO(src=stream, closeio=c_bool(True))
+		return sdl3.IMG_Load_IO(stream, c_bool(True))
 
 	def rect_s(self, rectangle: tuple[int, int, int, int], colour: tuple[int, int, int, int], thickness: int) -> None:
 		sdl3.SDL_SetRenderDrawColor(self.renderer, colour[0], colour[1], colour[2], colour[3])
