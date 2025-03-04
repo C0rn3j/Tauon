@@ -6191,7 +6191,8 @@ class Drawing:
 
 class DropShadow:
 
-	def __init__(self):
+	def __init__(self, tauon: Tauon) -> None:
+		self.ddt = tauon.ddt
 		self.readys = {}
 		self.underscan = int(15 * gui.scale)
 		self.radius = 4
@@ -6214,7 +6215,7 @@ class DropShadow:
 		g.seek(0)
 
 
-		s_image = ddt.load_image(g)
+		s_image = self.ddt.load_image(g)
 
 		c = sdl3.SDL_CreateTextureFromSurface(renderer, s_image)
 		sdl3.SDL_SetTextureAlphaMod(c, self.opacity)
@@ -7280,6 +7281,7 @@ class ImageObject:
 
 class AlbumArt:
 	def __init__(self, tauon: Tauon) -> None:
+		self.ddt = tauon.ddt
 		self.image_types = {"jpg", "JPG", "jpeg", "JPEG", "PNG", "png", "BMP", "bmp", "GIF", "gif", "jxl", "JXL"}
 		self.art_folder_names = {
 			"art", "scans", "scan", "booklet", "images", "image", "cover",
@@ -8206,7 +8208,7 @@ class AlbumArt:
 				g.close()
 				return None
 
-			s_image = ddt.load_image(g)
+			s_image = self.ddt.load_image(g)
 			#logging.error(IMG_GetError())
 
 			c = sdl3.SDL_CreateTextureFromSurface(renderer, s_image)
@@ -40514,7 +40516,7 @@ else:
 	ddt.win_prime_font(standard_font, 20, 516, weight=standard_weight, y_offset=1)
 	ddt.win_prime_font(standard_font, 21, 517, weight=standard_weight, y_offset=1)
 
-drop_shadow = DropShadow()
+drop_shadow = DropShadow(tauon)
 lyrics_ren_mini = LyricsRenMini()
 lyrics_ren = LyricsRen()
 
