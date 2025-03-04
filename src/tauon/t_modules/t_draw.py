@@ -304,7 +304,7 @@ perf = Timer()
 
 class TDraw:
 
-	def __init__(self, renderer: sdl3.SDL_Renderer | None = None) -> None:
+	def __init__(self, renderer: sdl3.SDL_Renderer) -> None:
 
 		# All
 		self.renderer = renderer
