@@ -13591,7 +13591,7 @@ class Tauon:
 			elif cm.startswith("ff\""):
 				for i in reversed(range(len(playlist))):
 					tr = self.pctl.get_track(playlist[i])
-					line = " ".join([tr.title, tr.artist, tr.album, tr.fullpath, tr.composer, tr.comment, tr.album_artist]).lower()
+					line = f"{tr.title} {tr.artist} {tr.album} {tr.fullpath} {tr.composer} {tr.comment} {tr.album_artist}".lower()
 
 					if self.prefs.diacritic_search and all([ord(c) < 128 for c in quote]):
 						line = str(unidecode(line))
