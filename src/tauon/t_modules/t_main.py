@@ -39924,35 +39924,6 @@ def main(holder: Holder) -> None:
 	bag.pump = False
 	shoot_pump.join()
 
-	# Run upgrades if we're behind the current DB standard
-	if db_version > 0 and db_version < latest_db_version:
-		logging.warning(f"Current DB version {db_version} was lower than latest {latest_db_version}, running migrations!")
-		try:
-			master_library, multi_playlist, star_store, p_force_queue, prefs.theme, prefs, gui, gen_codes, radio_playlists = database_migrate(
-				db_version=db_version,
-				master_library=master_library,
-				install_mode=install_mode,
-				multi_playlist=multi_playlist,
-				star_store=star_store,
-				install_directory=install_directory,
-				a_cache_dir=a_cache_dir,
-				cache_directory=cache_directory,
-				config_directory=config_directory,
-				user_directory=user_directory,
-				gui=gui,
-				gen_codes=gen_codes,
-				prefs=prefs,
-				radio_playlists=radio_playlists,
-				theme=prefs.theme,
-				p_force_queue=p_force_queue,
-			)
-		except ValueError:
-			logging.exception("That should not happen")
-			sys.exit(42)
-		except Exception:
-			logging.exception("Unknown error running database migration!")
-			sys.exit(42)
-
 	playing_in_queue = min(playing_in_queue, len(track_queue) - 1)
 
 	shoot = threading.Thread(target=keymaps.load)
@@ -40087,6 +40058,36 @@ def main(holder: Holder) -> None:
 	deco = tauon.deco
 	deco.get_themes = get_themes
 	deco.renderer = renderer
+
+	# Run upgrades if we're behind the current DB standard
+	if db_version > 0 and db_version < latest_db_version:
+		logging.warning(f"Current DB version {db_version} was lower than latest {latest_db_version}, running migrations!")
+		try:
+			master_library, multi_playlist, star_store, p_force_queue, prefs.theme, prefs, gui, gen_codes, radio_playlists = database_migrate(
+				tauon=tauon,
+				db_version=db_version,
+				master_library=master_library,
+				install_mode=install_mode,
+				multi_playlist=multi_playlist,
+				star_store=star_store,
+				install_directory=install_directory,
+				a_cache_dir=a_cache_dir,
+				cache_directory=cache_directory,
+				config_directory=config_directory,
+				user_directory=user_directory,
+				gui=gui,
+				gen_codes=gen_codes,
+				prefs=prefs,
+				radio_playlists=radio_playlists,
+				theme=prefs.theme,
+				p_force_queue=p_force_queue,
+			)
+		except ValueError:
+			logging.exception("That should not happen")
+			sys.exit(42)
+		except Exception:
+			logging.exception("Unknown error running database migration!")
+			sys.exit(42)
 
 	if system == "Linux" and not macos and not msys:
 		try:
