@@ -20815,7 +20815,8 @@ class AlbumArt:
 			except Exception:
 				logging.exception("Failed to convert image")
 				if theme_only:
-					source_image.close()
+					if not track.is_network:
+						source_image.close()
 					g.close()
 					return None
 				im = Image.open(str(self.install_directory / "assets" / "load-error.png"))
@@ -20850,7 +20851,8 @@ class AlbumArt:
 					im.thumbnail((50, 50), Image.Resampling.LANCZOS)
 				except Exception:
 					logging.exception("theme gen error")
-					source_image.close()
+					if not track.is_network:
+						source_image.close()
 					g.close()
 					return None
 				pixels = im.getcolors(maxcolors=2500)
@@ -21001,7 +21003,8 @@ class AlbumArt:
 					colours.apply_transparency()
 
 			if theme_only:
-				source_image.close()
+				if not track.is_network:
+					source_image.close()
 				g.close()
 				return None
 
@@ -21020,7 +21023,8 @@ class AlbumArt:
 
 			# Clean uo
 			sdl3.SDL_DestroySurface(s_image)
-			source_image.close()
+			if not track.is_network:
+				source_image.close()
 			g.close()
 			# if close:
 			#	 source_image.close()
