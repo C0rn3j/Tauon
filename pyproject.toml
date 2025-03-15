@@ -194,11 +194,15 @@
 			'D102',    # public-method                             - ^
 			'D103',    # undocumented-public-function              - ^
 			'D104',    # undocumented-public-package               - ^
-#			'D105',    # undocumented-magic-method                 - ^ < This one is a bit more severe though
+			#'D105',    # undocumented-magic-method                 - ^ < This one is a bit more severe though
 			'D106',    # undocumented-public-nested-class          - ^
 			'D107',    # undocumented-public-init                  - ^
 			'D400',    # ends-in-period                            - We do not care if docstrings end with a period
 			'D415',    # ends-in-punctuation                       - ^
+			'D203',   # incorrect-blank-line-before-class          - Clashes with D211
+			#'D211',   # no-blank-line-before-class                 - Clashes with D203
+			#'D212',   # multi-line-summary-first-line              - Clashes with D213
+			'D213',   # multi-line-summary-second-line             - Clashes with D212
 			'D401',    # non-imperative-mood                       - Wants docstrings in imperative language but it's really not foolproof, disable
 			'E501',    # line-too-long                             - TODO(Martin) - We want this enabled, but only after the rest of issues is gone
 			'EM101',   # raw-string-in-exception                   - We do not care about .format in exceptions, readability is not *our* problem, traceback should be colorized to avoid this instead
