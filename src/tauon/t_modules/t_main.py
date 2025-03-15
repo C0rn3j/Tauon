@@ -5744,8 +5744,6 @@ class Tauon:
 
 		self.MenuItem = MenuItem
 
-		self.gme_formats = bag.formats.GME
-
 		self.chrome: Chrome | None = None
 		self.chrome_menu = self.x_menu
 		try:
