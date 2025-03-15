@@ -5410,7 +5410,6 @@ class Tauon:
 		self.renderer                     = bag.renderer
 		self.ddt                          = TDraw(bag.renderer)
 		self.fonts                        = bag.fonts
-#		self.mod_formats                  = bag.formats.MOD
 		self.formats                      = bag.formats
 		self.macos                        = bag.macos
 		self.mac_close                    = bag.mac_close
