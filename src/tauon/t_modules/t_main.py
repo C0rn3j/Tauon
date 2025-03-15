@@ -11297,12 +11297,12 @@ class Tauon:
 								RPC.connect()
 								self.gui.discord_status = "Connected"
 								break
-							time.sleep(2)
+							time.sleep(1)
 
 						if not self.prefs.disconnect_discord:
 							continue
 
-					time.sleep(2)
+					time.sleep(1)
 
 					if self.prefs.disconnect_discord:
 						RPC.clear(pid)
@@ -11357,7 +11357,7 @@ class Tauon:
 						state="Idle",
 						large_image="tauon-standard")
 
-				time.sleep(5)
+				time.sleep(2)
 
 				if self.prefs.disconnect_discord:
 					RPC.clear(pid)
