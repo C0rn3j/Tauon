@@ -452,6 +452,7 @@ class GuiVar:
 		self.album_v_gap:       float = 66
 		self.album_h_gap:       float = 30
 		self.album_v_slide_value: int = 50
+		self.album_scroll_px = self.album_v_slide_value # TODO(Martin): This looks weird, do we really need both? They should always have the same value no?
 		# Playlist Panel
 		self.pl_rect = (2, 12, 10, 10)
 
@@ -693,7 +694,6 @@ class GuiVar:
 
 		self.rsp_full_lock = False
 
-		self.album_scroll_px = self.album_v_slide_value # TODO(Martin): This looks weird, do we really need both? They should always have the same value no?
 		self.queue_toast_plural = False
 		self.reload_theme = False
 		self.theme_number = 0
