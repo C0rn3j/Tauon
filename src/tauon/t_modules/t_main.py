@@ -31851,7 +31851,7 @@ class ArtistList:
 
 		self.sample_tracks = {}
 
-	def load_img(self, artist) -> None:
+	def load_img(self, artist: str) -> None:
 		filepath = self.artist_info_box.get_data(artist, get_img_path=True)
 
 		if filepath and os.path.isfile(filepath):
@@ -31859,21 +31859,20 @@ class ArtistList:
 				g = io.BytesIO()
 				g.seek(0)
 
-				im = Image.open(filepath)
+				with Image.open(filepath) as im:
+					w, h = im.size
+					if w != h:
+						m = min(w, h)
+						im = im.crop((
+							round((w - m) / 2),
+							round((h - m) / 2),
+							round((w + m) / 2),
+							round((h + m) / 2),
+						))
 
-				w, h = im.size
-				if w != h:
-					m = min(w, h)
-					im = im.crop((
-						round((w - m) / 2),
-						round((h - m) / 2),
-						round((w + m) / 2),
-						round((h + m) / 2),
-					))
+					im.thumbnail((self.thumb_size, self.thumb_size), Image.Resampling.LANCZOS)
 
-				im.thumbnail((self.thumb_size, self.thumb_size), Image.Resampling.LANCZOS)
-
-				im.save(g, "PNG")
+					im.save(g, "PNG")
 				g.seek(0)
 
 				s_image = self.ddt.load_image(g)
@@ -34221,9 +34220,7 @@ class ArtistInfoBox:
 
 			if "<a" in text:
 				text, ex = text.split('<a href="', 1)
-
 				link, ex = ex.split('">', 1)
-
 				lic = ex.split("</a>. ", 1)[1]
 
 			text += "\n"
@@ -34291,7 +34288,6 @@ class ArtistInfoBox:
 
 			yy = y + 12
 			for item in self.urls:
-
 				rect = (right - 2, yy - 2, 16, 16)
 
 				self.fields.add(rect)
