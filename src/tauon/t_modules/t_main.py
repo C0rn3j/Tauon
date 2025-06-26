@@ -1012,7 +1012,7 @@ class StarStore:
 	def get_by_object(self, track: TrackClass) -> int:
 		return self.db.get(self.object_key(track), StarRecord()).playtime
 
-	def get_total(self) -> int:
+	def get_total(self) -> float:
 		return sum(item.playtime for item in self.db.values())
 
 	def full_get(self, index: int) -> StarRecord | None:
@@ -1279,7 +1279,7 @@ class ColoursClass:
 		self.top_panel_background = self.grey(15)
 		self.status_text_over: ColourRGBA | None = None
 		self.status_text_normal: ColourRGBA | None = None
-		
+
 
 
 		self.side_panel_background = self.grey(18)
@@ -19209,7 +19209,7 @@ class LyricsRenMini:
 
 	def generate(self, index, w) -> None:
 		self.text = ""
-		
+
 		# LRC formatting search & destroy
 		for line in self.pctl.master_library[index].lyrics.split("\n"):
 			if len(line) < 10 or ( line[0] != "[" or line[9] != "]" and ":" not in line ) or "." not in line:
@@ -19261,7 +19261,7 @@ class LyricsRen:
 	def render(self, x, y, w, h, p) -> None:
 		colour = self.colours.lyrics
 		bg = self.colours.playlist_panel_background
-		
+
 		#colour = self.colours.grey(40)
 		# if test_lumi(self.colours.lyrics_panel_background) < 0.5:
 		#	colour = self.colours.grey(40)
@@ -19432,7 +19432,7 @@ class TimedLyricsRen:
 		for i, line in enumerate(self.data):
 			if 0 < yy < self.window_size[1]:
 				colour = self.colours.lyrics
-				
+
 				#colour = self.colours.grey(70)
 				#if test_lumi(self.colours.gallery_background) < 0.5:
 				#	colour = self.colours.grey(40)
@@ -22308,6 +22308,22 @@ class ExportPlaylistBox:
 		if warnings and target != 1:
 			self.show_message(_("Playlist exported"), target, mode="done")
 
+@dataclass
+class SearchResult:
+	"""
+	Currently unused - WIP
+
+	weight: arbitrary weighting. i.e how valuable or close is this match, higher values put the result at a higher rank in the search results.
+
+	Previously: [2, 'afterglow', 394, 83777955, 50]
+	"""
+
+	weight_type: int
+	track_name: str
+	track_num: int
+	playlist_uuid_int: int
+	weight: int
+
 class SearchOverlay:
 
 	def __init__(self, tauon: Tauon) -> None:
@@ -22739,7 +22755,6 @@ class SearchOverlay:
 
 				if p > len(self.results) - 1:
 					break
-
 				item: list[int] = self.results[p]
 
 				fade = 1
@@ -22774,13 +22789,13 @@ class SearchOverlay:
 					1:  ColourRGBA(250, 140, 190, 255),  # Album
 					2:  ColourRGBA(250, 220, 190, 255),  # Track
 					3:  ColourRGBA(240, 240, 160, 255),  # Genre
-					5:  ColourRGBA(250, 100,  50, 255),   # Folder
+					5:  ColourRGBA(250, 100,  50, 255),  # Folder
 					6:  ColourRGBA(180, 250, 190, 255),  # Composer
-					7:  ColourRGBA(250, 50,  140, 255),   # Year
+					7:  ColourRGBA(250, 50,  140, 255),  # Year
 					8:  ColourRGBA(100, 210, 250, 255),  # Playlist
 					10: ColourRGBA(145, 245,  78, 255),  # Spotify Artist
 					11: ColourRGBA(130, 237,  69, 255),  # Spotify Album
-					12: ColourRGBA(200, 255, 150, 255), # Spotify Track
+					12: ColourRGBA(200, 255, 150, 255),  # Spotify Track
 				}
 				if n not in names:
 					name = "NYI"
@@ -35105,7 +35120,7 @@ class Showcase:
 		self.guitar_chords = tauon.guitar_chords
 		self.showcase_menu = tauon.showcase_menu
 		self.lastfm_artist = None
-		self.artist_mode = False
+		self.artist_mode: bool = False
 
 	def render(self) -> None:
 		box = int(self.window_size[1] * 0.4 + 120 * self.gui.scale)
@@ -37701,12 +37716,12 @@ def worker2(tauon: Tauon) -> None:
 
 				search_over.searched_text = search_over.search_text.text
 
-				artists = {}
-				albums = {}
-				genres = {}
-				metas = {}
-				composers = {}
-				years = {}
+				artists:   dict[str, int] = {}
+				albums:    dict[str, int] = {}
+				genres:    dict[str, int] = {}
+				metas:     dict[str, int] = {}
+				composers: dict[str, int] = {}
+				years:     dict[str, int] = {}
 
 				tracks = set()
 
@@ -37782,7 +37797,7 @@ def worker2(tauon: Tauon) -> None:
 								if not search_magic_any(s_text, cache_string):
 									continue
 								# if s_text not in cache_string:
-								#     continue
+								# 	continue
 						else:
 							cache_string = tauon.search_string_cache.get(track)
 							if cache_string is not None:
@@ -37881,7 +37896,6 @@ def worker2(tauon: Tauon) -> None:
 							if "artists" in t.misc and t.misc["artists"]:
 								for a in t.misc["artists"]:
 									if search_magic(s_text, a.lower()):
-
 										value = 1
 										if a.lower().startswith(s_text):
 											value = 5
@@ -37936,7 +37950,6 @@ def worker2(tauon: Tauon) -> None:
 									albums[t.album] = 1
 
 							if s_text in album:
-
 								value = 1
 								if s_text == album:
 									value = 3
@@ -37948,15 +37961,12 @@ def worker2(tauon: Tauon) -> None:
 									albums[t.album] = value
 
 							if search_magic(s_text, artist + sartist) or search_magic(s_text, album):
-
 								if t.album in albums:
 									albums[t.album] += 3
 								else:
 									temp_results.append([1, t.album, track, playlist.uuid_int, 0])
 									albums[t.album] = 3
-
 							elif search_magic_any(s_text, artist + sartist) and search_magic_any(s_text, album):
-
 								if t.album in albums:
 									albums[t.album] += 3
 								else:
@@ -37972,9 +37982,7 @@ def worker2(tauon: Tauon) -> None:
 										value = 200
 
 									temp_results.append([2, t.title, track, playlist.uuid_int, value])
-
 									tracks.add(t)
-
 							elif t not in tracks:
 								temp_results.append([2, t.title, track, playlist.uuid_int, 1])
 
@@ -37992,7 +38000,6 @@ def worker2(tauon: Tauon) -> None:
 				tauon.gui.update += 1
 
 				# Remove results not matching any filter keyword
-
 				if artist_mode:
 					for i in reversed(range(len(temp_results))):
 						if temp_results[i][0] != 0:
