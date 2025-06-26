@@ -39701,8 +39701,8 @@ def main(holder: Holder) -> None:
 	shoot_pump.start()
 
 	after_scan: list[TrackClass] = []
-	search_string_cache          = {}
-	search_dia_string_cache      = {}
+	search_string_cache:     dict[int, str] = {}
+	search_dia_string_cache: dict[int, str] = {}
 	state_path1 = user_directory / "state.p"
 	state_path2 = user_directory / "state.p.backup"
 	for t in range(2):
@@ -40295,6 +40295,7 @@ def main(holder: Holder) -> None:
 	tauon.after_scan              = after_scan
 	tauon.search_string_cache     = search_string_cache
 	tauon.search_dia_string_cache = search_dia_string_cache
+	del after_scan, search_string_cache, search_dia_string_cache
 	signal.signal(signal.SIGINT, tauon.signal_handler)
 	radiobox = tauon.radiobox
 	pctl = tauon.pctl

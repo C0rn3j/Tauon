@@ -943,6 +943,9 @@ def player4(tauon: Tauon) -> None:
 				stall_timer.set()
 				pctl.download_time = 0
 				target_object = pctl.target_object
+				if target_object is None:
+					logging.error("target_object was none, this should not be happening")
+					continue
 				target_path = target_object.fullpath
 				subtrack = target_object.subtrack
 				aud.set_subtrack(subtrack)
@@ -957,7 +960,6 @@ def player4(tauon: Tauon) -> None:
 					tauon.spot_ctl.control("stop")
 
 				if target_object.is_network:
-
 					if target_object.file_ext == "SPTY":
 						tauon.level_train.clear()
 						if target_object.found is False:
