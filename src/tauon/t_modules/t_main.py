@@ -22341,7 +22341,7 @@ class SearchOverlay:
 		self.active = False
 		self.search_text = TextBox(tauon)
 
-		self.results = []
+		self.results: list[SearchResult] = []
 		self.searched_text = ""
 		self.on = 0
 		self.force_select = -1
@@ -22750,6 +22750,7 @@ class SearchOverlay:
 			p = self.on - 1
 			clear = False
 
+			#logging.critical(f"Results type: {type(self.results)}")
 			for i, item in enumerate(self.results):
 				p += 1
 
@@ -37796,13 +37797,20 @@ def worker2(tauon: Tauon) -> None:
 							if cache_string is not None:
 								if not search_magic_any(s_text, cache_string):
 									continue
+#									logging.warning(f"track ID: {track} | dia_mode: {s_text} | {cache_string}")
+#									if track == 3919:
+#										logging.critical("EEEE FOUND")
+#										sys.exit(1)
+									pass
 								# if s_text not in cache_string:
 								# 	continue
 						else:
 							cache_string = tauon.search_string_cache.get(track)
 							if cache_string is not None:
+#								logging.warning(f"track ID: {track} | normal_mode: {s_text} | {cache_string}")
 								if not search_magic_any(s_text, cache_string):
 									continue
+									#pass
 
 						t = tauon.pctl.master_library[track]
 
@@ -37845,6 +37853,12 @@ def worker2(tauon: Tauon) -> None:
 							if cache_string is None:
 								tauon.search_dia_string_cache[
 									track] = title + artist + album_artist + composer + date + album + genre + sartist + filename + stem
+							else:
+								expected_cache_string = tauon.search_dia_string_cache[track]
+								actual_cache_string = title + artist + album_artist + composer + date + album + genre + sartist + filename + stem
+								if expected_cache_string != actual_cache_string:
+									logging.warning(f"\n{expected_cache_string}\n!=\n{actual_cache_string}")
+#									tauon.search_dia_string_cache[track] = actual_cache_string
 
 						stem = os.path.dirname(t.parent_folder_path)
 
@@ -37972,11 +37986,14 @@ def worker2(tauon: Tauon) -> None:
 								else:
 									temp_results.append([1, t.album, track, playlist.uuid_int, 0])
 									albums[t.album] = 3
-
+#							if title == "After Dark":
+#								logging.warning(f"Track title: {s_text}")
+#							else:
+#								logging.warning(f"Eh? {s_text}")
 							if s_text in title:
-
+#								logging.critical(f"s_text in title: {s_text} in {title}")
 								if t not in tracks:
-
+#									logging.critical(f"t not in tracks: {t}")
 									value = 50
 									if s_text == title:
 										value = 200

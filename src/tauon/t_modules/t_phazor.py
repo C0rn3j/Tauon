@@ -946,6 +946,7 @@ def player4(tauon: Tauon) -> None:
 				if target_object is None:
 					logging.error("target_object was none, this should not be happening")
 					continue
+				logging.critical(target_object.index)
 				target_path = target_object.fullpath
 				subtrack = target_object.subtrack
 				aud.set_subtrack(subtrack)
