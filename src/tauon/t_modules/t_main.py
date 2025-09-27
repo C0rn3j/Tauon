@@ -2838,8 +2838,9 @@ class PlayerCtl:
 			tr = self.get_track(index)
 			self.stop_ref = (tr.parent_folder_path, tr.album)
 
+		# TODO(Martin): How can the UUID be 1 when we're doing a random on 1-1m except for massive chance? Is that the point?
 		if self.force_queue and not self.pause_queue:
-			if self.force_queue[0].uuid_int == 1: # TODO(Martin): How can the UUID be 1 when we're doing a random on 1-1m except for massive chance? Is that the point?
+			if self.force_queue[0].uuid_int == 1:
 				if self.get_track(self.force_queue[0].track_id).parent_folder_path != self.get_track(index).parent_folder_path:
 					del self.force_queue[0]
 
@@ -36966,9 +36967,9 @@ class WinTask:
 		self.start = time.time()
 		self.updated_state = 0
 		self.window_id = tauon.gui.window_id
-		import comtypes.client as cc
+		import comtypes.client as cc  # noqa: PLC0415
 		cc.GetModule(str(tauon.install_directory / "TaskbarLib.tlb"))
-		import comtypes.gen.TaskbarLib as tbl
+		import comtypes.gen.TaskbarLib as tbl  # noqa: PLC0415
 		self.taskbar = cc.CreateObject(
 			"{56FDF344-FD6D-11d0-958A-006097C9A090}",
 			interface=tbl.ITaskbarList3)
@@ -37306,7 +37307,7 @@ class TimedLyricsEdit:
 				if return_rect:
 					return True, rect
 				return True, None
-			elif self.inp.right_click:
+			if self.inp.right_click:
 				self.inp.right_click = False
 				if return_rect:
 					return False, rect
@@ -37511,7 +37512,7 @@ class TimedLyricsEdit:
 				stamp, time, line = line
 				if stamp == _("tag"):
 					stamp = "tag"
-				lyrics_file.write( f"{stamp},{str(time)},{line}\n")
+				lyrics_file.write( f"{stamp},{time!s},{line}\n")
 		self.autosaved = True
 
 	def autoload(self) -> None:
@@ -37560,7 +37561,7 @@ class TimedLyricsEdit:
 		self.pctl.seek_time(prev + self.prefs.sync_lyrics_time_offset/1000)
 		if (self.inp.key_lalt or self.inp.key_ralt):
 			self.alted = True
-		if ((len(self.structure)==self.line_active+1 or self.structure[self.line_active+1][1]<0)) and self.structure[self.line_active][1]>prev \
+		if (len(self.structure)==self.line_active+1 or self.structure[self.line_active+1][1]<0) and self.structure[self.line_active][1]>prev \
 			and not (self.inp.key_lalt or self.inp.key_ralt):
 			stamp, time, line = self.structure[self.line_active]
 			stamp = "??:??.??"
@@ -37953,15 +37954,12 @@ class TimedLyricsEdit:
 		w = round( (self.x_posns[3]-self.x_posns[2]) * 0.9 )
 		location = [ self.x_posns[2], 0 ]
 		collider_width = self.x_posns[3] - self.x_posns[4]
-		if hide_art:
-			maximum_y = self.window_size[1]-self.gui.panelBY-35*self.gui.scale
-		else:
-			maximum_y = self.window_size[1]
+		maximum_y = self.window_size[1] - self.gui.panelBY - 35 * self.gui.scale if hide_art else self.window_size[1]
 		for i, line in enumerate(self.structure):
 			# determine y val
 			possible_y = center + self.yy*(i-self.line_active)
 
-			if 0 < possible_y and possible_y+self.line_height/2 < maximum_y:
+			if possible_y > 0 and possible_y+self.line_height/2 < maximum_y:
 				colour = self.colours.lyrics
 
 				if i < self.line_active:
@@ -42393,7 +42391,7 @@ def main(holder: Holder) -> None:
 				# except Exception:
 				# 	logging.exception("Module Watchpoints not found")
 			bag.master_count = save[1]
-			# try: # todo remove me before release!
+			# try: # TODO(Taiko): remove me before release!
 			# 	from watchpoints import watch
 			# 	def logchange2(frame, elem, exec_info):
 			# 		logging.warning(f"Master count was modified! @ {exec_info}")
@@ -42413,7 +42411,7 @@ def main(holder: Holder) -> None:
 						p = TauonPlaylist(**d)
 						bag.multi_playlist.append(p)
 
-						# try:  # todo remove me before release!
+						# try:  # TODO(Taiko): remove me before release!
 						# 	from watchpoints import watch
 						# 	def logchange(frame, elem, exec_info):
 						# 		logging.warning(f"A playlist was modified! @ {exec_info}")
@@ -44957,39 +44955,36 @@ def main(holder: Holder) -> None:
 				inp.input_text = ""
 				inp.level_2_enter = False
 
-		if c_yax != 0:
-			if c_yax_timer.get() >= 0:
-				if c_yax == -1:
-					inp.key_up_press = True
-				if c_yax == 1:
-					inp.key_down_press = True
-				c_yax_timer.force_set(-0.01)
-				gui.delay_frame(0.02)
-				inp.k_input = True
-		if c_xax != 0:
-			if c_xax_timer.get() >= 0:
-				if c_xax == 1:
-					pctl.seek_time(pctl.playing_time + 2)
-				if c_xax == -1:
-					pctl.seek_time(pctl.playing_time - 2)
-				c_xax_timer.force_set(-0.01)
-				gui.delay_frame(0.02)
-				inp.k_input = True
-		if c_xay != 0:
-			if c_xay_timer.get() >= 0:
-				if c_xay == -1:
-					pctl.player_volume += 1
-					pctl.player_volume = min(pctl.player_volume, 100)
-					pctl.set_volume()
-				if c_xay == 1:
-					if pctl.player_volume > 1:
-						pctl.player_volume -= 1
-					else:
-						pctl.player_volume = 0
-					pctl.set_volume()
-				c_xay_timer.force_set(-0.01)
-				gui.delay_frame(0.02)
-				inp.k_input = True
+		if c_yax != 0 and c_yax_timer.get() >= 0:
+			if c_yax == -1:
+				inp.key_up_press = True
+			if c_yax == 1:
+				inp.key_down_press = True
+			c_yax_timer.force_set(-0.01)
+			gui.delay_frame(0.02)
+			inp.k_input = True
+		if c_xax != 0 and c_xax_timer.get() >= 0:
+			if c_xax == 1:
+				pctl.seek_time(pctl.playing_time + 2)
+			if c_xax == -1:
+				pctl.seek_time(pctl.playing_time - 2)
+			c_xax_timer.force_set(-0.01)
+			gui.delay_frame(0.02)
+			inp.k_input = True
+		if c_xay != 0 and c_xay_timer.get() >= 0:
+			if c_xay == -1:
+				pctl.player_volume += 1
+				pctl.player_volume = min(pctl.player_volume, 100)
+				pctl.set_volume()
+			if c_xay == 1:
+				if pctl.player_volume > 1:
+					pctl.player_volume -= 1
+				else:
+					pctl.player_volume = 0
+				pctl.set_volume()
+			c_xay_timer.force_set(-0.01)
+			gui.delay_frame(0.02)
+			inp.k_input = True
 
 		if inp.k_input and inp.key_focused == 0:
 			if gui.timed_lyrics_editing_now:
@@ -44997,9 +44992,8 @@ def main(holder: Holder) -> None:
 			if keymaps.hits:
 				n = 1
 				while n < 10:
-					if keymaps.test(f"jump-playlist-{n}"):
-						if len(pctl.multi_playlist) > n - 1:
-							pctl.switch_playlist(n - 1)
+					if keymaps.test(f"jump-playlist-{n}") and len(pctl.multi_playlist) > n - 1:
+						pctl.switch_playlist(n - 1)
 					n += 1
 
 				if keymaps.test("cycle-playlist-left"):
@@ -48112,20 +48106,18 @@ def main(holder: Holder) -> None:
 						gui.rename_folder_box = False
 						inp.mouse_click = False
 
-					if tauon.move_folder_up(gui.rename_index):
-						if pctl.draw.button(
-							_("Raise"), x + 408 * gui.scale, y + 38 * gui.scale, 80 * gui.scale,
-							tooltip=_("Moves folder up 2 levels and deletes the old container folder")):
-							tauon.move_folder_up(gui.rename_index, True)
-							inp.mouse_click = False
+					if tauon.move_folder_up(gui.rename_index) and pctl.draw.button(
+						_("Raise"), x + 408 * gui.scale, y + 38 * gui.scale, 80 * gui.scale,
+						tooltip=_("Moves folder up 2 levels and deletes the old container folder")):
+						tauon.move_folder_up(gui.rename_index, True)
+						inp.mouse_click = False
 
 					to_clean = tauon.clean_folder(gui.rename_index)
-					if to_clean > 0:
-						if pctl.draw.button(
-							"Clean (" + str(to_clean) + ")", x + 408 * gui.scale, y + 11 * gui.scale,
-							80 * gui.scale, tooltip=_("Deletes some unnecessary files from folder")):
-							tauon.clean_folder(gui.rename_index, True)
-							inp.mouse_click = False
+					if to_clean > 0 and pctl.draw.button(
+						"Clean (" + str(to_clean) + ")", x + 408 * gui.scale, y + 11 * gui.scale,
+						80 * gui.scale, tooltip=_("Deletes some unnecessary files from folder")):
+						tauon.clean_folder(gui.rename_index, True)
+						inp.mouse_click = False
 
 					ddt.text((x + 10 * gui.scale, y + 65 * gui.scale), _("PATH"), colours.box_text_label, 212)
 					line = os.path.dirname(
@@ -48935,7 +48927,7 @@ def main(holder: Holder) -> None:
 					sdl3.SDL_RenderTexture(renderer, gui.spec1_tex, None, gui.spec1_rec)
 
 			if gui.vis == 1:
-				if prefs.backend == 2 or True:
+				if True: # prefs.backend == 2:
 					if pctl.playing_state in (PlayingState.PLAYING, PlayingState.URL_STREAM):
 						# gui.level_update = True
 						while tauon.level_train and tauon.level_train[0][0] < time.time():
@@ -48966,7 +48958,7 @@ def main(holder: Holder) -> None:
 				x = round(gui.level_ww - 9 * gui.scale)
 				y = 10 * gui.scale
 
-				if prefs.backend == 2 or True:
+				if True: # prefs.backend == 2:
 					if (gui.level_peak[0] > 0 or gui.level_peak[1] > 0):
 						# gui.level_update = True
 						if pctl.playing_time < 1:
@@ -48986,7 +48978,7 @@ def main(holder: Holder) -> None:
 							gui.level_peak[0] -= decay
 
 				for t in range(12):
-					met = False if gui.level_peak[0] < t else True
+					met = not gui.level_peak[0] < t
 					if gui.level_peak[0] < 0.2:
 						met = False
 					if gui.level_meter_colour_mode == 1:

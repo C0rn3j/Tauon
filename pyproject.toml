@@ -231,6 +231,7 @@
 			'S101',    # assert                                     - TODO fix
 			'S603',    # subprocess-without-shell-equals-true       - TODO fix
 			'S607',    # start-process-with-partial-path            - TODO fix
+			'SIM102' , # collapsible-if                             - TODO fix
 			'PLR2004', # magic-value-comparison                     - TODO fix
 			'FIX002',  # line-contains-todo                         - TODO fix
 			'PTH103',  # os-makedirs                                - TODO fix
