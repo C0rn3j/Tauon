@@ -1,0 +1,27 @@
+name: attach-to-release
+on:
+  release:
+    types: [published]
+
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # upload to release
+      actions: read     # read artifacts via API
+    steps:
+      - name: Download artifacts from CI run for this commit/tag
+        uses: dawidd6/action-download-artifact@v11
+        with:
+          repo: ${{ github.repository }}
+          allow_forks: true
+          workflow: build_and_release.yaml
+          # Prefer the tag for releases created from tags:
+          ref: ${{ github.event.release.tag_name }}
+          # name: build-outputs
+          # path: dist
+          if_no_artifact_found: fail
+      - name: Upload files to this release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**
