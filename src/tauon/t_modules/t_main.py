@@ -5721,6 +5721,7 @@ class Tauon:
 		self.tls_context                  = bag.tls_context
 		self.folder_image_offsets         = bag.folder_image_offsets
 		self.inp                          = gui.inp
+		self.instance_lock                 = holder.instance_lock
 		self.n_version                    = holder.n_version
 		self.t_window                     = holder.t_window
 		self.t_title                      = holder.t_title
@@ -5950,6 +5951,7 @@ class Tauon:
 		self.gallery_pulse_top                    = EdgePulse2(tauon=self)
 		self.art_box                              = ArtBox(tauon=self)
 		self.nagbox                               = NagBox(tauon=self)
+		self.tray                                 = STray(self)
 
 		if self.system == "Linux" and not self.macos and not self.msys:
 			self.gnome = Gnome(tauon=self)
@@ -6029,6 +6031,7 @@ class Tauon:
 		self.spot_ctl                         = SpotCtl(self)
 		self.cachement                        = Cachement(self)
 		self.spotc                            = LibreSpot(self)
+		self.milky                            = Milky(self)
 
 		#self.recorded_songs = []
 
@@ -6990,14 +6993,14 @@ class Tauon:
 		return playlist, stations, name
 
 
-	def load_xspf(self, path: str) -> None:
+	def load_xspf(self, xspf_path: str) -> None:
 		# self.log("Importing XSPF playlist: " + path, title=True)
 
-		if not Path(path).is_file():
+		if not Path(xspf_path).is_file():
 			return
 
-		playlist, stations, name = self.parse_xspf(path)
-		path = Path(path)
+		playlist, stations, name = self.parse_xspf(xspf_path)
+		path = Path(xspf_path)
 		if not name:
 			name = path.stem
 
@@ -13431,7 +13434,6 @@ class Tauon:
 		return ColourRGBA(237, 80, 221, 255)
 
 	def new_playlist_deco(self) -> list[ColourRGBA | str | None]:
-		colours = self.colours
 		text = _("New Radio List") if self.gui.radio_view else _("New Playlist")
 		return [self.colours.menu_text, self.colours.menu_background, text]
 
@@ -20959,6 +20961,7 @@ class AlbumArt:
 		self.install_directory    = tauon.install_directory
 		self.window_size          = tauon.window_size
 		self.cache_directory      = tauon.cache_directory
+		self.show_message = tauon.show_message
 		self.image_types = {"jpg", "JPG", "jpeg", "JPEG", "PNG", "png", "BMP", "bmp", "GIF", "gif", "jxl", "JXL"}
 		self.art_folder_names = {
 			"art", "scans", "scan", "booklet", "images", "image", "cover",
@@ -22363,6 +22366,7 @@ class RenameTrackBox:
 		self.star_store   = tauon.star_store
 		self.window_size  = tauon.window_size
 		self.rename_files = tauon.rename_files
+		self.show_message = tauon.show_message
 		self.active = False
 		self.target_track_id = None
 		self.single_only = False
@@ -23113,6 +23117,7 @@ class SearchOverlay:
 		self.fields        = tauon.fields
 		self.window_size   = tauon.window_size
 		self.worker2_lock  = tauon.worker2_lock
+		self.show_message = tauon.show_message
 		self.smooth_scroll = tauon.smooth_scroll
 
 		self.active = False
@@ -23907,9 +23912,11 @@ class MessageBox:
 
 class NagBox:
 	def __init__(self, tauon: Tauon) -> None:
+		self.tauon        = tauon
 		self.gui          = tauon.gui
 		self.ddt          = tauon.ddt
 		self.prefs        = tauon.prefs
+		self.colours      = tauon.colours
 		self.window_size  = tauon.window_size
 		self.wiggle_timer = Timer(10)
 
@@ -23973,6 +23980,7 @@ class NagBox:
 
 		y += round(30 * self.gui.scale)
 
+		# TODO(Martin): The draw function has no button?
 		if self.draw.button("Close", x, y, press=self.gui.level_2_click):
 			self.prefs.show_nag = False
 			# self.show_message("Oh... :( 💔")
@@ -31215,7 +31223,6 @@ class ArtBox:
 
 				if show_vis:
 					tauon.milky.projectm.load_next = "random"
-					pass
 				else:
 					tauon.album_art_gen.cycle_offset(target_track)
 
@@ -43601,8 +43608,6 @@ def main_loop(tauon: Tauon) -> None:
 	playlist_render = StandardPlaylist(tauon, pl_bg)
 	meta_box = MetaBox(tauon)
 	showcase = Showcase(tauon)
-	milky = Milky(tauon)
-	tauon.milky = milky
 
 	while pctl.running:
 		# bm.get('main')
@@ -48548,7 +48553,7 @@ def main_loop(tauon: Tauon) -> None:
 			logging.exception("Failed to close radio server")
 
 	if sys.platform == "win32":
-		tray.stop()
+		tauon.tray.stop()
 		if pctl.smtc:
 			pctl.sm.unload()
 	elif tauon.de_notify_support:
@@ -48560,7 +48565,7 @@ def main_loop(tauon: Tauon) -> None:
 			logging.exception("uninit notification error")
 
 	try:
-		instance_lock.close()
+		tauon.instance_lock.close()
 	except Exception:
 		logging.exception("No lock object to close")
 
@@ -48636,7 +48641,6 @@ def main(holder: Holder) -> None:
 	t_id                   = holder.t_id
 	t_agent                = holder.t_agent
 	dev_mode               = holder.dev_mode
-	instance_lock          = holder.instance_lock
 	log                    = holder.log
 	logging.info(f"Window size: {window_size}; Logical size: {logical_size}")
 
@@ -49589,7 +49593,6 @@ def main(holder: Holder) -> None:
 	if chrome_loaded:
 		tauon.chrome = Chrome(tauon)
 
-	tray = STray(tauon)
 
 	if system == "Linux" and not macos and not tauon.msys:
 		try:
@@ -49600,7 +49603,7 @@ def main(holder: Holder) -> None:
 			logging.exception("Could not start Dbus thread")
 
 	if sys.platform == "win32":
-		tray.start()
+		tauon.tray.start()
 
 		if win_ver < 10:
 			logging.warning("Unsupported Windows version older than W10, hooking media keys the old way without SMTC!")
