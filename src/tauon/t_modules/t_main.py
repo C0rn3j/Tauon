@@ -1684,51 +1684,51 @@ class PlayerCtl:
 
 	# C-PC
 	def __init__(self, tauon: Tauon) -> None:
-		self.tauon                     = tauon
-		self.inp                       = self.tauon.inp
-		self.gui                       = self.tauon.gui
-		self.bag                       = self.tauon.bag
-		self.colours                   = self.tauon.colours
-		self.smtc                      = self.tauon.bag.smtc
+		self.tauon: Tauon                     = tauon
+		self.inp: Input                       = self.tauon.inp
+		self.gui: GuiVar                      = self.tauon.gui
+		self.bag: Bag                         = self.tauon.bag
+		self.colours: ColoursClass            = self.tauon.colours
+		self.smtc: bool                       = self.tauon.bag.smtc
 		self.show_message              = self.tauon.show_message
-		self.star_store                = StarStore(tauon=tauon, pctl=self)
-		self.draw                      = Drawing(tauon=tauon, pctl=self)
-		self.radiobox                  = RadioBox(tauon=tauon, pctl=self)
-		self.mini_lyrics_scroll        = ScrollBox(tauon=tauon, pctl=self)
-		self.playlist_panel_scroll     = ScrollBox(tauon=tauon, pctl=self)
-		self.artist_info_scroll        = ScrollBox(tauon=tauon, pctl=self)
-		self.device_scroll             = ScrollBox(tauon=tauon, pctl=self)
-		self.artist_list_scroll        = ScrollBox(tauon=tauon, pctl=self)
-		self.gallery_scroll            = ScrollBox(tauon=tauon, pctl=self)
-		self.tree_view_scroll          = ScrollBox(tauon=tauon, pctl=self)
-		self.radio_view_scroll         = ScrollBox(tauon=tauon, pctl=self)
-		self.tree_view_box             = TreeView(tauon=tauon, pctl=self)
-		self.msys                      = self.tauon.msys
-		self.queue_box                 = QueueBox(tauon=tauon, pctl=self)
-		self.running:             bool = True
-		self.prefs                     = self.bag.prefs
-		self.sm                        = self.bag.sm
-		self.lastfm                    = LastFMapi(tauon=tauon, pctl=self)
-		self.lfm_scrobbler             = LastScrob(tauon=tauon, pctl=self)
-		self.artist_info_box           = ArtistInfoBox(tauon=tauon, pctl=self)
-		self.artist_list_box           = ArtistList(tauon=tauon, pctl=self)
-		self.install_directory         = self.bag.dirs.install_directory
-		self.loading_in_progress: bool = False
-		self.taskbar_progress:    bool = True
-		self.album_dex                 = self.tauon.album_dex
+		self.star_store: StarStore            = StarStore(tauon=tauon, pctl=self)
+		self.draw: Drawing                    = Drawing(tauon=tauon, pctl=self)
+		self.radiobox: RadioBox               = RadioBox(tauon=tauon, pctl=self)
+		self.mini_lyrics_scroll: ScrollBox    = ScrollBox(tauon=tauon, pctl=self)
+		self.playlist_panel_scroll: ScrollBox = ScrollBox(tauon=tauon, pctl=self)
+		self.artist_info_scroll: ScrollBox    = ScrollBox(tauon=tauon, pctl=self)
+		self.device_scroll: ScrollBox         = ScrollBox(tauon=tauon, pctl=self)
+		self.artist_list_scroll: ScrollBox    = ScrollBox(tauon=tauon, pctl=self)
+		self.gallery_scroll: ScrollBox        = ScrollBox(tauon=tauon, pctl=self)
+		self.tree_view_scroll: ScrollBox      = ScrollBox(tauon=tauon, pctl=self)
+		self.radio_view_scroll: ScrollBox     = ScrollBox(tauon=tauon, pctl=self)
+		self.tree_view_box: TreeView          = TreeView(tauon=tauon, pctl=self)
+		self.msys: bool                       = self.tauon.msys
+		self.queue_box: QueueBox              = QueueBox(tauon=tauon, pctl=self)
+		self.running:                    bool = True
+		self.prefs: Prefs                     = self.bag.prefs
+		self.sm: CDLL | None                  = self.bag.sm
+		self.lastfm: LastFMapi                = LastFMapi(tauon=tauon, pctl=self)
+		self.lfm_scrobbler: LastScrob         = LastScrob(tauon=tauon, pctl=self)
+		self.artist_info_box: ArtistInfoBox   = ArtistInfoBox(tauon=tauon, pctl=self)
+		self.artist_list_box: ArtistList      = ArtistList(tauon=tauon, pctl=self)
+		self.install_directory: Path          = self.bag.dirs.install_directory
+		self.loading_in_progress:        bool = False
+		self.taskbar_progress:           bool = True
+		self.album_dex: list[int]                 = self.tauon.album_dex
 
 		self.cargo: list[int]          = []
 		# Database
 
-		self.master_count = self.bag.master_count
+		self.master_count: int = self.bag.master_count
 		self.total_playtime: float = 0
-		self.master_library = self.bag.master_library
+		self.master_library: dict[int, TrackClass] = self.bag.master_library
 		# Lets clients know when to invalidate cache
-		self.db_inc = random.randint(0, 10000)
+		self.db_inc: int = random.randint(0, 10000)
 		# self.star_library = star_library
 		self.LoadClass = LoadClass
 
-		self.gen_codes = self.bag.gen_codes
+		self.gen_codes: dict[int, str] = self.bag.gen_codes
 
 		self.shuffle_pools: dict[int, list[int]] = {}
 		self.after_import_flag = False
@@ -1741,8 +1741,8 @@ class PlayerCtl:
 		# ----------------------------------------
 		# Playlist right click menu
 
-		self.r_menu_index = 0
-		self.r_menu_position = 0
+		self.r_menu_index: int = 0
+		self.r_menu_position: int = 0
 
 		# Misc player control
 
@@ -1750,20 +1750,20 @@ class PlayerCtl:
 		# self.save_urls = url_saves
 		self.tag_meta: str = ""
 		self.found_tags: dict[str, str] = {}
-		self.encoder_pause = 0
+		#self.encoder_pause = 0
 
 		# Playback
 
-		self.track_queue = self.bag.track_queue
+		self.track_queue: list[int] = self.bag.track_queue
 		self.default_playlist: list[int] = []
-		self.queue_step = self.bag.playing_in_queue
-		self.playing_time = 0
+		self.queue_step: int = self.bag.playing_in_queue
+		self.playing_time: float = 0
 		self.last_real_position = 0
-		self.playlist_playing_position = self.bag.playlist_playing  # track in playlist that is playing
+		self.playlist_playing_position: int = self.bag.playlist_playing  # track in playlist that is playing
 		if self.playlist_playing_position is None:
 			self.playlist_playing_position = -1
-		self.playlist_view_position = self.bag.playlist_view_position
-		self.selected_in_playlist = self.bag.selected_in_playlist
+		self.playlist_view_position: int = self.bag.playlist_view_position
+		self.selected_in_playlist: int = self.bag.selected_in_playlist
 		self.target_open = ""
 		self.target_object = None
 		self.start_time = 0
@@ -1781,14 +1781,14 @@ class PlayerCtl:
 		# self.album_shuffle_pool = []
 		# self.album_shuffle_id = ""
 		self.last_playing_time = 0
-		self.multi_playlist = self.bag.multi_playlist
-		self.active_playlist_viewing = self.bag.active_playlist_viewing  # the playlist index that is being viewed
-		self.active_playlist_playing = self.bag.active_playlist_playing  # the playlist index that is playing from
-		self.force_queue = self.bag.p_force_queue
+		self.multi_playlist: list[TauonPlaylist] = self.bag.multi_playlist
+		self.active_playlist_viewing: int = self.bag.active_playlist_viewing  # the playlist index that is being viewed
+		self.active_playlist_playing: int = self.bag.active_playlist_playing  # the playlist index that is playing from
+		self.force_queue: list[TauonQueueItem] = self.bag.p_force_queue
 		self.pause_queue: bool = False
-		self.left_time = 0
-		self.left_index = 0
-		self.player_volume = self.bag.volume
+		self.left_time: float = 0
+		self.left_index: int = 0
+		self.player_volume: float = self.bag.volume
 		self.volume_store: float = 50  # Used to save the previous volume when muted
 		self.new_time = 0
 		#self.time_to_get = []
@@ -1804,8 +1804,7 @@ class PlayerCtl:
 
 		#self.gst_devices = []  # Display names
 		#self.gst_outputs = {}  # Display name : (sink, device)
-		#TODO(Martin): Fix this by moving the class to root of the module
-		self.mpris: Gnome.main.MPRIS | None = None
+		self.mpris: MPRIS | None = None
 		self.tray_update = None
 		self.eq = [0] * 2  # not used
 		self.enable_eq = True  # not used
@@ -2427,7 +2426,7 @@ class PlayerCtl:
 
 		return None, None
 
-	def playing_playlist(self) -> list[int] | None:
+	def playing_playlist(self) -> list[int]:
 		return self.multi_playlist[self.active_playlist_playing].playlist_ids
 
 	def playing_ready(self) -> bool:
