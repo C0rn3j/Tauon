@@ -24482,18 +24482,19 @@ class Over:
 			# y += 30 * gui.scale
 
 			wa = ddt.get_text_w(_("Open config file"), 211) + 10 * gui.scale
-			# wb = ddt.get_text_w(_("Open keymap file"), 211) + 10 * gui.scale
-			wc = ddt.get_text_w(_("Open data folder"), 211) + 10 * gui.scale
+			wb = ddt.get_text_w(_("Open data folder"), 211) + 10 * gui.scale
+			wc = ddt.get_text_w(_("Open keymap file"), 211) + 10 * gui.scale
 
-			ww = max(wa, wc)
+			ww = max(wa, wb, wc)
 
 			self.button(x, y, _("Open config file"), tauon.open_config_file, width=ww)
 			bg = None
 			if gui.opened_config_file:
 				bg = ColourRGBA(90, 50, 130, 255)
-				self.button(x + ww + wc + 25 * gui.scale, y, _("Reload"), tauon.reload_config_file, bg=bg)
+				self.button(x + ww + wb + wc + 25 * gui.scale, y, _("Reload"), tauon.reload_config_file, bg=bg)
 
 			self.button(x + wa + round(20 * gui.scale), y, _("Open data folder"), tauon.open_data_directory, ww)
+			self.button(x + wa + wb + round(40 * gui.scale), y, _("Open keymap file"), tauon.open_keymap_file, width=ww)
 
 		elif self.func_page == 1:
 			y += 23 * gui.scale
@@ -24699,8 +24700,6 @@ class Over:
 			if self.button2(x, y, str(p + 1), width=ww, center_text=True, force_on=self.func_page == p):
 				self.func_page = p
 			x += ww
-
-		# self.button(x, y, _("Open keymap file"), open_keymap_file, width=wc)
 
 	def button(self, x: int, y: int, text: str, plug: Callable[[], None] | None = None, width: int = 0, bg: ColourRGBA | None = None) -> bool:
 		"""PSA for anyone making a new button function: use fields.add(rect) to make the gui
