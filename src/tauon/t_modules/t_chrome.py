@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING
 import pychromecast
 import zeroconf
 
-from tauon.t_modules.t_extra import shooter
+from .t_extra import shooter
 
 if TYPE_CHECKING:
 	from pychromecast import Chromecast
 	from pychromecast.discovery import CastBrowser
 
-	from tauon.t_modules.t_main import Tauon
+	from .t_main import Tauon
 
 
 DISCOVERY_TIMEOUT = 5.0

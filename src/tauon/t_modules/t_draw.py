@@ -22,18 +22,19 @@ import ctypes
 import io
 import logging
 import math
-from ctypes import byref, c_bool, c_float, c_size_t, pointer
+import os
+from ctypes import byref, c_bool, c_float, c_size_t
 from typing import TYPE_CHECKING
 
 import sdl3
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
-from tauon.t_modules.t_extra import ColourRGBA, Timer, alpha_blend, coll_rect
+from .t_extra import ColourRGBA, Timer, alpha_blend, coll_rect
 
 if TYPE_CHECKING:
 	from io import BytesIO
 
-	from tauon.t_modules.t_main import Tauon
+	from .t_main import Tauon
 
 try:
 	from jxlpy import JXLImagePlugin
@@ -43,21 +44,6 @@ except ModuleNotFoundError:
 	logging.warning("Unable to import jxlpy, JPEG XL support will be disabled.")
 except Exception:
 	logging.exception("Unknown error trying to import jxlpy, JPEG XL support will be disabled.")
-
-
-import sys
-
-if sys.platform == "win32":
-	import os
-
-	os.environ["PANGOCAIRO_BACKEND"] = "fc"
-
-import cairo
-import gi
-
-gi.require_version("Pango", "1.0")
-gi.require_version("PangoCairo", "1.0")
-from gi.repository import Pango, PangoCairo
 
 
 class QuickThumbnail:
@@ -90,7 +76,6 @@ class QuickThumbnail:
 		im.save(g, "PNG")
 		g.seek(0)
 		self.surface = self.ddt.load_image(g)
-		# self.items.append(self)
 		self.alive = True
 
 	def prime(self) -> None:
@@ -139,9 +124,9 @@ class TDraw:
 		self.source_rect = sdl3.SDL_FRect(0.0, 0.0, 0.0, 0.0)
 		self.dest_rect = sdl3.SDL_FRect(0.0, 0.0, 0.0, 0.0)
 
-		self.surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, 0, 0)
-		self.context = cairo.Context(self.surf)
-		self.layout = PangoCairo.create_layout(self.context)
+		self.surf = None
+		self.context = None
+		self.layout = None
 
 		self.text_background_colour = ColourRGBA(0, 0, 0, 255)
 		self.pretty_rect: tuple[int, int, int, int] | None = None
@@ -151,16 +136,222 @@ class TDraw:
 		self.f_dict: dict[float, tuple[str, int, float]] = {}
 		self.ttc: dict[
 			tuple[int, str, int, int, int, int, int, int, int, int],
-			list[sdl3.SDL_FRect | sdl3.LP_SDL_Texture | int | bool],
+			list[object],
 		] = {}
 		self.ttl: list[tuple[int, str, int, int, int, int, int, int, int, int]] = []
 
 		self.was_truncated = False
 
+	def _parse_font_string(self, font_str: str) -> tuple[str, int]:
+		parts = font_str.rsplit(" ", 1)
+		if len(parts) == 2:
+			name, size = parts
+			try:
+				return name, max(1, int(float(size)))
+			except Exception:
+				return name, 12
+		return font_str, 12
+
+	def _load_font_obj(self, font: int) -> ImageFont.ImageFont:
+		if font not in self.f_dict:
+			logging.info(f"Font not loaded: {font!s}")
+			return ImageFont.load_default()
+
+		font_str = self.f_dict[font][0]
+		font_name, font_size = self._parse_font_string(font_str)
+
+		candidates = []
+
+		if os.path.exists(font_name):
+			candidates.append(font_name)
+
+		family_lower = font_name.lower()
+		if family_lower in {"monospace", "mono"}:
+			candidates.extend([
+				"DejaVuSansMono.ttf",
+				"LiberationMono-Regular.ttf",
+				"DroidSansMono.ttf",
+			])
+		else:
+			candidates.extend([
+				font_name,
+				font_name + ".ttf",
+				font_name + ".otf",
+				"DejaVuSans.ttf",
+				"LiberationSans-Regular.ttf",
+				"DroidSans.ttf",
+			])
+
+		for candidate in candidates:
+			try:
+				return ImageFont.truetype(candidate, font_size)
+			except Exception:
+				continue
+
+		return ImageFont.load_default()
+
+	def _measure_text(self, text: str, font_obj: ImageFont.ImageFont) -> tuple[int, int]:
+		img = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+		draw = ImageDraw.Draw(img)
+		if not text:
+			bbox = draw.textbbox((0, 0), " ", font=font_obj)
+		else:
+			bbox = draw.multiline_textbbox((0, 0), text, font=font_obj, spacing=0)
+		w = max(1, bbox[2] - bbox[0])
+		h = max(1, bbox[3] - bbox[1])
+		return w, h
+
+	def _line_height(self, font_obj: ImageFont.ImageFont) -> int:
+		img = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+		draw = ImageDraw.Draw(img)
+		bbox = draw.textbbox((0, 0), "Ag", font=font_obj)
+		return max(1, bbox[3] - bbox[1] + 2)
+
+	def _fit_text_ellipsis(self, text: str, font_obj: ImageFont.ImageFont, max_width: int) -> str:
+		if not text:
+			return text
+
+		img = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+		draw = ImageDraw.Draw(img)
+
+		if draw.textlength(text, font=font_obj) <= max_width:
+			return text
+
+		ellipsis = "..."
+		low = 0
+		high = len(text)
+
+		while low < high:
+			mid = (low + high) // 2
+			candidate = text[:mid].rstrip() + ellipsis
+			if draw.textlength(candidate, font=font_obj) <= max_width:
+				low = mid + 1
+			else:
+				high = mid
+
+		return text[:max(0, low - 1)].rstrip() + ellipsis
+
+	def _wrap_text_lines(
+		self,
+		text: str,
+		font_obj: ImageFont.ImageFont,
+		max_width: int,
+		max_height: int | None = None,
+		ellipsize: bool = True,
+	) -> tuple[list[str], bool]:
+		img = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+		draw = ImageDraw.Draw(img)
+
+		line_height = self._line_height(font_obj)
+		max_lines = None
+		if max_height is not None and line_height > 0:
+			max_lines = max(1, max_height // line_height)
+
+		paragraphs = text.splitlines() or [""]
+		lines: list[str] = []
+		truncated = False
+
+		for paragraph in paragraphs:
+			if paragraph == "":
+				lines.append("")
+				if max_lines is not None and len(lines) >= max_lines:
+					if paragraph != paragraphs[-1]:
+						truncated = True
+					break
+				continue
+
+			words = paragraph.split(" ")
+			current = ""
+
+			for word in words:
+				test = word if not current else current + " " + word
+				if draw.textlength(test, font=font_obj) <= max_width:
+					current = test
+				else:
+					if current:
+						lines.append(current)
+					else:
+						lines.append(self._fit_text_ellipsis(word, font_obj, max_width))
+
+					current = word if draw.textlength(word, font=font_obj) <= max_width else ""
+
+					if max_lines is not None and len(lines) >= max_lines:
+						truncated = True
+						break
+
+			if max_lines is not None and len(lines) >= max_lines:
+				truncated = True
+				break
+
+			if current:
+				lines.append(current)
+
+			if max_lines is not None and len(lines) >= max_lines:
+				if paragraph != paragraphs[-1]:
+					truncated = True
+				break
+
+		if not lines:
+			lines = [""]
+
+		if max_lines is not None and len(lines) > max_lines:
+			lines = lines[:max_lines]
+			truncated = True
+
+		if ellipsize and truncated and lines:
+			lines[-1] = self._fit_text_ellipsis(lines[-1], font_obj, max_width)
+
+		return lines, truncated
+
+	def _render_text_image(
+		self,
+		text: str,
+		font_obj: ImageFont.ImageFont,
+		colour: ColourRGBA,
+		bg: ColourRGBA,
+		max_x: int,
+		max_y: int | None = None,
+		wrap: bool = False,
+		alpha_bg: bool = False,
+	) -> tuple[Image.Image, int, int, bool, int]:
+		if wrap:
+			lines, truncated = self._wrap_text_lines(text, font_obj, max_x, max_y, ellipsize=True)
+		else:
+			line = self._fit_text_ellipsis(text, font_obj, max_x)
+			lines = [line]
+			truncated = line != text
+
+		line_height = self._line_height(font_obj)
+		text_h = max(1, line_height * len(lines))
+		text_w = 1
+		for line in lines:
+			w, _ = self._measure_text(line, font_obj)
+			text_w = max(text_w, min(w, max_x))
+
+		img = Image.new(
+			"RGBA",
+			(text_w, text_h + 4),
+			(0, 0, 0, 0) if alpha_bg else (bg.r, bg.g, bg.b, 255),
+		)
+		draw = ImageDraw.Draw(img)
+
+		y = 0
+		for line in lines:
+			draw.text((0, y), line, font=font_obj, fill=(colour.r, colour.g, colour.b, colour.a))
+			y += line_height
+
+		try:
+			ascent, descent = font_obj.getmetrics()
+			y_off = max(0, round(round(ascent) - 13 * self.scale))
+		except Exception:
+			y_off = 0
+
+		return img, img.size[0], img.size[1], truncated, y_off
+
 	def load_image(self, g: BytesIO) -> sdl3.LP_SDL_Surface:
 		size = g.getbuffer().nbytes
-		pointer = ctypes.c_void_p(ctypes.addressof(ctypes.c_char.from_buffer(g.getbuffer())))
-		stream = sdl3.SDL_IOFromMem(pointer, c_size_t(size))
+		ptr = ctypes.c_void_p(ctypes.addressof(ctypes.c_char.from_buffer(g.getbuffer())))
+		stream = sdl3.SDL_IOFromMem(ptr, c_size_t(size))
 		return sdl3.IMG_Load_IO(stream, c_bool(True))
 
 	def rect_s(self, rectangle: tuple[int, int, int, int], colour: ColourRGBA, thickness: int) -> None:
@@ -236,10 +427,7 @@ class TDraw:
 		self.sdlrect.w = float(rectangle[2])
 		self.sdlrect.h = float(rectangle[3])
 
-		# if fill:
 		sdl3.SDL_RenderFillRect(self.renderer, self.sdlrect)
-		# else:
-		# 	sdl3.SDL_RenderDrawRect(self.renderer, self.sdlrect)
 
 	def bordered_rect(
 		self, rectangle: tuple[int, int, int, int], fill_colour: ColourRGBA, outer_colour: ColourRGBA, border_size: int
@@ -279,40 +467,29 @@ class TDraw:
 		self.f_dict[user_handle] = (name + " " + str(size * self.scale), offset, size * self.scale)
 
 	def get_text_wh(self, text: str, font: int, max_x: int, wrap: bool = False) -> tuple[int, int] | None:
-		self.layout.set_font_description(Pango.FontDescription(self.f_dict[font][0]))
-		self.layout.set_ellipsize(Pango.EllipsizeMode.END)
-		self.layout.set_width(max_x * 1000)
+		font_obj = self._load_font_obj(font)
+
 		if wrap:
-			self.layout.set_height(20000 * 1000)
-		else:
-			self.layout.set_height(0)
+			lines, _ = self._wrap_text_lines(text, font_obj, max_x)
+			line_height = self._line_height(font_obj)
+			width = 1
+			for line in lines:
+				w, _ = self._measure_text(line, font_obj)
+				width = max(width, min(w, max_x))
+			return width, max(1, line_height * len(lines))
 
-		try:
-			self.layout.set_text(text, -1)
-		except Exception:
-			logging.exception(f"Exception in get_text_wh for: {text}")
-			self.layout.set_text(text.encode("utf-8", "replace").decode("utf-8"), -1)
-
-		return self.layout.get_pixel_size()
+		line = self._fit_text_ellipsis(text, font_obj, max_x)
+		w, h = self._measure_text(line, font_obj)
+		return min(w, max_x), h
 
 	def get_y_offset(self, text: str, font: int, max_x: int, wrap: bool = False) -> int:
 		"""HACKY"""
-		self.layout.set_font_description(Pango.FontDescription(self.f_dict[font][0]))
-		self.layout.set_ellipsize(Pango.EllipsizeMode.END)
-		self.layout.set_width(max_x * 1000)
-		if wrap:
-			self.layout.set_height(20000 * 1000)
-		else:
-			self.layout.set_height(0)
-
+		font_obj = self._load_font_obj(font)
 		try:
-			self.layout.set_text(text, -1)
+			ascent, descent = font_obj.getmetrics()
+			y_off = round(round(ascent) - 13 * self.scale)
 		except Exception:
-			logging.exception(f"Exception in get_y_offset for: {text}")
-			self.layout.set_text(text.encode("utf-8", "replace").decode("utf-8"), -1)
-
-		y_off = self.layout.get_baseline() / 1000
-		y_off = round(round(y_off) - 13 * self.scale)  # 13 for compat with way text position used to work
+			y_off = 0
 
 		return y_off
 
@@ -344,7 +521,6 @@ class TDraw:
 			self.dest_rect.w = sd[0].w
 			self.dest_rect.h = round(range_height)
 
-			# sdl3.SDL_RenderCopyEx(self.renderer, sd[1], self.source_rect, self.dest_rect, 0, None, 0)
 			sdl3.SDL_RenderTexture(self.renderer, sd[1], self.source_rect, self.dest_rect)
 			return
 
@@ -366,7 +542,6 @@ class TDraw:
 		real_bg: bool = False,
 		key: tuple[int, str, int, int, int, int, int, int, int, int] | None = None,
 	) -> int:
-		# perf.set()
 		force_cache = False
 		if key:
 			force_cache = True
@@ -377,12 +552,9 @@ class TDraw:
 		max_x = round(max_x)
 
 		alpha_bg = self.alpha_bg
-		force_gray = self.force_gray
-		# real_bg = True
 
 		if bg.a < 200:
 			alpha_bg = True
-			force_gray = True
 
 		x = round(location[0])
 		y = round(location[1])
@@ -398,9 +570,6 @@ class TDraw:
 				quick_box[0] -= int(quick_box[2] / 2)
 
 			if coll_rect(self.pretty_rect, quick_box):
-				# self.rect_r(quick_box, [0, 0, 0, 100], True)
-				# if self.real_bg:
-				# real_bg = True
 				alpha_bg = True
 			else:
 				alpha_bg = False
@@ -432,161 +601,73 @@ class TDraw:
 					return sd[0].h
 				return sd[0].w
 
-		if not self.pretty_rect:  # Would have already done this if True
-			w, h = self.get_text_wh(text, font, max_x, wrap)
+		font_obj = self._load_font_obj(font)
 
-		if w < 1:
+		img, w, h, truncated, y_off = self._render_text_image(
+			text=text,
+			font_obj=font_obj,
+			colour=colour,
+			bg=bg,
+			max_x=max_x,
+			max_y=max_y,
+			wrap=wrap,
+			alpha_bg=True,
+		)
+
+		self.was_truncated = truncated
+
+		raw = img.tobytes()
+		buffer = ctypes.create_string_buffer(raw, len(raw))
+		ptr = ctypes.cast(buffer, ctypes.c_void_p)
+
+		surface = sdl3.SDL_CreateSurfaceFrom(
+			w,
+			h,
+			sdl3.SDL_PIXELFORMAT_RGBA8888,
+			ptr,
+			w * 4,
+		)
+
+		if not surface:
+			logging.error("Failed to create SDL surface for text")
 			return 0
-
-		h += 4  # Compensate for characters that drop past the baseline, Pango doesn't seem to allow for this
-
-		if wrap:
-			w = max_x + 1
-
-		data = ctypes.c_buffer(b"\x00" * (h * (w * 4)))
-		ptr = pointer(data)
-
-		if real_bg:
-			box = sdl3.SDL_Rect(x, y - self.get_y_offset(text, font, max_x, wrap), w, h)
-
-			if align == 1:
-				box.x = x - box.w
-
-			elif align == 2:
-				box.x -= int(box.w / 2)
-
-			ssurf = sdl3.SDL_RenderReadPixels(
-				self.renderer, box
-			)  # , sdl3.SDL_PIXELFORMAT_XRGB8888, ctypes.pointer(data), (w * 4))
-			ptr = ssurf.contents.pixels
-			size = w * h * 4
-			data_array = (ctypes.c_ubyte * size).from_address(ptr)
-			data = memoryview(data_array)
-
-		if alpha_bg:
-			surf = cairo.ImageSurface.create_for_data(data, cairo.FORMAT_ARGB32, w, h)
-		else:
-			surf = cairo.ImageSurface.create_for_data(data, cairo.FORMAT_RGB24, w, h)
-
-		context = cairo.Context(surf)
-
-		if force_gray:
-			options = context.get_font_options()
-			options.set_antialias(cairo.ANTIALIAS_GRAY)
-			# options.set_hint_style(cairo.HINT_STYLE_NONE)
-			context.set_font_options(options)
-		elif self.force_subpixel_text:
-			options = context.get_font_options()
-			# options.set_antialias(cairo.ANTIALIAS_NONE)
-			# options.set_antialias(cairo.ANTIALIAS_GRAY)
-			options.set_antialias(cairo.ANTIALIAS_SUBPIXEL)
-			context.set_font_options(options)
-
-		layout = PangoCairo.create_layout(context)
-		layout.set_auto_dir(False)
-
-		if max_y is not None:
-			layout.set_ellipsize(Pango.EllipsizeMode.END)
-			layout.set_width(max_x * 1000)
-			layout.set_height(max_y * 1000)
-		else:
-			layout.set_ellipsize(Pango.EllipsizeMode.END)
-			layout.set_width(max_x * 1000)
-
-			extra = 0
-			if wrap:  # Compensate for height measurement being 1-2 lines too short. Pango bug?
-				extra = round(400000 * self.scale)
-
-			layout.set_height(h * 1000 + extra)
-
-		if not wrap and max_y is None:
-			layout.set_height(-1)
-
-		# Attributes don't seem to be implemented in gi?
-		# attrs = Pango.AttrList()
-		# attrs.insert(Pango.Attribute(Pango.Underline.SINGLE))
-		# layout.set_attributes(attrs)
-
-		context.rectangle(0, 0, w, h)
-
-		if not real_bg and not alpha_bg:
-			context.set_source_rgb(bg.r / 255, bg.g / 255, bg.b / 255)
-			# context.set_source_rgba(0, 0, 0, 0)
-			context.fill()
-
-		context.set_source_rgb(colour.r / 255, colour.g / 255, colour.b / 255)
-
-		if font not in self.f_dict:
-			logging.info(f"Font not loaded: {font!s}")
-			return 10
-
-		# desc = Pango.FontDescription(self.f_dict[font][0])
-		# desc.set_family("Arial")
-
-		layout.set_font_description(Pango.FontDescription(self.f_dict[font][0]))
-
-		try:
-			layout.set_text(text, -1)
-		except Exception:
-			logging.exception(f"Text error on text: {text}")
-			layout.set_text(text.encode("utf-8", "replace").decode("utf-8"), -1)
-
-		# logging.info(layout.get_direction(0))
-
-		y_off = layout.get_baseline() / 1000
-		y_off = round(round(y_off) - 13 * self.scale)  # 13 for compat with way text position used to work
-
-		PangoCairo.show_layout(context, layout)
-
-		self.was_truncated = layout.is_ellipsized()
-
-		if alpha_bg:
-			# sdl3.SDL_surface = sdl3.SDL_CreateRGBSurfaceWithFormatFrom(ctypes.pointer(data), w, h, 32, w * 4, sdl3.SDL_PIXELFORMAT_ARGB8888)
-			format = sdl3.SDL_PIXELFORMAT_ARGB8888
-			surface = sdl3.SDL_CreateSurfaceFrom(w, h, format, ptr, w * 4)
-		else:
-			format = sdl3.SDL_PIXELFORMAT_XRGB8888
-			surface = sdl3.SDL_CreateSurfaceFrom(w, h, format, ptr, w * 4)
-
-		# Here the background colour is keyed out allowing lines to overlap slightly
-		if not real_bg and not alpha_bg:
-			format_details = sdl3.SDL_GetPixelFormatDetails(format)
-			ke = sdl3.SDL_MapRGB(format_details, None, bg.r, bg.g, bg.b)
-			sdl3.SDL_SetSurfaceColorKey(surface, True, ke)
 
 		c = sdl3.SDL_CreateTextureFromSurface(self.renderer, surface)
 		sdl3.SDL_DestroySurface(surface)
 
-		if alpha_bg:
-			blend_mode = sdl3.SDL_ComposeCustomBlendMode(
-				sdl3.SDL_BLENDFACTOR_ONE,
-				sdl3.SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-				sdl3.SDL_BLENDOPERATION_ADD,
-				sdl3.SDL_BLENDFACTOR_ONE,
-				sdl3.SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-				sdl3.SDL_BLENDOPERATION_ADD,
-			)
-			sdl3.SDL_SetTextureBlendMode(c, blend_mode)
+		if not c:
+			logging.error("Failed to create SDL texture for text")
+			return 0
+
+		blend_mode = sdl3.SDL_ComposeCustomBlendMode(
+			sdl3.SDL_BLENDFACTOR_ONE,
+			sdl3.SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+			sdl3.SDL_BLENDOPERATION_ADD,
+			sdl3.SDL_BLENDFACTOR_ONE,
+			sdl3.SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+			sdl3.SDL_BLENDOPERATION_ADD,
+		)
+		sdl3.SDL_SetTextureBlendMode(c, blend_mode)
 
 		dst = sdl3.SDL_FRect(round(x), round(y))
 		dst.w = round(w)
 		dst.h = round(h)
 		dst.y = round(y) - y_off
 
-		pack = [dst, c, y_off, self.was_truncated]
+		pack = [dst, c, y_off, self.was_truncated, buffer]
 
 		self.__render_text(pack, x, y, range_top, range_height, align)
 
-		# Don't cache if using real background data
 		if not real_bg or force_cache:
 			self.ttc[key] = pack
 			self.ttl.append(key)
 			if len(self.ttl) > 350:
-				key = self.ttl[0]
-				so = self.ttc[key]
+				old_key = self.ttl[0]
+				so = self.ttc[old_key]
 				sdl3.SDL_DestroyTexture(so[1])
-				del self.ttc[key]
+				del self.ttc[old_key]
 				del self.ttl[0]
+
 		if wrap:
 			return dst.h
 		return dst.w
@@ -604,8 +685,6 @@ class TDraw:
 		real_bg: bool = False,
 		key: tuple[int, str, int, int, int, int, int, int, int, int] | None = None,
 	) -> int | None:
-		# logging.info((text, font))
-
 		if not text:
 			return 0
 

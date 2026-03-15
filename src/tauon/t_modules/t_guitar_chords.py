@@ -16,14 +16,14 @@ from typing import TYPE_CHECKING
 import requests
 import sdl3
 
-from tauon.t_modules.t_extra import ColourRGBA, TestTimer, filename_safe
+from .t_extra import ColourRGBA, TestTimer, filename_safe
 
 if TYPE_CHECKING:
-	from tauon.t_modules.t_draw import TDraw
-	from tauon.t_modules.t_main import ColoursClass, GuiVar, Input, PlayerCtl, Tauon, TrackClass
+	from .t_draw import TDraw
+	from .t_main import ColoursClass, GuiVar, Input, PlayerCtl, Tauon, TrackClass
 
 # TODO(Martin): Dupe code here to make things work in a dirty fashion until t_main gets a bigger rework
-# from tauon.t_modules.t_main import copy_from_clipboard
+# from .t_main import copy_from_clipboard
 
 
 def copy_from_clipboard() -> str:

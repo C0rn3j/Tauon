@@ -34,3 +34,5 @@ miniaudio.tar.gz
 debug
 lrclib-solver
 *.dmg
+.buildozer
+bin

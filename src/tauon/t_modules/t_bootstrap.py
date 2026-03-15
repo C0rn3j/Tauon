@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 	from sdl3 import LP_SDL_Renderer, LP_SDL_Window
 
-	from tauon.__main__ import LogHistoryHandler
+	from tauon.t_modules.t_logging import LogHistoryHandler
 
 
 @dataclass

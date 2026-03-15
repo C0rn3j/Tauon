@@ -31,6 +31,7 @@ import random
 import re
 import shlex
 import subprocess
+import tempfile
 import threading
 import time
 import urllib.parse
@@ -40,14 +41,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from gi.repository import GLib
+#from gi.repository import GLib
 
 if TYPE_CHECKING:
 	from collections.abc import Callable
 
-	from tauon.t_modules.t_enums import QueueType
-	from tauon.t_modules.t_main import TrackClass
-	from tauon.t_modules.t_tagscan import TrackFile
+	from .t_enums import QueueType
+	from .t_main import TrackClass
+	from .t_tagscan import TrackFile
 
 
 @dataclass
@@ -462,8 +463,7 @@ id3_genre_dict = {
 
 
 def tmp_cache_dir() -> str:
-	return str(Path(GLib.get_tmp_dir()) / "TauonMusicBox")
-
+	return str(Path(tempfile.gettempdir()) / "TauonMusicBox")
 
 def point_proximity_test(a: list[int], b: list[int], p: float) -> bool:
 	"""Test given proximity between two 2d points to given square"""

@@ -16,54 +16,40 @@
 #
 #     You should have received a copy of the GNU General Public License
 #     along with Tauon Music Box.  If not, see <http://www.gnu.org/licenses/>.
-
 import logging
 import os
+from pathlib import Path
 
-import cairo
-from gi import require_version
-
-require_version("Rsvg", "2.0")
-from gi.repository import Rsvg
+from svglib.svglib import svg2rlg
+from reportlab.graphics import renderPM
 
 
 def render_icons(source_directory: str, output_directory: str, scale: int) -> None:
-	"""Render SVG files to PNG"""
-	targets = []
-	# Verify svg files exist
-	for file in os.listdir(source_directory):
-		if file.endswith(".svg") and os.path.isfile(os.path.join(source_directory, file)):
-			targets.append(file)
+	"""Render SVG files to PNG without cairo"""
 
-	if not os.path.exists(output_directory):
-		os.makedirs(output_directory)
+	source = Path(source_directory)
+	output = Path(output_directory)
 
-	# Render
-	for file in targets:
-		name = os.path.splitext(file)[0]
-		in_path = os.path.join(source_directory, file)
-		out_path = os.path.join(output_directory, name + ".png")
+	output.mkdir(parents=True, exist_ok=True)
 
-		handle = Rsvg.Handle()
-		svg = handle.new_from_file(in_path)
-		if svg is None:
-			logging.error(f"Couldn't load {in_path}")
-			continue
-		unscaled_width = svg.props.width
-		unscaled_height = svg.props.height
+	targets = [f for f in source.iterdir() if f.suffix == ".svg" and f.is_file()]
 
-		width = unscaled_width * scale
-		height = unscaled_height * scale
+	for svg_file in targets:
+		out_path = output / (svg_file.stem + ".png")
 
-		svg_surface = cairo.SVGSurface(None, width, height)
-		svg_context = cairo.Context(svg_surface)
+		try:
+			drawing = svg2rlg(str(svg_file))
 
-		viewport = Rsvg.Rectangle()
-		viewport.x = 0
-		viewport.y = 0
-		viewport.width = width
-		viewport.height = height
+			if drawing is None:
+				logging.error("Couldn't load %s", svg_file)
+				continue
 
-		svg.render_document(svg_context, viewport)
+			# apply scaling
+			drawing.width *= scale
+			drawing.height *= scale
+			drawing.scale(scale, scale)
 
-		svg_surface.write_to_png(out_path)
+			renderPM.drawToFile(drawing, str(out_path), fmt="PNG")
+
+		except Exception:
+			logging.exception("Couldn't render %s", svg_file)

@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 import os
 
-from tauon.t_modules.t_extra import tryint
+from .t_extra import tryint
 
 
 class Config:

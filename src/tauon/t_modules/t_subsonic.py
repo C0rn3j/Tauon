@@ -32,14 +32,14 @@ from typing import TYPE_CHECKING
 
 import requests
 
-from tauon.t_modules.t_extra import StarRecord
+from .t_extra import StarRecord
 
 if TYPE_CHECKING:
 	from io import BytesIO
 	from typing import Any
 
-	from tauon.t_modules.t_main import AlbumStarStore, GuiVar, PlayerCtl, StarStore, Tauon, TrackClass
-	from tauon.t_modules.t_prefs import Prefs
+	from .t_main import AlbumStarStore, GuiVar, PlayerCtl, StarStore, Tauon, TrackClass
+	from .t_prefs import Prefs
 
 
 class SubsonicService:

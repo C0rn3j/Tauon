@@ -32,7 +32,7 @@ import wave
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from tauon.t_modules.t_extra import process_odat
+from .t_extra import process_odat
 
 if TYPE_CHECKING:
 	from io import BufferedReader, BytesIO

@@ -28,14 +28,14 @@ from typing import TYPE_CHECKING, Protocol
 import sdl3
 from PIL import Image
 
-from tauon.t_modules.t_extra import ColourRGBA, rgb_add_hls, test_lumi
+from .t_extra import ColourRGBA, rgb_add_hls, test_lumi
 
 if TYPE_CHECKING:
 	from pathlib import Path
 
-	from tauon.t_modules.t_draw import TDraw
-	from tauon.t_modules.t_main import ColoursClass, Directories, PlayerCtl, Tauon
-	from tauon.t_modules.t_prefs import Prefs
+	from .t_draw import TDraw
+	from .t_main import ColoursClass, Directories, PlayerCtl, Tauon
+	from .t_prefs import Prefs
 
 
 class GetThemesFn(Protocol):

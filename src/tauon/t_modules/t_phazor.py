@@ -42,16 +42,16 @@ from typing import TYPE_CHECKING
 import requests
 from requests.models import PreparedRequest
 
-from tauon.t_modules.t_enums import PlayerState, PlayingState
-from tauon.t_modules.t_extra import Timer, shooter, tmp_cache_dir
+from .t_enums import PlayerState, PlayingState
+from .t_extra import Timer, shooter, tmp_cache_dir
 
 if TYPE_CHECKING:
 	from ctypes import CDLL
 	from subprocess import Popen
 
-	from tauon.t_modules.t_main import GuiVar, PlayerCtl, Tauon, TrackClass
-	from tauon.t_modules.t_prefs import Prefs
-	from tauon.t_modules.t_spot import SpotCtl
+	from .t_main import GuiVar, PlayerCtl, Tauon, TrackClass
+	from .t_prefs import Prefs
+	from .t_spot import SpotCtl
 
 
 class LibreSpot:

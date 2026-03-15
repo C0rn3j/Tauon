@@ -30,14 +30,14 @@ from typing import TYPE_CHECKING
 
 import requests
 
-from tauon.t_modules.t_extra import StarRecord, Timer
+from .t_extra import StarRecord, Timer
 
 if TYPE_CHECKING:
 	from io import BytesIO
 
-	from tauon.t_modules.t_extra import TauonPlaylist
-	from tauon.t_modules.t_main import GuiVar, PlayerCtl, Tauon, TrackClass
-	from tauon.t_modules.t_prefs import Prefs
+	from .t_extra import TauonPlaylist
+	from .t_main import GuiVar, PlayerCtl, Tauon, TrackClass
+	from .t_prefs import Prefs
 
 
 class Jellyfin:

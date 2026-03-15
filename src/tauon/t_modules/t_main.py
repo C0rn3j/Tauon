@@ -104,14 +104,14 @@ from unidecode import unidecode
 
 builtins._ = lambda x: x
 
-from tauon.t_modules import t_topchart  # noqa: E402
-from tauon.t_modules.t_config import Config  # noqa: E402
-from tauon.t_modules.t_db_migrate import (  # noqa: E402
+from . import t_topchart  # noqa: E402
+from .t_config import Config  # noqa: E402
+from .t_db_migrate import (  # noqa: E402
 	database_migrate,
 	migrate_star_store_71,
 )
-from tauon.t_modules.t_draw import QuickThumbnail, TDraw  # noqa: E402
-from tauon.t_modules.t_enums import (  # noqa: E402
+from .t_draw import QuickThumbnail, TDraw  # noqa: E402
+from .t_enums import (  # noqa: E402
 	Backend,
 	GuiMode,
 	LoaderCommand,
@@ -121,7 +121,7 @@ from tauon.t_modules.t_enums import (  # noqa: E402
 	QueueType,
 	StopMode,
 )
-from tauon.t_modules.t_extra import (  # noqa: E402
+from .t_extra import (  # noqa: E402
 	ColourGenCache,
 	ColourRGBA,
 	FPSCounter,
@@ -187,21 +187,21 @@ from tauon.t_modules.t_extra import (  # noqa: E402
 	uri_parse,
 	year_search,
 )
-from tauon.t_modules.t_guitar_chords import GuitarChords  # noqa: E402
-from tauon.t_modules.t_jellyfin import Jellyfin  # noqa: E402
-from tauon.t_modules.t_lyrics import genius, get_lrclib_challenge, lyric_sources, uses_scraping  # noqa: E402
-from tauon.t_modules.t_nowplaying_macos import MacNowPlayingHelper  # noqa: E402
-from tauon.t_modules.t_phazor import Cachement, LibreSpot, get_phazor_path, phazor_exists, player4  # noqa: E402
-from tauon.t_modules.t_prefs import Prefs  # noqa: E402
-from tauon.t_modules.t_search import bandcamp_search  # noqa: E402
-from tauon.t_modules.t_spot import SpotCtl  # noqa: E402
-from tauon.t_modules.t_stream import StreamEnc  # noqa: E402
-from tauon.t_modules.t_subsonic import SubsonicService  # noqa: E402
-from tauon.t_modules.t_svgout import render_icons  # noqa: E402
-from tauon.t_modules.t_tagscan import Ape, Flac, M4a, Opus, Wav, parse_picture_block  # noqa: E402
-from tauon.t_modules.t_themeload import Deco, load_theme  # noqa: E402
-from tauon.t_modules.t_tidal import Tidal  # noqa: E402
-from tauon.t_modules.t_webserve import (  # noqa: E402
+from .t_guitar_chords import GuitarChords  # noqa: E402
+from .t_jellyfin import Jellyfin  # noqa: E402
+from .t_lyrics import genius, get_lrclib_challenge, lyric_sources, uses_scraping  # noqa: E402
+from .t_nowplaying_macos import MacNowPlayingHelper  # noqa: E402
+from .t_phazor import Cachement, LibreSpot, get_phazor_path, phazor_exists, player4  # noqa: E402
+from .t_prefs import Prefs  # noqa: E402
+from .t_search import bandcamp_search  # noqa: E402
+from .t_spot import SpotCtl  # noqa: E402
+from .t_stream import StreamEnc  # noqa: E402
+from .t_subsonic import SubsonicService  # noqa: E402
+from .t_svgout import render_icons  # noqa: E402
+from .t_tagscan import Ape, Flac, M4a, Opus, Wav, parse_picture_block  # noqa: E402
+from .t_themeload import Deco, load_theme  # noqa: E402
+from .t_tidal import Tidal  # noqa: E402
+from .t_webserve import (  # noqa: E402
 	VorbisMonitor,
 	authserve,
 	controller,
@@ -210,7 +210,7 @@ from tauon.t_modules.t_webserve import (  # noqa: E402
 	webserve2,
 )
 
-if sys.platform == "linux":
+if sys.platform == "linux" and platform.system() != "Android":
 	import gi
 
 	try:
@@ -220,7 +220,7 @@ if sys.platform == "linux":
 		gi.require_version("Notify", "0.8")
 	from gi.repository import GdkPixbuf, GLib, Notify
 
-if sys.platform == "darwin":
+if sys.platform == "darwin" and platform.system() != "Android":
 	import gi
 	from gi.repository import GLib
 
@@ -281,7 +281,7 @@ CJK_SEARCH_PATTERN = re.compile(
 )
 
 try:
-	from tauon.t_modules.t_chrome import Chrome
+	from .t_chrome import Chrome
 	logging.debug("Found Chrome(pychromecast) for chromecast support")
 except ModuleNotFoundError as e:
 	logging.debug(f"pychromecast import error: {e}")
@@ -304,9 +304,9 @@ if TYPE_CHECKING:
 	from pylast import LibreFMNetwork
 	from websocket import WebSocketApp
 
-	from tauon.t_modules.t_bootstrap import Holder
-	from tauon.t_modules.t_dbus import MPRIS
-	from tauon.t_modules.t_logging import LogHistoryHandler
+	from .t_bootstrap import Holder
+	from .t_dbus import MPRIS
+	from .t_logging import LogHistoryHandler
 	if sys.platform == "win32":
 		from lynxtray import SysTrayIcon
 	from collections.abc import Callable
@@ -315,7 +315,7 @@ if TYPE_CHECKING:
 	from mutagen.id3 import ID3
 	from pylast import LastFMNetwork, SessionKeyGenerator
 
-	from tauon.t_modules.t_webserve import ThreadedHTTPServer
+	from .t_webserve import ThreadedHTTPServer
 
 # Detect platform
 macos: bool = False
@@ -330,7 +330,7 @@ if platform_system == "Windows":
 	except Exception:
 		logging.exception("Failed getting Windows version from platform.release()")
 
-if sys.platform == "win32":
+if sys.platform == "win32" and platform.system() != "Android":
 	windows = True
 	import gi
 	from gi.repository import GLib
@@ -339,7 +339,7 @@ if sys.platform == "darwin":
 	macos = True
 
 if not macos and not windows:
-	from tauon.t_modules.t_dbus import Gnome
+	from .t_dbus import Gnome
 
 if windows:
 	from lynxtray import SysTrayIcon
@@ -5010,7 +5010,7 @@ class ThreadManager:
 			if self.prefs.backend == Backend.PHAZOR:
 				self.playback = threading.Thread(target=player4, args=[self.tauon])
 			# elif self.prefs.backend == Backend.GSTREAMER:
-			# 	from tauon.t_modules.t_gstreamer import player3
+			# 	from .t_gstreamer import player3
 			# 	self.playback = threading.Thread(target=player3, args=[tauon])
 			self.playback.daemon = True
 			self.playback.start()
@@ -28597,18 +28597,18 @@ class TopPanel:
 
 class BottomBarType1:
 	def __init__(self, tauon: Tauon) -> None:
-		self.tauon         = tauon
-		self.gui           = tauon.gui
-		self.inp           = tauon.inp
-		self.ddt           = tauon.ddt
+		self.tauon: Tauon = tauon
+		self.gui: GuiVar = tauon.gui
+		self.inp: Input = tauon.inp
+		self.ddt: TDraw = tauon.ddt
 		self.coll          = tauon.coll
-		self.pctl          = tauon.pctl
-		self.prefs         = tauon.prefs
-		self.fields        = tauon.fields
-		self.colours       = tauon.colours
+		self.pctl: PlayerCtl = tauon.pctl
+		self.prefs: Prefs = tauon.prefs
+		self.fields: Fields = tauon.fields
+		self.colours: ColoursClass = tauon.colours
 		self.renderer      = tauon.renderer
-		self.window_size   = tauon.window_size
-		self.smooth_scroll = tauon.smooth_scroll
+		self.window_size: list[int] = tauon.window_size
+		self.smooth_scroll: SmoothScroll = tauon.smooth_scroll
 		self.mode          = 0
 
 		self.seek_time = 0
@@ -44012,7 +44012,7 @@ def main(holder: Holder) -> None:
 	if prefs.backend != Backend.PHAZOR:
 		prefs.backend = Backend.PHAZOR
 
-	chrome_loaded = is_module_loaded("tauon.t_modules.t_chrome", "Chrome")
+	chrome_loaded = is_module_loaded(".t_chrome", "Chrome")
 	if chrome_loaded:
 		tauon.chrome = Chrome(tauon)
 

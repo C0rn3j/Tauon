@@ -22,16 +22,10 @@ import logging
 import os
 from typing import TYPE_CHECKING
 
-import gi
-from PIL import Image
-
-gi.require_version("Pango", "1.0")
-gi.require_version("PangoCairo", "1.0")
-import cairo  # noqa: E402
-from gi.repository import Pango, PangoCairo  # noqa: E402
+from PIL import Image, ImageDraw, ImageFont
 
 if TYPE_CHECKING:
-	from tauon.t_modules.t_main import Tauon, TrackClass
+    from .t_main import Tauon, TrackClass
 
 
 class TopChart:
@@ -40,6 +34,102 @@ class TopChart:
 		self.cache_dir = tauon.cache_directory
 		self.user_dir = tauon.user_directory
 		self.album_art_gen = tauon.album_art_gen
+
+	def _load_font(self, font_name: str, font_size: int) -> ImageFont.ImageFont:
+		"""Best-effort font loader.
+
+		On Android you likely won't have 'Monospace' by name, so fall back safely.
+		"""
+		candidates = []
+
+		family = font_name.strip().lower()
+		if family in {"monospace", "mono"}:
+			candidates += [
+				"DejaVuSansMono.ttf",
+				"LiberationMono-Regular.ttf",
+				"DroidSansMono.ttf",
+			]
+		else:
+			candidates += [
+				f"{font_name}.ttf",
+				f"{font_name}.otf",
+				"DejaVuSans.ttf",
+				"LiberationSans-Regular.ttf",
+			]
+
+		for candidate in candidates:
+			try:
+				return ImageFont.truetype(candidate, font_size)
+			except Exception:
+				pass
+
+		return ImageFont.load_default()
+
+	def _fit_text_line(
+		self,
+		draw: ImageDraw.ImageDraw,
+		text: str,
+		font: ImageFont.ImageFont,
+		max_width: int,
+	) -> str:
+			"""
+			Truncate a single line with ellipsis to fit max_width.
+			"""
+			if draw.textlength(text, font=font) <= max_width:
+					return text
+
+			ellipsis = "..."
+			low = 0
+			high = len(text)
+
+			while low < high:
+					mid = (low + high) // 2
+					candidate = text[:mid].rstrip() + ellipsis
+					if draw.textlength(candidate, font=font) <= max_width:
+							low = mid + 1
+					else:
+							high = mid
+
+			fitted = text[: max(0, low - 1)].rstrip() + ellipsis
+			return fitted
+
+	def _draw_text_block(
+			self,
+			draw: ImageDraw.ImageDraw,
+			x: int,
+			y: int,
+			lines: list[str],
+			font_name: str,
+			font_size: int,
+			max_width: int,
+			max_height: int,
+			fill: tuple[int, int, int] = (230, 230, 230),
+	) -> None:
+			"""
+			Draw a vertical list of lines, shrinking font size until it fits height.
+			"""
+			while font_size > 6:
+					font = self._load_font(font_name, font_size)
+
+					bbox = draw.textbbox((0, 0), "Ag", font=font)
+					line_height = max(1, bbox[3] - bbox[1] + 4)
+
+					total_height = line_height * len(lines)
+					if total_height <= max_height:
+							break
+					font_size -= 1
+
+			font = self._load_font(font_name, font_size)
+			bbox = draw.textbbox((0, 0), "Ag", font=font)
+			line_height = max(1, bbox[3] - bbox[1] + 4)
+
+			cy = y
+			for line in lines:
+					fitted = self._fit_text_line(draw, line, font, max_width)
+					draw.text((x, cy), fitted, font=font, fill=fill)
+					cy += line_height
+					if cy > y + max_height:
+							break
 
 	def generate(
 		self,
@@ -177,12 +267,10 @@ class TopChart:
 		# Parse font
 		font_comp = font.split(" ")
 		font_size = int(font_comp.pop())
+		font_name = " ".join(font_comp) if font_comp else "Monospace"
 
 		col_w = 500
-
 		two_col = False
-		font_comp = font.split(" ")
-		font_size = int(font_comp.pop())
 		if len(positions) * (font_size + 4) > h - border * 2:
 			two_col = True
 			font_size += 1
@@ -193,41 +281,32 @@ class TopChart:
 			if two_col:
 				ww += col_w + 20
 
-		# Get labels
-		text = ""
-		b_text = ""
-		f = False
+		text_lines: list[str] = []
+		b_text_lines: list[str] = []
+		second_col = False
+
 		for item in positions:
 			if item is False:
-				if not f:
-					text += " \n"  # Insert extra line to form groups for each row
+				if not second_col:
+					text_lines.append("")
 				else:
-					b_text += " \n"
+					b_text_lines.append("")
 
 				if two_col:
-					f ^= True
+					second_col = not second_col
 				continue
 
 			track, x, y, size = item
+			artist = track.album_artist or track.artist
+			line = f"{artist} - {track.album}"
 
-			# Determine the text label line
-			artist = track.artist
-			if track.album_artist:
-				artist = track.album_artist
-			line = f"{artist} - {track.album}\n"
-
-			if not f:
-				text += line
+			if not second_col:
+				text_lines.append(line)
 			else:
-				b_text += line
+				b_text_lines.append(line)
 
-		# Prepare a blank Cairo surface
-		surface = cairo.ImageSurface(cairo.FORMAT_RGB24, ww, h)
-		context = cairo.Context(surface)
-
-		bg = (bg[0] / 255, bg[1] / 255, bg[2] / 255)  # Convert 8-bit rgb values to decimal
-		context.set_source_rgb(bg[0], bg[1], bg[2])
-		context.paint()  # Fill in the background colour
+		canvas = Image.new("RGB", (ww, h), bg)
+		draw = ImageDraw.Draw(canvas)
 
 		for item in positions:
 			if item is False:
@@ -235,83 +314,60 @@ class TopChart:
 
 			track, x, y, size = item
 
-			# Export the album art to file object
 			try:
 				art_file = self.album_art_gen.save_thumb(track, (size, size), None, png=True, zoom=True)
 			except Exception:
 				logging.exception("Failed to save album art as file object")
 				continue
 
-			# Skip drawing this album if loading of artwork failed
 			if not art_file:
 				continue
 
-			# Load image into Cairo and draw
-			art = cairo.ImageSurface.create_from_png(art_file)
-			context.set_source_surface(art, x, y)
-			context.paint()
+			try:
+				art = Image.open(art_file).convert("RGB")
+				if art.size != (size, size):
+					art = art.resize((size, size), Image.Resampling.LANCZOS)
+				canvas.paste(art, (x, y))
+			except Exception:
+				logging.exception("Failed to load or paste album art")
+				continue
 
 		if show_lables:
-			# Setup font and prepare Pango layout
-			options = context.get_font_options()
-			options.set_antialias(cairo.ANTIALIAS_GRAY)
-			context.set_font_options(options)
-			layout = PangoCairo.create_layout(context)
-			layout.set_ellipsize(Pango.EllipsizeMode.END)
-			layout.set_width((col_w - text_offset - spacing) * 1000)
-			# layout.set_height((h - spacing * 2) * 1000)
-			# layout.set_spacing(3 * 1000)
-			# layout.set_font_description(Pango.FontDescription(font))
-
-			# Here we make sure the font size is small enough to fit
-			font = " ".join(font_comp) + " " + str(font_size)
-			layout.set_font_description(Pango.FontDescription(font))
-			layout.set_text(text, -1)
-
-			try:
-				font_size = int(font_size)
-				while font_size > 2:
-					th = layout.get_pixel_size()[1]
-					if th < h - border:
-						break
-					font_size -= 1
-					font = " ".join(font_comp) + " " + str(font_size)
-					layout.set_font_description(Pango.FontDescription(font))
-					layout.set_text(text, -1)
-			except Exception:
-				logging.exception("Failed to adjust font size")
-
-			# All good to render now
 			y_text_padding = 3
 			if tile:
 				y_text_padding += 6
-			context.translate(w + text_offset, border + y_text_padding)
-			context.set_source_rgb(0.9, 0.9, 0.9)
-			PangoCairo.show_layout(context, layout)
 
-		if b_text:
-			# Setup font and prepare Pango layout
-			options = context.get_font_options()
-			options.set_antialias(cairo.ANTIALIAS_GRAY)
-			context.set_font_options(options)
-			layout = PangoCairo.create_layout(context)
-			layout.set_ellipsize(Pango.EllipsizeMode.END)
-			layout.set_width((col_w - text_offset - spacing) * 1000)
+			self._draw_text_block(
+				draw=draw,
+				x=w + text_offset,
+				y=border + y_text_padding,
+				lines=text_lines,
+				font_name=font_name,
+				font_size=font_size,
+				max_width=col_w - text_offset - spacing,
+				max_height=h - border,
+				fill=(230, 230, 230),
+			)
 
-			layout.set_font_description(Pango.FontDescription(font))
-			layout.set_text(b_text, -1)
-
-			# All good to render now
+		if b_text_lines:
 			y_text_padding = 3
 			if tile:
 				y_text_padding += 6
-			context.translate(col_w + 10, 0)
-			context.set_source_rgb(0.9, 0.9, 0.9)
-			PangoCairo.show_layout(context, layout)
 
-		# Finally export as PNG
+			self._draw_text_block(
+				draw=draw,
+				x=w + col_w + 10 + text_offset,
+				y=border + y_text_padding,
+				lines=b_text_lines,
+				font_name=font_name,
+				font_size=font_size,
+				max_width=col_w - text_offset - spacing,
+				max_height=h - border,
+				fill=(230, 230, 230),
+			)
+
 		output_path = os.path.join(self.user_dir, "chart.png")
-		surface.write_to_png(output_path)
+		canvas.save(output_path, "PNG")
 
 		# Convert to JPEG for convenience
 		output_path2 = os.path.join(self.user_dir, "chart.jpg")

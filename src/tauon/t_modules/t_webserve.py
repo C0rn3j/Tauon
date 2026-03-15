@@ -32,8 +32,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 from typing import TYPE_CHECKING
 
-from tauon.t_modules.t_enums import Backend, PlayingState, StopMode
-from tauon.t_modules.t_extra import Timer
+from .t_enums import Backend, PlayingState, StopMode
+from .t_extra import Timer
 
 try:
 	from zeroconf import ServiceInfo, Zeroconf
@@ -48,7 +48,7 @@ except Exception:
 if TYPE_CHECKING:
 	from typing import Any
 
-	from tauon.t_modules.t_main import AlbumArt, GuiVar, PlayerCtl, Prefs, Strings, Tauon, TrackClass
+	from .t_main import AlbumArt, GuiVar, PlayerCtl, Prefs, Strings, Tauon, TrackClass
 
 
 REMOTE_API_PORT = 7814

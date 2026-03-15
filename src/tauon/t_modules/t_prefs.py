@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from tauon.t_modules.t_enums import MiniModeMode
-from tauon.t_modules.t_extra import RadioStation
+from .t_enums import MiniModeMode
+from .t_extra import RadioStation
 
 if TYPE_CHECKING:
 	from pathlib import Path

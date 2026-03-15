@@ -32,8 +32,8 @@ import urllib.request
 
 import mutagen
 
-from tauon.t_modules.t_enums import Backend
-from tauon.t_modules.t_extra import filename_safe
+from .t_enums import Backend
+from .t_extra import filename_safe
 
 if sys.platform != "win32":
 	import fcntl
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 	from subprocess import Popen
 	from urllib.request import _UrlopenRet
 
-	from tauon.t_modules.t_main import Tauon
+	from .t_main import Tauon
 
 
 class StreamEnc:

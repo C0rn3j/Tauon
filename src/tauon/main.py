@@ -21,18 +21,35 @@ import ctypes.util
 import logging
 import os
 import pickle
+#import platform
 import subprocess
 import sys
 from ctypes import byref, c_float, c_int, pointer
 from pathlib import Path
 
-from gi.repository import GLib
+#if platform.system() != "Android":
+#	from gi.repository import GLib
 
 install_directory = Path(__file__).resolve().parent
 sys.path.insert(0, str(install_directory.parent))
 
-from tauon.t_modules.t_bootstrap import Holder  # noqa: E402
-from tauon.t_modules.t_logging import CustomLoggingFormatter, LogHistoryHandler  # noqa: E402
+
+def debug_tree(root: str = ".") -> None:
+	for dirpath, dirnames, filenames in os.walk(root):
+		level = dirpath.replace(root, "").count(os.sep)
+		indent = " " * 2 * level
+		print(f"{indent}{os.path.basename(dirpath)}/")
+		subindent = " " * 2 * (level + 1)
+		for f in filenames:
+			print(f"{subindent}{f}")
+
+print("=== CURRENT WORKING DIRECTORY ===")
+print(os.getcwd())
+
+print("=== DIRECTORY TREE ===")
+debug_tree(os.getcwd())
+from t_modules.t_bootstrap import Holder  # noqa: E402
+from t_modules.t_logging import CustomLoggingFormatter, LogHistoryHandler  # noqa: E402
 
 pyinstaller_mode = bool(
 	hasattr(sys, "_MEIPASS") or getattr(sys, "frozen", False) or install_directory.name.endswith("_internal")
@@ -125,7 +142,7 @@ def open_crash_log(path: Path) -> None:
 
 def main() -> None:
 	"""Launch Tauon by means of importing t_main.py"""
-	from tauon.t_modules.t_main import main as t_main
+	from t_modules.t_main import main as t_main
 
 	t_main(holder)
 
@@ -198,7 +215,8 @@ if (install_directory / "portable").is_file():
 # Handle regular install, running from a directory and finally a portable install, usually a venv
 if install_mode:
 	# logging.info("Running in installed mode")
-	user_directory = Path(GLib.get_user_data_dir()) / "TauonMusicBox"
+	user_directory = Path.home() / ".local" / "share" / "TauonMusicBox"
+	#user_directory = Path(GLib.get_user_data_dir()) / "TauonMusicBox"
 elif install_directory.parent.name == "src":
 	# logging.info("Running in portable mode from cloned dir")
 	user_directory = install_directory.parent.parent / "user-data"

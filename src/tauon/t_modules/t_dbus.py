@@ -28,19 +28,20 @@ from typing import TYPE_CHECKING
 import dbus
 import dbus.mainloop.glib
 import dbus.service
-import gi
+import platform
+if platform.system() != "Android":
+	import gi
+	# TODO(Martin): Bump to 4.0 - https://github.com/Taiko2k/Tauon/issues/1316
+	gi.require_version("Gdk", "3.0")
+	from gi.repository import Gdk, GLib
 
-# TODO(Martin): Bump to 4.0 - https://github.com/Taiko2k/Tauon/issues/1316
-gi.require_version("Gdk", "3.0")
-from gi.repository import Gdk, GLib
-
-from tauon.t_modules.t_enums import PlayingState  # noqa: E402
-from tauon.t_modules.t_extra import filename_to_metadata, star_count2  # noqa: E402
+from .t_enums import PlayingState  # noqa: E402
+from .t_extra import filename_to_metadata, star_count2  # noqa: E402
 
 if TYPE_CHECKING:
 	from gi.repository import AppIndicator3
 
-	from tauon.t_modules.t_main import GuiVar, PlayerCtl, Tauon
+	from .t_main import GuiVar, PlayerCtl, Tauon
 
 
 class MPRIS(dbus.service.Object):
@@ -385,19 +386,20 @@ class Gnome:
 		pctl = self.tauon.pctl
 		tauon = self.tauon
 
-		import gi
+		if platform.system() != "Android":
+			import gi
 
-		# TODO(Martin): Get rid of this - https://github.com/Taiko2k/Tauon/issues/1316
-		gi.require_version("Gtk", "3.0")
-		from gi.repository import Gtk
+			# TODO(Martin): Get rid of this - https://github.com/Taiko2k/Tauon/issues/1316
+			gi.require_version("Gtk", "3.0")
+			from gi.repository import Gtk
 
-		try:
-			gi.require_version("AyatanaAppIndicator3", "0.1")
-			from gi.repository import AyatanaAppIndicator3 as AppIndicator3
-		except Exception:
-			logging.exception("Failed to load AyatanaAppIndicator3")
-			gi.require_version("AppIndicator3", "0.1")
-			from gi.repository import AppIndicator3
+			try:
+				gi.require_version("AyatanaAppIndicator3", "0.1")
+				from gi.repository import AyatanaAppIndicator3 as AppIndicator3
+			except Exception:
+				logging.exception("Failed to load AyatanaAppIndicator3")
+				gi.require_version("AppIndicator3", "0.1")
+				from gi.repository import AppIndicator3
 
 		self.indicator = AppIndicator3.Indicator.new(
 			"Tauon",

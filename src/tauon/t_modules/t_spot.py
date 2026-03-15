@@ -29,15 +29,15 @@ from typing import TYPE_CHECKING
 
 import requests
 
-from tauon.t_modules.t_draw import QuickThumbnail
-from tauon.t_modules.t_extra import Timer
+from .t_draw import QuickThumbnail
+from .t_extra import Timer
 
 if TYPE_CHECKING:
 	from tekore._auth.refreshing import RefreshingCredentials
 	from tekore._client.full import Spotify
 	from tekore._model.album.full import FullAlbum
 
-	from tauon.t_modules.t_main import Tauon, TrackClass
+	from .t_main import Tauon, TrackClass
 
 tekore_imported = False
 try:
