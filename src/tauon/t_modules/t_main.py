@@ -305,7 +305,7 @@ if TYPE_CHECKING:
 	from websocket import WebSocketApp
 
 	from .t_bootstrap import Holder
-	from .t_dbus import MPRIS
+	#from .t_dbus import MPRIS
 	from .t_logging import LogHistoryHandler
 	if sys.platform == "win32":
 		from lynxtray import SysTrayIcon
@@ -338,8 +338,8 @@ if sys.platform == "win32" and platform.system() != "Android":
 if sys.platform == "darwin":
 	macos = True
 
-if not macos and not windows:
-	from .t_dbus import Gnome
+#if not macos and not windows:
+#	from .t_dbus import Gnome
 
 if windows:
 	from lynxtray import SysTrayIcon
@@ -6088,8 +6088,8 @@ class Tauon:
 		self.nagbox:                              NagBox = NagBox(tauon=self)
 		self.tray:                                STray = STray(self)
 
-		if not self.macos and not self.windows:
-			self.gnome = Gnome(tauon=self)
+		#if not self.macos and not self.windows:
+		#	self.gnome = Gnome(tauon=self)
 
 		self.text_plex_usr: TextBox2 = TextBox2(tauon=self)
 		self.text_plex_pas: TextBox2 = TextBox2(tauon=self)
@@ -6161,7 +6161,7 @@ class Tauon:
 		self.id_to_pl = self.pctl.id_to_pl
 
 		self.copied_track: int | None = None
-		self.aud:                        CDLL = ctypes.cdll.LoadLibrary(str(get_phazor_path(self.pctl)))
+		self.aud                        = None #$ CDLL = ctypes.cdll.LoadLibrary(str(get_phazor_path(self.pctl)))
 		logging.debug(f"Loaded Phazor path at: {get_phazor_path(self.pctl)}")
 		self.player4_state:       PlayerState = PlayerState.STOPPED
 		self.librespot_p: Popen[bytes] | None = None
@@ -44016,13 +44016,13 @@ def main(holder: Holder) -> None:
 	if chrome_loaded:
 		tauon.chrome = Chrome(tauon)
 
-	if not macos and not tauon.windows:
-		try:
-			gnome_thread = threading.Thread(target=tauon.gnome.main)
-			gnome_thread.daemon = True
-			gnome_thread.start()
-		except Exception:
-			logging.exception("Could not start Dbus thread")
+	#if not macos and not tauon.windows:
+	#	try:
+	#		gnome_thread = threading.Thread(target=tauon.gnome.main)
+	#		gnome_thread.daemon = True
+	#		gnome_thread.start()
+	#	except Exception:
+	#		logging.exception("Could not start Dbus thread")
 
 	if sys.platform == "win32":
 		tauon.tray.start()
@@ -45579,8 +45579,8 @@ def main(holder: Holder) -> None:
 				if event.type == sdl3.SDL_EVENT_WINDOW_FOCUS_GAINED:
 					# logging.info("sdl3.SDL_WINDOWEVENT_FOCUS_GAINED")
 
-					if not macos and not tauon.windows:
-						tauon.gnome.focus()
+					#if not macos and not tauon.windows:
+					#	tauon.gnome.focus()
 					inp.k_input = True
 
 					mouse_enter_window = True

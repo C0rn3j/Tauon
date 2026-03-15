@@ -18,10 +18,10 @@ package.domain = com.github.taiko2k
 source.dir = src/tauon
 
 # (list) Source files to include (leave empty to include all the files)
-source.include_exts = py,png,jpg,kv,atlas,toml
+#source.include_exts = py,png,jpg,kv,atlas,toml
 
 # (list) List of inclusions using pattern matching
-#source.include_patterns = assets/*,images/*.png
+source.include_patterns = assets/*,templates/*,theme/*,locale/*
 
 # (list) Source files to exclude (leave empty to not exclude anything)
 #source.exclude_exts = spec
@@ -42,7 +42,7 @@ version = 9.1.1
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy,sdl3,pysdl3,packaging,aiohttp==3.13.3,multidict,attrs,yarl,propcache,async_timeout,charset_normalizer,musicbrainzngs,mutagen,bs4,PIL,send2trash,unidecode,PyMuPDF,dbus-python
+requirements = python3,kivy,sdl3,pysdl3,packaging,aiohttp==3.13.3,multidict,attrs,yarl,propcache,async_timeout,charset_normalizer,musicbrainzngs,mutagen,bs4,PIL,send2trash,unidecode,PyMuPDF,dbus-python,pylast
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
@@ -344,7 +344,7 @@ p4a.branch = develop
 #p4a.source_dir =
 
 # (str) The directory in which python-for-android should look for your own build recipes (if any)
-#p4a.local_recipes =
+p4a.local_recipes = ./p4a-recipes
 
 # (str) Filename to the hook for p4a
 #p4a.hook =
