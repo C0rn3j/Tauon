@@ -18,38 +18,42 @@
 #     along with Tauon Music Box.  If not, see <http://www.gnu.org/licenses/>.
 import logging
 import os
-from pathlib import Path
 
-from svglib.svglib import svg2rlg
-from reportlab.graphics import renderPM
+import fitz  # PyMuPDF
 
 
 def render_icons(source_directory: str, output_directory: str, scale: int) -> None:
-	"""Render SVG files to PNG without cairo"""
+	"""Render SVG files to PNG."""
+	targets = []
 
-	source = Path(source_directory)
-	output = Path(output_directory)
+	for file in os.listdir(source_directory):
+		in_path = os.path.join(source_directory, file)
+		if file.endswith(".svg") and os.path.isfile(in_path):
+			targets.append(file)
 
-	output.mkdir(parents=True, exist_ok=True)
+	os.makedirs(output_directory, exist_ok=True)
 
-	targets = [f for f in source.iterdir() if f.suffix == ".svg" and f.is_file()]
-
-	for svg_file in targets:
-		out_path = output / (svg_file.stem + ".png")
+	for file in targets:
+		name = os.path.splitext(file)[0]
+		in_path = os.path.join(source_directory, file)
+		out_path = os.path.join(output_directory, name + ".png")
 
 		try:
-			drawing = svg2rlg(str(svg_file))
-
-			if drawing is None:
-				logging.error("Couldn't load %s", svg_file)
+			doc = fitz.open(in_path)
+			if doc.page_count == 0:
+				logging.error(f"Couldn't load {in_path}")
 				continue
 
-			# apply scaling
-			drawing.width *= scale
-			drawing.height *= scale
-			drawing.scale(scale, scale)
+			page = doc[0]
 
-			renderPM.drawToFile(drawing, str(out_path), fmt="PNG")
+			# Scale SVG to output size
+			matrix = fitz.Matrix(scale, scale)
 
-		except Exception:
-			logging.exception("Couldn't render %s", svg_file)
+			# alpha=True preserves transparency
+			pixmap = page.get_pixmap(matrix=matrix, alpha=True)
+			pixmap.save(out_path)
+
+			doc.close()
+
+		except Exception as exc:
+			logging.exception(f"Failed to render {in_path}: {exc}")

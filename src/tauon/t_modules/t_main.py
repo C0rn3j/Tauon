@@ -197,7 +197,7 @@ from .t_search import bandcamp_search  # noqa: E402
 from .t_spot import SpotCtl  # noqa: E402
 from .t_stream import StreamEnc  # noqa: E402
 from .t_subsonic import SubsonicService  # noqa: E402
-from .t_svgout import render_icons  # noqa: E402
+#from .t_svgout import render_icons  # noqa: E402
 from .t_tagscan import Ape, Flac, M4a, Opus, Wav, parse_picture_block  # noqa: E402
 from .t_themeload import Deco, load_theme  # noqa: E402
 from .t_tidal import Tidal  # noqa: E402
@@ -40805,8 +40805,8 @@ def scale_assets(tauon: Tauon, bag: Bag, gui: GuiVar, scale_want: int, force: bo
 		if scaled_asset_directory.exists():
 			shutil.rmtree(scaled_asset_directory)
 		scaled_asset_directory.mkdir()
-		logging.info("Rendering icons...")
-		render_icons(str(svg_directory), str(scaled_asset_directory), scale_want)
+		logging.error("TODO(Martin): SKIPPING Rendering icons...")
+		#render_icons(str(svg_directory), str(scaled_asset_directory), scale_want)
 		with open(keyfile, "w", encoding="utf-8") as f:
 			f.write(key)
 		logging.info("Done rendering icons")

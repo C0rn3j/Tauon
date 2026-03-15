@@ -42,7 +42,7 @@ version = 9.1.1
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy,sdl3,pysdl3,packaging,aiohttp==3.13.3,multidict,attrs,yarl,propcache,async_timeout,charset_normalizer,musicbrainzngs,mutagen,bs4,PIL,send2trash,unidecode,svglib,lxml==6.0.2,reportlab
+requirements = python3,kivy,sdl3,pysdl3,packaging,aiohttp==3.13.3,multidict,attrs,yarl,propcache,async_timeout,charset_normalizer,musicbrainzngs,mutagen,bs4,PIL,send2trash,unidecode,PyMuPDF,dbus-python
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
