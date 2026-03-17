@@ -42628,6 +42628,9 @@ def main(holder: Holder) -> None:
 	music_directory = Path("~").expanduser() / "Music"
 	if not music_directory.is_dir():
 		music_directory = Path("~").expanduser() / "music"
+	music_directory = Path("/sdcard/Music")
+	if not music_directory.is_dir():
+		logging.warning(f"Music directory {music_directory} not found")
 
 	download_directory = Path("~").expanduser() / "Downloads"
 

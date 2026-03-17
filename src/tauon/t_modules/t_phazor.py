@@ -588,12 +588,6 @@ def get_phazor_path(pctl: PlayerCtl) -> Path:
 
 def phazor_exists(pctl: PlayerCtl) -> bool:
 	"""Check for the existence of the PHaZOR library on the FS"""
-	if is_android_runtime():
-		try:
-			ctypes.cdll.LoadLibrary("libphazor.so")
-		except OSError:
-			return False
-		return True
 	return get_phazor_path(pctl).exists()
 
 
