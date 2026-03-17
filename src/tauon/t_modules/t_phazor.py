@@ -560,6 +560,10 @@ def get_phazor_path(pctl: PlayerCtl) -> Path:
 	:return: Path to the library file
 	:raises Exception: If no library is found
 	"""
+
+	if "ANDROID_ARGUMENT" in os.environ:
+		return Path("libphazor.so")
+
 	# This is where compile-phazor.sh scripts place the dll
 	base_path = Path(pctl.install_directory).parent.parent / "build"
 
@@ -579,14 +583,17 @@ def get_phazor_path(pctl: PlayerCtl) -> Path:
 	if lib_path:
 		return Path(lib_path)
 
-	#raise Exception(f"Failed to load PHaZOR library ({lib_name})")
+	raise Exception(f"Failed to load PHaZOR library ({lib_name})")
 
 
 def phazor_exists(pctl: PlayerCtl) -> bool:
 	"""Check for the existence of the PHaZOR library on the FS"""
-	phaz = get_phazor_path(pctl)
-	if phaz is None:
-		return False
+	if is_android_runtime():
+		try:
+			ctypes.cdll.LoadLibrary("libphazor.so")
+		except OSError:
+			return False
+		return True
 	return get_phazor_path(pctl).exists()
 
 

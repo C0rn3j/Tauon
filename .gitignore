@@ -34,5 +34,6 @@ miniaudio.tar.gz
 debug
 lrclib-solver
 *.dmg
+android-deps
 .buildozer
 bin

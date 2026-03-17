@@ -6161,7 +6161,7 @@ class Tauon:
 		self.id_to_pl = self.pctl.id_to_pl
 
 		self.copied_track: int | None = None
-		self.aud                        = None #$ CDLL = ctypes.cdll.LoadLibrary(str(get_phazor_path(self.pctl)))
+		self.aud:                        CDLL = ctypes.cdll.LoadLibrary(str(get_phazor_path(self.pctl)))
 		logging.debug(f"Loaded Phazor path at: {get_phazor_path(self.pctl)}")
 		self.player4_state:       PlayerState = PlayerState.STOPPED
 		self.librespot_p: Popen[bytes] | None = None

@@ -42,7 +42,7 @@ version = 9.1.1
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy,sdl3,pysdl3,packaging,aiohttp==3.13.3,multidict,attrs,yarl,propcache,async_timeout,charset_normalizer,musicbrainzngs,mutagen,bs4,PIL,send2trash,unidecode,PyMuPDF,dbus-python,pylast
+requirements = python3,kivy,sdl3,pysdl3,packaging,aiohttp==3.13.3,multidict,attrs,yarl,propcache,async_timeout,charset_normalizer,musicbrainzngs,mutagen,bs4,PIL,send2trash,unidecode,PyMuPDF,dbus-python,pylast,phazor
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
@@ -103,7 +103,7 @@ fullscreen = 0
 
 # (list) Permissions
 # (See https://python-for-android.readthedocs.io/en/latest/buildoptions.html for all the supported syntaxes and properties)
-#android.permissions = android.permission.INTERNET, (name=android.permission.WRITE_EXTERNAL_STORAGE;maxSdkVersion=18)
+android.permissions = android.permission.INTERNET, (name=android.permission.WRITE_EXTERNAL_STORAGE;maxSdkVersion=18)
 
 # (list) features (adds uses-feature -tags to manifest)
 #android.features = android.hardware.usb.host
@@ -259,7 +259,7 @@ fullscreen = 0
 # (list) Android additional libraries to copy into libs/armeabi
 #android.add_libs_armeabi = libs/android/*.so
 #android.add_libs_armeabi_v7a = libs/android-v7/*.so
-#android.add_libs_arm64_v8a = libs/android-v8/*.so
+android.add_libs_arm64_v8a = android-deps/arm64-v8a/lib/*.so
 #android.add_libs_x86 = libs/android-x86/*.so
 #android.add_libs_mips = libs/android-mips/*.so
 
@@ -344,7 +344,7 @@ p4a.branch = develop
 #p4a.source_dir =
 
 # (str) The directory in which python-for-android should look for your own build recipes (if any)
-p4a.local_recipes = ./p4a-recipes
+p4a.local_recipes = ./src/tauon/p4a-recipes
 
 # (str) Filename to the hook for p4a
 #p4a.hook =
