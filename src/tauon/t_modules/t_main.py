@@ -22409,7 +22409,7 @@ class AlbumArt:
 				im.thumbnail((50, 50), Image.Resampling.LANCZOS)
 				pixels = im.getcolors(maxcolors=2500)
 				#logging.info(pixels)
-				pixels = sorted(pixels, key=lambda x: x[0], reverse=True)[:]
+				pixels = sorted(pixels, key=lambda x: (-x[0], x[1][0], x[1][1], x[1][2]))
 				#logging.info(pixels)
 
 				min_colour_varience = 75
