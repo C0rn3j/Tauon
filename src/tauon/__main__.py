@@ -50,6 +50,7 @@ logging.basicConfig(
 		log,
 		# logging.FileHandler('/tmp/tauon.log'),
 	],
+	encoding="utf-8",
 )
 logging.getLogger().handlers[0].setFormatter(CustomLoggingFormatter())
 
